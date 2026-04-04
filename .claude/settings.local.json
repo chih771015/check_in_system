@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go version:*)",
+      "Bash(brew install:*)",
+      "Bash(go mod:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(go get:*)",
+      "Bash(grep -l \"BrowserRouter\\\\|createBrowserRouter\" /Users/chiangchihhsuan/Desktop/Thai/frontend/node_modules/react-router-dom/dist/*.d.ts)",
+      "Bash(grep export.*BrowserRouter /Users/chiangchihhsuan/Desktop/Thai/frontend/node_modules/react-router-dom/dist/index.d.ts)",
+      "Bash(grep export.*Routesb /Users/chiangchihhsuan/Desktop/Thai/frontend/node_modules/react-router-dom/dist/index.d.ts)",
+      "Bash(go build:*)",
+      "Bash(npm run:*)",
+      "Read(//usr/local/**)",
+      "Read(//Applications/Docker.app/**)",
+      "Bash(/usr/local/cli-plugins/docker-compose version:*)",
+      "Bash(docker info:*)",
+      "Bash(/usr/local/cli-plugins/docker-compose up:*)"
+    ]
+  }
+}
