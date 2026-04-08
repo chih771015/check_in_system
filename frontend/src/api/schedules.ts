@@ -13,6 +13,8 @@ export function createSchedule(data: {
   location: string;
   patientName: string;
   note?: string;
+  recurrenceRule?: string;
+  recurrenceUntil?: string;
 }) {
   return client.post('/admin/schedules', data).then((r) => r.data);
 }

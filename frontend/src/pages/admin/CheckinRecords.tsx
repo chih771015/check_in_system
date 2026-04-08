@@ -11,9 +11,9 @@ import {
   Typography,
   App,
 } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { CheckinItem, TranslatorListItem } from '../../types';
-import { getAdminCheckins, exportCheckinExcel } from '../../api/checkins';
+import { getAdminCheckins, exportCheckinExcel, exportCheckinGoogleSheet } from '../../api/checkins';
 import { getTranslators } from '../../api/translators';
 
 const { RangePicker } = DatePicker;
@@ -28,6 +28,7 @@ export default function CheckinRecords() {
   const [translators, setTranslators] = useState<TranslatorListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingSheet, setExportingSheet] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [detailRecord, setDetailRecord] = useState<CheckinItem | null>(null);
   const { message } = App.useApp();
@@ -58,6 +59,24 @@ export default function CheckinRecords() {
       message.error('匯出失敗');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleGoogleSheet = async () => {
+    setExportingSheet(true);
+    try {
+      const res = await exportCheckinGoogleSheet(filters);
+      message.success('Google Sheet 建立成功');
+      window.open(res.url, '_blank');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      if (msg?.includes('not configured')) {
+        message.warning('尚未設定 Google 憑證，請聯絡系統管理員');
+      } else {
+        message.error('Google Sheet 匯出失敗');
+      }
+    } finally {
+      setExportingSheet(false);
     }
   };
 
@@ -168,6 +187,13 @@ export default function CheckinRecords() {
           }
         />
         <div style={{ flex: 1 }} />
+        <Button
+          icon={<FileTextOutlined />}
+          loading={exportingSheet}
+          onClick={handleGoogleSheet}
+        >
+          匯出 Google Sheet
+        </Button>
         <Button
           icon={<DownloadOutlined />}
           loading={exporting}

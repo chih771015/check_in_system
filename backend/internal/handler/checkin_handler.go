@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,7 +15,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/sheets/v4"
 )
+
+// ensure context import is used
+var _ = context.Background
 
 // CheckinHandler handles check-in endpoints.
 type CheckinHandler struct {
@@ -215,6 +221,105 @@ func (h *CheckinHandler) AdminExportExcel(c *gin.Context) {
 	if err := f.Write(c.Writer); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel"})
 	}
+}
+
+// AdminExportGoogleSheet handles POST /api/admin/export/google-sheet
+func (h *CheckinHandler) AdminExportGoogleSheet(c *gin.Context) {
+	credFile := config.AppConfig.GoogleCredentialsFile
+	if credFile == "" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google credentials not configured. Set GOOGLE_CREDENTIALS_FILE env variable."})
+		return
+	}
+
+	// Parse request body for optional title
+	var req struct {
+		Title string `json:"title"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if req.Title == "" {
+		req.Title = fmt.Sprintf("打卡紀錄_%s", time.Now().Format("20060102_150405"))
+	}
+
+	// Get checkin data (same filter logic as Excel export)
+	params := service.AdminListParams{
+		DateFrom:    c.Query("dateFrom"),
+		DateTo:      c.Query("dateTo"),
+		CheckinType: c.Query("type"),
+	}
+	if idStr := c.Query("translatorId"); idStr != "" {
+		id, err := strconv.ParseUint(idStr, 10, 32)
+		if err == nil {
+			params.TranslatorID = uint(id)
+		}
+	}
+
+	checkins, err := h.checkinService.AdminList(params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Authenticate
+	ctx := c.Request.Context()
+	b, err := os.ReadFile(credFile)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read credentials file"})
+		return
+	}
+	conf, err := google.JWTConfigFromJSON(b, "https://www.googleapis.com/auth/spreadsheets")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid credentials: " + err.Error()})
+		return
+	}
+	client := conf.Client(ctx)
+
+	srv, err := sheets.New(client)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Sheets client"})
+		return
+	}
+
+	// Create spreadsheet
+	spreadsheet, err := srv.Spreadsheets.Create(&sheets.Spreadsheet{
+		Properties: &sheets.SpreadsheetProperties{Title: req.Title},
+	}).Context(ctx).Do()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create spreadsheet: " + err.Error()})
+		return
+	}
+
+	// Prepare data
+	headers := []interface{}{"打卡ID", "翻譯員ID", "翻譯員姓名", "打卡類型", "打卡時間", "地址", "GPS緯度", "GPS經度", "自拍照URL", "環境照URL", "是否補打卡", "補打卡原因"}
+	rows := [][]interface{}{headers}
+	for _, ck := range checkins {
+		typeLabel := "到達"
+		if ck.Type == "leave" {
+			typeLabel = "離開"
+		}
+		isMakeupLabel := "否"
+		if ck.IsMakeup {
+			isMakeupLabel = "是"
+		}
+		rows = append(rows, []interface{}{
+			ck.ID, ck.TranslatorID, ck.TranslatorName, typeLabel,
+			ck.CheckinTime.Format("2006-01-02 15:04:05"),
+			ck.Address, ck.Latitude, ck.Longitude,
+			ck.SelfieURL, ck.EnvironmentURL, isMakeupLabel, ck.MakeupReason,
+		})
+	}
+
+	vr := &sheets.ValueRange{Values: rows}
+	_, err = srv.Spreadsheets.Values.Update(spreadsheet.SpreadsheetId, "Sheet1!A1", vr).
+		ValueInputOption("RAW").Context(ctx).Do()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write data: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"url":   fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s", spreadsheet.SpreadsheetId),
+		"title": req.Title,
+	})
 }
 
 // saveUploadedFile saves a multipart file and returns its URL path.

@@ -9,6 +9,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   CheckSquareOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 
@@ -41,6 +42,11 @@ export default function AppLayout() {
       key: '/admin/checkins',
       icon: <CheckSquareOutlined />,
       label: '打卡紀錄',
+    },
+    {
+      key: '/admin/export-settings',
+      icon: <SettingOutlined />,
+      label: '定期匯出設定',
     },
   ];
 

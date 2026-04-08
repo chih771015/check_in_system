@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"translator-checkin/internal/config"
 	"translator-checkin/internal/handler"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	cron "github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,7 +32,7 @@ func main() {
 	log.Println("Database connected successfully")
 
 	// Auto-migrate all models
-	if err := db.AutoMigrate(&model.User{}, &model.Schedule{}, &model.Checkin{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Schedule{}, &model.Checkin{}, &model.ExportSchedule{}); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Println("Database migration completed")
@@ -47,6 +49,7 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	scheduleRepo := repository.NewScheduleRepository(db)
 	checkinRepo := repository.NewCheckinRepository(db)
+	exportScheduleRepo := repository.NewExportScheduleRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
@@ -59,6 +62,7 @@ func main() {
 	translatorHandler := handler.NewTranslatorHandler(translatorService)
 	scheduleHandler := handler.NewScheduleHandler(scheduleService)
 	checkinHandler := handler.NewCheckinHandler(checkinService)
+	exportScheduleHandler := handler.NewExportScheduleHandler(exportScheduleRepo)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -104,6 +108,11 @@ func main() {
 			// Checkin records
 			admin.GET("/checkins", checkinHandler.AdminListCheckins)
 			admin.GET("/export/excel", checkinHandler.AdminExportExcel)
+			admin.POST("/export/google-sheet", checkinHandler.AdminExportGoogleSheet)
+
+			// Export schedule
+			admin.GET("/export/schedule", exportScheduleHandler.GetExportSchedule)
+			admin.POST("/export/schedule", exportScheduleHandler.UpsertExportSchedule)
 		}
 
 		// Translator routes
@@ -116,12 +125,35 @@ func main() {
 		}
 	}
 
+	// Start export cron scheduler
+	startExportCron(exportScheduleRepo, checkinService)
+
 	// Start server
 	port := cfg.Port
 	log.Printf("Server starting on port %s", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+// startExportCron starts a cron job that checks for scheduled exports daily at 08:00.
+func startExportCron(repo *repository.ExportScheduleRepository, svc *service.CheckinService) {
+	c := cron.New()
+	// Run daily at 08:00 to check if today matches any schedule
+	c.AddFunc("0 8 * * *", func() {
+		today := time.Now()
+		schedules, _ := repo.FindAllEnabled()
+		for _, es := range schedules {
+			if es.DayOfMonth == today.Day() {
+				log.Printf("Running scheduled export for admin %d (format: %s)", es.AdminID, es.Format)
+				repo.UpdateLastRun(es.ID, today)
+				// Actual export execution would happen here
+				// For now we just log; full email/drive integration is Phase 4
+			}
+		}
+	})
+	c.Start()
+	log.Println("Export cron scheduler started")
 }
 
 // seedAdmin creates the default admin account if it does not already exist.

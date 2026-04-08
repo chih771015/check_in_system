@@ -23,6 +23,12 @@ export function getAdminCheckins(params?: Record<string, string>) {
     .then((r) => r.data);
 }
 
+export function exportCheckinGoogleSheet(params?: Record<string, string>) {
+  return client
+    .post<{ url: string; title: string }>('/admin/export/google-sheet', {}, { params })
+    .then((r) => r.data);
+}
+
 export function exportCheckinExcel(params?: Record<string, string>) {
   return client
     .get('/admin/export/excel', {

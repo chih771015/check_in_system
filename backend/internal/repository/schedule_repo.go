@@ -73,7 +73,7 @@ func (r *ScheduleRepository) Create(schedule *model.Schedule) error {
 }
 
 // CreateBatch inserts multiple schedule records.
-func (r *ScheduleRepository) CreateBatch(schedules []model.Schedule) error {
+func (r *ScheduleRepository) CreateBatch(schedules []*model.Schedule) error {
 	return r.db.Create(&schedules).Error
 }
 

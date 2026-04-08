@@ -71,7 +71,7 @@ export default function ScheduleManagement() {
 
   const handleCreate = async (values: Record<string, unknown>) => {
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
         date: (values.date as { format: (f: string) => string }).format('YYYY-MM-DD'),
         startTime: (values.startTime as { format: (f: string) => string }).format('HH:mm'),
@@ -80,7 +80,11 @@ export default function ScheduleManagement() {
         patientName: values.patientName as string,
         note: (values.note as string) || undefined,
       };
-      await createSchedule(payload);
+      if (values.recurrenceRule) {
+        payload.recurrenceRule = values.recurrenceRule as string;
+        payload.recurrenceUntil = (values.recurrenceUntil as { format: (f: string) => string }).format('YYYY-MM-DD');
+      }
+      await createSchedule(payload as Parameters<typeof createSchedule>[0]);
       message.success('新增成功');
       setCreateOpen(false);
       createForm.resetFields();
@@ -264,6 +268,41 @@ export default function ScheduleManagement() {
     </>
   );
 
+  const recurrenceFields = (
+    <>
+      <Form.Item name="recurrenceRule" label="重複規則">
+        <Select
+          allowClear
+          placeholder="不重複"
+          options={[
+            { value: 'daily', label: '每日' },
+            { value: 'weekly:1,3,5', label: '每週一三五' },
+            { value: 'weekly:2,4', label: '每週二四' },
+            { value: 'weekly:1,2,3,4,5', label: '每週一至五' },
+            { value: 'monthly:1', label: '每月1日' },
+            { value: 'monthly:15', label: '每月15日' },
+          ]}
+        />
+      </Form.Item>
+      <Form.Item
+        noStyle
+        shouldUpdate={(prev, curr) => prev.recurrenceRule !== curr.recurrenceRule}
+      >
+        {({ getFieldValue }) =>
+          getFieldValue('recurrenceRule') ? (
+            <Form.Item
+              name="recurrenceUntil"
+              label="重複至"
+              rules={[{ required: true, message: '請選擇結束日期' }]}
+            >
+              <DatePicker style={{ width: '100%' }} placeholder="重複結束日期" />
+            </Form.Item>
+          ) : null
+        }
+      </Form.Item>
+    </>
+  );
+
   return (
     <div>
       <div
@@ -314,6 +353,7 @@ export default function ScheduleManagement() {
       >
         <Form form={createForm} onFinish={handleCreate} layout="vertical">
           {scheduleFormFields}
+          {recurrenceFields}
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
               新增

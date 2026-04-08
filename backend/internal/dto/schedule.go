@@ -2,13 +2,15 @@ package dto
 
 // CreateScheduleRequest is the payload for creating a new schedule.
 type CreateScheduleRequest struct {
-	TranslatorID uint   `json:"translatorId" binding:"required"`
-	Date         string `json:"date" binding:"required"`
-	StartTime    string `json:"startTime" binding:"required"`
-	EndTime      string `json:"endTime" binding:"required"`
-	Location     string `json:"location" binding:"required"`
-	PatientName  string `json:"patientName" binding:"required"`
-	Note         string `json:"note"`
+	TranslatorID    uint   `json:"translatorId" binding:"required"`
+	Date            string `json:"date" binding:"required"`
+	StartTime       string `json:"startTime" binding:"required"`
+	EndTime         string `json:"endTime" binding:"required"`
+	Location        string `json:"location" binding:"required"`
+	PatientName     string `json:"patientName" binding:"required"`
+	Note            string `json:"note"`
+	RecurrenceRule  string `json:"recurrenceRule"`  // e.g. "daily", "weekly:1,3,5", "monthly:5,20"
+	RecurrenceUntil string `json:"recurrenceUntil"` // YYYY-MM-DD, required if RecurrenceRule != ""
 }
 
 // UpdateScheduleRequest is the payload for updating a schedule.
