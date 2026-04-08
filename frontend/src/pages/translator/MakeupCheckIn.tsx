@@ -107,12 +107,12 @@ export default function MakeupCheckInPage() {
       const fd = new FormData();
       fd.append('selfie', selfie);
       fd.append('environment', environment);
-      fd.append('schedule_id', scheduleId!);
+      fd.append('scheduleId', scheduleId!);
       fd.append('type', type!);
       fd.append('latitude', String(latitude));
       fd.append('longitude', String(longitude));
       fd.append('address', address);
-      fd.append('makeup_reason', makeupReason);
+      fd.append('makeupReason', makeupReason);
       await makeupCheckin(fd);
       message.success('補打卡成功');
       navigate('/my-schedules');

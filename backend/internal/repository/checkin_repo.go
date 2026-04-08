@@ -41,3 +41,37 @@ func (r *CheckinRepository) FindByScheduleAndType(scheduleID uint, checkinType s
 func (r *CheckinRepository) Create(checkin *model.Checkin) error {
 	return r.db.Create(checkin).Error
 }
+
+// ListAllParams holds optional filter parameters.
+type ListAllParams struct {
+	DateFrom     string
+	DateTo       string
+	TranslatorID uint
+	CheckinType  string
+	IsMakeup     *bool
+}
+
+// ListAll returns all checkins with optional filters, joining with users for translator name.
+func (r *CheckinRepository) ListAll(params ListAllParams) ([]model.Checkin, error) {
+	var checkins []model.Checkin
+	q := r.db.Order("checkin_time DESC")
+	if params.DateFrom != "" {
+		q = q.Where("DATE(checkin_time) >= ?", params.DateFrom)
+	}
+	if params.DateTo != "" {
+		q = q.Where("DATE(checkin_time) <= ?", params.DateTo)
+	}
+	if params.TranslatorID > 0 {
+		q = q.Where("translator_id = ?", params.TranslatorID)
+	}
+	if params.CheckinType != "" {
+		q = q.Where("type = ?", params.CheckinType)
+	}
+	if params.IsMakeup != nil {
+		q = q.Where("is_makeup = ?", *params.IsMakeup)
+	}
+	if err := q.Find(&checkins).Error; err != nil {
+		return nil, err
+	}
+	return checkins, nil
+}

@@ -102,7 +102,7 @@ export default function CheckInPage() {
       const fd = new FormData();
       fd.append('selfie', selfie);
       fd.append('environment', environment);
-      fd.append('schedule_id', scheduleId!);
+      fd.append('scheduleId', scheduleId!);
       fd.append('type', type!);
       fd.append('latitude', String(latitude));
       fd.append('longitude', String(longitude));

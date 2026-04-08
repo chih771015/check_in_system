@@ -6,6 +6,7 @@ import LoginPage from './pages/Login';
 import ChangePasswordPage from './pages/ChangePassword';
 import TranslatorManagement from './pages/admin/TranslatorManagement';
 import ScheduleManagement from './pages/admin/ScheduleManagement';
+import CheckinRecords from './pages/admin/CheckinRecords';
 import MySchedules from './pages/translator/MySchedules';
 import CheckInPage from './pages/translator/CheckIn';
 import MakeupCheckInPage from './pages/translator/MakeupCheckIn';
@@ -63,6 +64,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <ScheduleManagement />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/checkins"
+          element={
+            <RequireAdmin>
+              <CheckinRecords />
             </RequireAdmin>
           }
         />

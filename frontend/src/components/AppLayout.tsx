@@ -8,6 +8,7 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  CheckSquareOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 
@@ -35,6 +36,11 @@ export default function AppLayout() {
       key: '/admin/schedules',
       icon: <ScheduleOutlined />,
       label: '排班管理',
+    },
+    {
+      key: '/admin/checkins',
+      icon: <CheckSquareOutlined />,
+      label: '打卡紀錄',
     },
   ];
 

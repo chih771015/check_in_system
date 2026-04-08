@@ -13,6 +13,7 @@ import (
 	"translator-checkin/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 // CheckinHandler handles check-in endpoints.
@@ -119,6 +120,101 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": resp})
+}
+
+// AdminListCheckins handles GET /api/admin/checkins
+func (h *CheckinHandler) AdminListCheckins(c *gin.Context) {
+	params := service.AdminListParams{
+		DateFrom:    c.Query("dateFrom"),
+		DateTo:      c.Query("dateTo"),
+		CheckinType: c.Query("type"),
+	}
+
+	if idStr := c.Query("translatorId"); idStr != "" {
+		id, err := strconv.ParseUint(idStr, 10, 32)
+		if err == nil {
+			params.TranslatorID = uint(id)
+		}
+	}
+	if isMakeupStr := c.Query("isMakeup"); isMakeupStr != "" {
+		v := isMakeupStr == "true"
+		params.IsMakeup = &v
+	}
+
+	checkins, err := h.checkinService.AdminList(params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": checkins})
+}
+
+// AdminExportExcel handles GET /api/admin/export/excel
+func (h *CheckinHandler) AdminExportExcel(c *gin.Context) {
+	params := service.AdminListParams{
+		DateFrom:    c.Query("dateFrom"),
+		DateTo:      c.Query("dateTo"),
+		CheckinType: c.Query("type"),
+	}
+	if idStr := c.Query("translatorId"); idStr != "" {
+		id, err := strconv.ParseUint(idStr, 10, 32)
+		if err == nil {
+			params.TranslatorID = uint(id)
+		}
+	}
+
+	checkins, err := h.checkinService.AdminList(params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	f := excelize.NewFile()
+	sheet := "打卡紀錄"
+	f.NewSheet(sheet)
+	f.DeleteSheet("Sheet1")
+
+	headers := []string{"打卡ID", "翻譯員ID", "翻譯員姓名", "打卡類型", "打卡時間", "地點", "GPS緯度", "GPS經度", "自拍照URL", "環境照URL", "是否補打卡", "補打卡原因"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+
+	for rowIdx, ck := range checkins {
+		row := rowIdx + 2
+		typeLabel := "到達"
+		if ck.Type == "leave" {
+			typeLabel = "離開"
+		}
+		isMakeupLabel := "否"
+		if ck.IsMakeup {
+			isMakeupLabel = "是"
+		}
+		values := []interface{}{
+			ck.ID,
+			ck.TranslatorID,
+			ck.TranslatorName,
+			typeLabel,
+			ck.CheckinTime.Format("2006-01-02 15:04:05"),
+			ck.Address,
+			ck.Latitude,
+			ck.Longitude,
+			ck.SelfieURL,
+			ck.EnvironmentURL,
+			isMakeupLabel,
+			ck.MakeupReason,
+		}
+		for colIdx, val := range values {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
+			f.SetCellValue(sheet, cell, val)
+		}
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="checkins.xlsx"`)
+	if err := f.Write(c.Writer); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel"})
+	}
 }
 
 // saveUploadedFile saves a multipart file and returns its URL path.

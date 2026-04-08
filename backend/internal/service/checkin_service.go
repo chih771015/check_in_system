@@ -108,3 +108,52 @@ func (s *CheckinService) Checkin(
 		CreatedAt:      checkin.CreatedAt,
 	}, nil
 }
+
+// AdminListParams mirrors repository.ListAllParams for service layer.
+type AdminListParams struct {
+	DateFrom     string
+	DateTo       string
+	TranslatorID uint
+	CheckinType  string
+	IsMakeup     *bool
+}
+
+// AdminList returns all checkins with optional filters for admin view.
+func (s *CheckinService) AdminList(params AdminListParams) ([]dto.CheckinResponse, error) {
+	checkins, err := s.checkinRepo.ListAll(repository.ListAllParams{
+		DateFrom:     params.DateFrom,
+		DateTo:       params.DateTo,
+		TranslatorID: params.TranslatorID,
+		CheckinType:  params.CheckinType,
+		IsMakeup:     params.IsMakeup,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]dto.CheckinResponse, 0, len(checkins))
+	for _, c := range checkins {
+		user, err := s.userRepo.FindByID(c.TranslatorID)
+		translatorName := ""
+		if err == nil {
+			translatorName = user.Name
+		}
+		results = append(results, dto.CheckinResponse{
+			ID:             c.ID,
+			ScheduleID:     c.ScheduleID,
+			TranslatorID:   c.TranslatorID,
+			TranslatorName: translatorName,
+			Type:           c.Type,
+			CheckinTime:    c.CheckinTime,
+			Latitude:       c.Latitude,
+			Longitude:      c.Longitude,
+			Address:        c.Address,
+			SelfieURL:      c.SelfieURL,
+			EnvironmentURL: c.EnvironmentURL,
+			IsMakeup:       c.IsMakeup,
+			MakeupReason:   c.MakeupReason,
+			CreatedAt:      c.CreatedAt,
+		})
+	}
+	return results, nil
+}

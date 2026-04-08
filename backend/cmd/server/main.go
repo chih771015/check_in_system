@@ -100,6 +100,10 @@ func main() {
 			admin.POST("/schedules", scheduleHandler.AdminCreateSchedule)
 			admin.PUT("/schedules/:id", scheduleHandler.AdminUpdateSchedule)
 			admin.DELETE("/schedules/:id", scheduleHandler.AdminDeleteSchedule)
+
+			// Checkin records
+			admin.GET("/checkins", checkinHandler.AdminListCheckins)
+			admin.GET("/export/excel", checkinHandler.AdminExportExcel)
 		}
 
 		// Translator routes
