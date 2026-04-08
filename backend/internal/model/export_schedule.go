@@ -5,7 +5,7 @@ import "time"
 // ExportSchedule stores periodic export configuration.
 type ExportSchedule struct {
 	ID         uint       `gorm:"primaryKey;autoIncrement"`
-	AdminID    uint       `gorm:"not null"`
+	AdminID    uint       `gorm:"uniqueIndex;not null"`
 	Frequency  string     `gorm:"type:varchar(20);not null"` // "monthly"
 	DayOfMonth int        `gorm:"not null"`                  // 1-28
 	Format     string     `gorm:"type:varchar(20);not null"` // "excel" | "google_sheet"

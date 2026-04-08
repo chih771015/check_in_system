@@ -350,6 +350,7 @@ export default function ScheduleManagement() {
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
         <Form form={createForm} onFinish={handleCreate} layout="vertical">
           {scheduleFormFields}
