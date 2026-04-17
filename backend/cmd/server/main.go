@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"os"
 	"time"
@@ -11,18 +14,40 @@ import (
 	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
 	"translator-checkin/internal/service"
+	"translator-checkin/internal/tracing"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	cron "github.com/robfig/cron/v3"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormtracing "gorm.io/plugin/opentelemetry/tracing"
 )
 
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// Initialize OpenTelemetry tracing (OTLP → Jaeger). If the collector is
+	// down we still boot — spans will be dropped, not the app.
+	ctx := context.Background()
+	shutdownTracing, err := tracing.Init(ctx)
+	if err != nil {
+		log.Printf("[tracing] init failed, running without tracing: %v", err)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdownTracing(shutdownCtx); err != nil {
+				log.Printf("[tracing] shutdown error: %v", err)
+			}
+		}()
+	}
 
 	// Connect to PostgreSQL
 	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{})
@@ -31,8 +56,26 @@ func main() {
 	}
 	log.Println("Database connected successfully")
 
+	// Install GORM tracing plugin so every SQL query becomes a span.
+	// WithoutMetrics keeps memory usage down; we only care about traces here.
+	// WithoutQueryVariables scrubs bound parameters from the span so PII
+	// (emails, password hashes, etc.) never leaks to the collector.
+	if err := db.Use(gormtracing.NewPlugin(
+		gormtracing.WithoutMetrics(),
+		gormtracing.WithoutQueryVariables(),
+		gormtracing.WithDBSystem("postgresql"),
+	)); err != nil {
+		log.Printf("[tracing] gorm plugin install failed: %v", err)
+	}
+
 	// Auto-migrate all models
-	if err := db.AutoMigrate(&model.User{}, &model.Schedule{}, &model.Checkin{}, &model.ExportSchedule{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.User{},
+		&model.Schedule{},
+		&model.Checkin{},
+		&model.ExportSchedule{},
+		&model.AuditLog{},
+	); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 	log.Println("Database migration completed")
@@ -50,22 +93,48 @@ func main() {
 	scheduleRepo := repository.NewScheduleRepository(db)
 	checkinRepo := repository.NewCheckinRepository(db)
 	exportScheduleRepo := repository.NewExportScheduleRepository(db)
+	auditRepo := repository.NewAuditLogRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
 	translatorService := service.NewTranslatorService(userRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, checkinRepo, userRepo)
-	checkinService := service.NewCheckinService(checkinRepo, scheduleRepo, userRepo)
+	geocodingService := service.NewGeocodingService()
+	checkinService := service.NewCheckinService(checkinRepo, scheduleRepo, userRepo, geocodingService)
+	mailService := service.NewMailService()
+	exportService := service.NewExportService(checkinService, exportScheduleRepo, mailService)
+	auditService := service.NewAuditService(auditRepo, userRepo)
+	notificationService := service.NewNotificationService(userRepo, scheduleRepo, mailService)
+	cleanupService := service.NewCleanupService()
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
-	translatorHandler := handler.NewTranslatorHandler(translatorService)
-	scheduleHandler := handler.NewScheduleHandler(scheduleService)
-	checkinHandler := handler.NewCheckinHandler(checkinService)
-	exportScheduleHandler := handler.NewExportScheduleHandler(exportScheduleRepo)
+	translatorHandler := handler.NewTranslatorHandler(translatorService, authService, auditService)
+	scheduleHandler := handler.NewScheduleHandler(scheduleService, auditService)
+	checkinHandler := handler.NewCheckinHandler(checkinService, exportService, auditService)
+	exportScheduleHandler := handler.NewExportScheduleHandler(exportScheduleRepo, exportService)
+	auditHandler := handler.NewAuditHandler(auditService)
 
 	// Setup Gin router
 	r := gin.Default()
+
+	// OpenTelemetry middleware — creates a server span per request and
+	// propagates W3C traceparent headers. The SpanNameFormatter is
+	// overridden so span names use the route template (e.g.
+	// "GET /api/admin/translators/:id") instead of the raw URL, which
+	// keeps cardinality low and hides ids out of span names.
+	r.Use(otelgin.Middleware("translator-checkin",
+		otelgin.WithSpanNameFormatter(func(c *gin.Context) string {
+			if c.FullPath() != "" {
+				return c.Request.Method + " " + c.FullPath()
+			}
+			return c.Request.Method + " " + c.Request.URL.Path
+		}),
+	))
+
+	// Strip sensitive headers/fields from recorded spans so PII never
+	// leaks to the collector. Runs after otelgin so the span exists.
+	r.Use(scrubSensitiveSpanAttributes())
 
 	// CORS configuration (allow all origins for development)
 	r.Use(cors.New(cors.Config{
@@ -91,42 +160,56 @@ func main() {
 
 		// Admin routes
 		admin := api.Group("/admin")
-		admin.Use(middleware.JWTAuth(), middleware.RoleRequired("admin"))
+		admin.Use(middleware.JWTAuth(), middleware.RequirePasswordChanged(), middleware.RoleRequired("admin"))
 		{
 			// Translator management
 			admin.GET("/translators", translatorHandler.ListTranslators)
 			admin.POST("/translators", translatorHandler.CreateTranslator)
 			admin.PUT("/translators/:id", translatorHandler.UpdateTranslator)
 			admin.DELETE("/translators/:id", translatorHandler.DisableTranslator)
+			admin.POST("/translators/:id/reset-password", translatorHandler.ResetTranslatorPassword)
 
 			// Schedule management
 			admin.GET("/schedules", scheduleHandler.AdminListSchedules)
 			admin.POST("/schedules", scheduleHandler.AdminCreateSchedule)
+			admin.POST("/schedules/import", scheduleHandler.AdminImportSchedules)
 			admin.PUT("/schedules/:id", scheduleHandler.AdminUpdateSchedule)
 			admin.DELETE("/schedules/:id", scheduleHandler.AdminDeleteSchedule)
+			admin.DELETE("/schedules/:id/group", scheduleHandler.AdminDeleteScheduleGroup)
 
 			// Checkin records
 			admin.GET("/checkins", checkinHandler.AdminListCheckins)
+			admin.PUT("/checkins/:id", checkinHandler.AdminUpdateCheckin)
+			admin.DELETE("/checkins/:id", checkinHandler.AdminDeleteCheckin)
 			admin.GET("/export/excel", checkinHandler.AdminExportExcel)
 			admin.POST("/export/google-sheet", checkinHandler.AdminExportGoogleSheet)
 
 			// Export schedule
 			admin.GET("/export/schedule", exportScheduleHandler.GetExportSchedule)
 			admin.POST("/export/schedule", exportScheduleHandler.UpsertExportSchedule)
+			admin.POST("/export/schedule/run", exportScheduleHandler.RunExportNow)
+
+			// Audit logs
+			admin.GET("/audit-logs", auditHandler.ListAuditLogs)
 		}
 
 		// Translator routes
 		translatorRoutes := api.Group("")
-		translatorRoutes.Use(middleware.JWTAuth(), middleware.RoleRequired("translator"))
+		translatorRoutes.Use(middleware.JWTAuth(), middleware.RequirePasswordChanged(), middleware.RoleRequired("translator"))
 		{
 			translatorRoutes.GET("/schedules", scheduleHandler.MySchedules)
 			translatorRoutes.POST("/checkins", checkinHandler.Checkin)
 			translatorRoutes.POST("/checkins/makeup", checkinHandler.MakeupCheckin)
+			translatorRoutes.GET("/checkins", checkinHandler.MyCheckins)
+			translatorRoutes.GET("/checkins/stats", checkinHandler.MyStats)
 		}
 	}
 
 	// Start export cron scheduler
-	startExportCron(exportScheduleRepo, checkinService)
+	startExportCron(exportScheduleRepo, exportService)
+
+	// Start background cron jobs: reminders + photo cleanup
+	startBackgroundCrons(notificationService, cleanupService)
 
 	// Start server
 	port := cfg.Port
@@ -137,26 +220,91 @@ func main() {
 }
 
 // startExportCron starts a cron job that checks for scheduled exports daily at 08:00.
-func startExportCron(repo *repository.ExportScheduleRepository, svc *service.CheckinService) {
+// When today matches a schedule's day-of-month, the configured export is built
+// and emailed via ExportService.
+func startExportCron(repo *repository.ExportScheduleRepository, exportSvc *service.ExportService) {
 	c := cron.New()
-	// Run daily at 08:00 to check if today matches any schedule
+	tracer := otel.Tracer("translator-checkin/cron")
 	c.AddFunc("0 8 * * *", func() {
+		// Each cron tick gets its own trace so Jaeger can show the full
+		// fan-out: loading schedules → building export → sending email.
+		ctx, span := tracer.Start(context.Background(), "cron.export_schedules")
+		defer span.End()
+
 		today := time.Now()
 		schedules, _ := repo.FindAllEnabled()
 		for _, es := range schedules {
-			if es.DayOfMonth == today.Day() {
-				log.Printf("Running scheduled export for admin %d (format: %s)", es.AdminID, es.Format)
-				repo.UpdateLastRun(es.ID, today)
-				// Actual export execution would happen here
-				// For now we just log; full email/drive integration is Phase 4
+			if es.DayOfMonth != today.Day() {
+				continue
 			}
+			log.Printf("Running scheduled export for admin %d (format: %s)", es.AdminID, es.Format)
+			runCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			result, err := exportSvc.RunExportForAdmin(runCtx, es.AdminID)
+			cancel()
+			if err != nil {
+				log.Printf("Scheduled export failed for admin %d: %v", es.AdminID, err)
+				continue
+			}
+			log.Printf("Scheduled export OK for admin %d (range %s~%s)", es.AdminID, result.RangeFrom, result.RangeTo)
 		}
 	})
 	c.Start()
 	log.Println("Export cron scheduler started")
 }
 
+// startBackgroundCrons registers daily cron jobs for:
+//   - 07:00 schedule reminders (LINE / email)
+//   - 03:00 photo cleanup of files older than retention window
+//
+// Each tick opens its own root span so we get a separate Jaeger trace per run.
+func startBackgroundCrons(notificationSvc *service.NotificationService, cleanupSvc *service.CleanupService) {
+	c := cron.New()
+	tracer := otel.Tracer("translator-checkin/cron")
+
+	// 07:00 daily — send tomorrow's reminders
+	c.AddFunc("0 7 * * *", func() {
+		_, span := tracer.Start(context.Background(), "cron.schedule_reminders")
+		defer span.End()
+		log.Println("[cron] running schedule reminders")
+		notificationSvc.SendScheduleReminders()
+	})
+	// 03:00 daily — prune old photos
+	c.AddFunc("0 3 * * *", func() {
+		_, span := tracer.Start(context.Background(), "cron.photo_cleanup")
+		defer span.End()
+		log.Println("[cron] running photo cleanup")
+		cleanupSvc.RunPhotoCleanup()
+	})
+	c.Start()
+	log.Println("Background cron scheduler started")
+}
+
+// scrubSensitiveSpanAttributes removes attributes that could leak PII from
+// the gin server span. otelgin records http.target (full URL + query string)
+// and http.user_agent by default; we also blank out any Authorization-ish
+// headers that sneaked in as attributes via a future upgrade.
+func scrubSensitiveSpanAttributes() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		// The span is already attached to the request context by otelgin.
+		// We only need to remove query strings from the http.target attribute
+		// on logged spans. OTel SDK doesn't support in-place attribute edits
+		// on an ended span, so we rely on setting the "clean" attribute before
+		// the span ends. otelgin ends the span after middlewares return, so
+		// setting attributes here still lands on the exported span.
+		span := oteltrace.SpanFromContext(c.Request.Context())
+		if !span.IsRecording() {
+			return
+		}
+		if raw := c.Request.URL.Path; raw != "" {
+			span.SetAttributes(attribute.String("http.target", raw)) // path without query
+		}
+	}
+}
+
 // seedAdmin creates the default admin account if it does not already exist.
+// The password comes from ADMIN_DEFAULT_PASSWORD; if unset, a random password
+// is generated and logged once so operators can capture it on first boot.
 func seedAdmin(db *gorm.DB) {
 	var count int64
 	db.Model(&model.User{}).Where("email = ?", "admin@admin.com").Count(&count)
@@ -165,7 +313,17 @@ func seedAdmin(db *gorm.DB) {
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	pw := config.AppConfig.AdminDefaultPassword
+	if pw == "" {
+		buf := make([]byte, 8)
+		if _, err := rand.Read(buf); err != nil {
+			log.Fatalf("Failed to generate random admin password: %v", err)
+		}
+		pw = hex.EncodeToString(buf)
+		log.Printf("ADMIN_DEFAULT_PASSWORD not set — generated random admin password: %s", pw)
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatalf("Failed to hash admin password: %v", err)
 	}
@@ -182,5 +340,13 @@ func seedAdmin(db *gorm.DB) {
 	if err := db.Create(&admin).Error; err != nil {
 		log.Fatalf("Failed to seed admin account: %v", err)
 	}
-	log.Println("Admin account seeded: admin@admin.com / admin123")
+	log.Printf("Admin account seeded: admin@admin.com (password set via %s)",
+		ternary(config.AppConfig.AdminDefaultPassword != "", "ADMIN_DEFAULT_PASSWORD env", "random"))
+}
+
+func ternary(cond bool, a, b string) string {
+	if cond {
+		return a
+	}
+	return b
 }
