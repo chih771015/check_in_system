@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -36,27 +38,27 @@ func NewScheduleService(
 }
 
 // List returns schedules with optional filters and checkin status.
-func (s *ScheduleService) List(translatorID uint, dateFrom, dateTo, location string) ([]dto.ScheduleResponse, error) {
-	schedules, err := s.scheduleRepo.FindAll(translatorID, dateFrom, dateTo, location)
+func (s *ScheduleService) List(ctx context.Context, translatorID uint, dateFrom, dateTo, location string) ([]dto.ScheduleResponse, error) {
+	schedules, err := s.scheduleRepo.WithCtx(ctx).FindAll(translatorID, dateFrom, dateTo, location)
 	if err != nil {
 		return nil, err
 	}
-	return s.toResponseList(schedules)
+	return s.toResponseList(ctx, schedules)
 }
 
 // ListForTranslator returns schedules for a specific translator.
-func (s *ScheduleService) ListForTranslator(translatorID uint, dateFrom, dateTo string) ([]dto.ScheduleResponse, error) {
-	schedules, err := s.scheduleRepo.FindByTranslator(translatorID, dateFrom, dateTo)
+func (s *ScheduleService) ListForTranslator(ctx context.Context, translatorID uint, dateFrom, dateTo string) ([]dto.ScheduleResponse, error) {
+	schedules, err := s.scheduleRepo.WithCtx(ctx).FindByTranslator(translatorID, dateFrom, dateTo)
 	if err != nil {
 		return nil, err
 	}
-	return s.toResponseList(schedules)
+	return s.toResponseList(ctx, schedules)
 }
 
 // Create adds a new schedule entry (or multiple if RecurrenceRule is set).
-func (s *ScheduleService) Create(req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
+func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
 	// Verify translator exists
-	user, err := s.userRepo.FindByID(req.TranslatorID)
+	user, err := s.userRepo.WithCtx(ctx).FindByID(req.TranslatorID)
 	if err != nil {
 		return nil, errors.New("translator not found")
 	}
@@ -65,7 +67,7 @@ func (s *ScheduleService) Create(req dto.CreateScheduleRequest) (*dto.ScheduleRe
 	}
 
 	if req.RecurrenceRule != "" {
-		return s.createRecurring(req)
+		return s.createRecurring(ctx, req)
 	}
 
 	date, err := time.Parse("2006-01-02", req.Date)
@@ -83,12 +85,13 @@ func (s *ScheduleService) Create(req dto.CreateScheduleRequest) (*dto.ScheduleRe
 		Note:         req.Note,
 	}
 
-	if err := s.scheduleRepo.Create(schedule); err != nil {
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	if err := schRepo.Create(schedule); err != nil {
 		return nil, err
 	}
 
 	// Reload with translator
-	schedule, err = s.scheduleRepo.FindByID(schedule.ID)
+	schedule, err = schRepo.FindByID(schedule.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +101,7 @@ func (s *ScheduleService) Create(req dto.CreateScheduleRequest) (*dto.ScheduleRe
 }
 
 // createRecurring creates multiple schedule records based on a recurrence rule.
-func (s *ScheduleService) createRecurring(req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
+func (s *ScheduleService) createRecurring(ctx context.Context, req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
 	if req.RecurrenceUntil == "" {
 		return nil, errors.New("recurrenceUntil is required when recurrenceRule is set")
 	}
@@ -145,12 +148,13 @@ func (s *ScheduleService) createRecurring(req dto.CreateScheduleRequest) (*dto.S
 		})
 	}
 
-	if err := s.scheduleRepo.CreateBatch(schedules); err != nil {
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	if err := schRepo.CreateBatch(schedules); err != nil {
 		return nil, err
 	}
 
 	// Reload first schedule with translator
-	first, err := s.scheduleRepo.FindByID(schedules[0].ID)
+	first, err := schRepo.FindByID(schedules[0].ID)
 	if err != nil {
 		return nil, err
 	}
@@ -198,23 +202,43 @@ func expandRecurrenceDates(start, until time.Time, rule string) ([]time.Time, er
 		if err != nil {
 			return nil, fmt.Errorf("monthly rule must be like 'monthly:5,20': %w", err)
 		}
-		daySet := make(map[int]bool)
 		for _, day := range days {
 			if day < 1 || day > 31 {
 				return nil, errors.New("monthly day values must be 1-31")
 			}
-			daySet[day] = true
 		}
-		for d := start; !d.After(until); d = d.AddDate(0, 0, 1) {
-			if daySet[d.Day()] {
-				dates = append(dates, d)
+		// Walk month by month. For each target day, clamp to the last day of
+		// the month so day=31 behaves as "last day" in shorter months (e.g.
+		// February yields 28/29, April yields 30).
+		cur := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
+		endMonth := time.Date(until.Year(), until.Month(), 1, 0, 0, 0, 0, until.Location())
+		seen := make(map[string]bool)
+		for !cur.After(endMonth) {
+			year, month := cur.Year(), cur.Month()
+			lastDay := time.Date(year, month+1, 0, 0, 0, 0, 0, cur.Location()).Day()
+			for _, target := range days {
+				day := target
+				if day > lastDay {
+					day = lastDay
+				}
+				candidate := time.Date(year, month, day, 0, 0, 0, 0, cur.Location())
+				if candidate.Before(start) || candidate.After(until) {
+					continue
+				}
+				key := candidate.Format("2006-01-02")
+				if !seen[key] {
+					seen[key] = true
+					dates = append(dates, candidate)
+				}
 			}
+			cur = cur.AddDate(0, 1, 0)
 		}
 
 	default:
 		return nil, fmt.Errorf("unknown rule %q, supported: daily, weekly:N,..., monthly:N,...", rule)
 	}
 
+	sort.Slice(dates, func(i, j int) bool { return dates[i].Before(dates[j]) })
 	return dates, nil
 }
 
@@ -234,8 +258,8 @@ func parseIntList(s string) ([]int, error) {
 }
 
 // Update modifies an existing schedule.
-func (s *ScheduleService) Update(id uint, req dto.UpdateScheduleRequest) (*dto.ScheduleResponse, error) {
-	schedule, err := s.scheduleRepo.FindByID(id)
+func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateScheduleRequest) (*dto.ScheduleResponse, error) {
+	schedule, err := s.scheduleRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
 		return nil, errors.New("schedule not found")
 	}
@@ -263,33 +287,53 @@ func (s *ScheduleService) Update(id uint, req dto.UpdateScheduleRequest) (*dto.S
 		schedule.Note = *req.Note
 	}
 
-	if err := s.scheduleRepo.Update(schedule); err != nil {
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	if err := schRepo.Update(schedule); err != nil {
 		return nil, err
 	}
 
 	// Reload
-	schedule, err = s.scheduleRepo.FindByID(schedule.ID)
+	schedule, err = schRepo.FindByID(schedule.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	status := s.getCheckinStatus(schedule.ID)
+	status := s.getCheckinStatus(ctx, schedule.ID)
 	resp := s.toResponse(schedule, status)
 	return &resp, nil
 }
 
 // Delete removes a schedule by ID.
-func (s *ScheduleService) Delete(id uint) error {
-	_, err := s.scheduleRepo.FindByID(id)
+func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
+	repo := s.scheduleRepo.WithCtx(ctx)
+	_, err := repo.FindByID(id)
 	if err != nil {
 		return errors.New("schedule not found")
 	}
-	return s.scheduleRepo.Delete(id)
+	return repo.Delete(id)
+}
+
+// DeleteRecurrenceGroup removes every schedule sharing the same
+// recurrence_group_id as the given schedule. If the schedule isn't part of a
+// group, it falls back to deleting just that single record.
+func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (int64, error) {
+	repo := s.scheduleRepo.WithCtx(ctx)
+	schedule, err := repo.FindByID(id)
+	if err != nil {
+		return 0, errors.New("schedule not found")
+	}
+	if schedule.RecurrenceGroupID == nil || *schedule.RecurrenceGroupID == "" {
+		if err := repo.Delete(id); err != nil {
+			return 0, err
+		}
+		return 1, nil
+	}
+	return repo.DeleteByRecurrenceGroup(*schedule.RecurrenceGroupID)
 }
 
 // getCheckinStatus determines the checkin status for a schedule.
-func (s *ScheduleService) getCheckinStatus(scheduleID uint) string {
-	checkins, err := s.checkinRepo.FindByScheduleID(scheduleID)
+func (s *ScheduleService) getCheckinStatus(ctx context.Context, scheduleID uint) string {
+	checkins, err := s.checkinRepo.WithCtx(ctx).FindByScheduleID(scheduleID)
 	if err != nil || len(checkins) == 0 {
 		return "none"
 	}
@@ -324,26 +368,82 @@ func (s *ScheduleService) getCheckinStatus(scheduleID uint) string {
 
 func (s *ScheduleService) toResponse(schedule *model.Schedule, checkinStatus string) dto.ScheduleResponse {
 	return dto.ScheduleResponse{
-		ID:             schedule.ID,
-		TranslatorID:   schedule.TranslatorID,
-		TranslatorName: schedule.Translator.Name,
-		Date:           schedule.Date.Format("2006-01-02"),
-		StartTime:      schedule.StartTime,
-		EndTime:        schedule.EndTime,
-		Location:       schedule.Location,
-		PatientName:    schedule.PatientName,
-		Note:           schedule.Note,
-		CheckinStatus:  checkinStatus,
+		ID:                schedule.ID,
+		TranslatorID:      schedule.TranslatorID,
+		TranslatorName:    schedule.Translator.Name,
+		Date:              schedule.Date.Format("2006-01-02"),
+		StartTime:         schedule.StartTime,
+		EndTime:           schedule.EndTime,
+		Location:          schedule.Location,
+		PatientName:       schedule.PatientName,
+		Note:              schedule.Note,
+		CheckinStatus:     checkinStatus,
+		RecurrenceGroupID: schedule.RecurrenceGroupID,
 	}
 }
 
-func (s *ScheduleService) toResponseList(schedules []model.Schedule) ([]dto.ScheduleResponse, error) {
+func (s *ScheduleService) toResponseList(ctx context.Context, schedules []model.Schedule) ([]dto.ScheduleResponse, error) {
 	result := make([]dto.ScheduleResponse, len(schedules))
 	for i, sch := range schedules {
-		status := s.getCheckinStatus(sch.ID)
+		status := s.getCheckinStatus(ctx, sch.ID)
 		result[i] = s.toResponse(&sch, status)
 	}
 	return result, nil
+}
+
+// ScheduleImportRow describes one row of an uploaded schedule spreadsheet.
+type ScheduleImportRow struct {
+	RowNumber    int
+	TranslatorID uint
+	Date         string
+	StartTime    string
+	EndTime      string
+	Location     string
+	PatientName  string
+	Note         string
+	Error        string
+}
+
+// BatchImportSchedules creates schedules for each valid row. Rows are persisted
+// individually so a single bad row doesn't abort the import. The returned
+// counts and per-row errors let callers surface a meaningful report.
+func (s *ScheduleService) BatchImportSchedules(ctx context.Context, rows []ScheduleImportRow) (success int, failed []ScheduleImportRow) {
+	userRepo := s.userRepo.WithCtx(ctx)
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	for _, r := range rows {
+		if r.Error != "" {
+			failed = append(failed, r)
+			continue
+		}
+		date, err := time.Parse("2006-01-02", r.Date)
+		if err != nil {
+			r.Error = "invalid date format"
+			failed = append(failed, r)
+			continue
+		}
+		user, err := userRepo.FindByID(r.TranslatorID)
+		if err != nil || user.Role != "translator" {
+			r.Error = "translator not found"
+			failed = append(failed, r)
+			continue
+		}
+		schedule := &model.Schedule{
+			TranslatorID: r.TranslatorID,
+			Date:         date,
+			StartTime:    r.StartTime,
+			EndTime:      r.EndTime,
+			Location:     r.Location,
+			PatientName:  r.PatientName,
+			Note:         r.Note,
+		}
+		if err := schRepo.Create(schedule); err != nil {
+			r.Error = err.Error()
+			failed = append(failed, r)
+			continue
+		}
+		success++
+	}
+	return success, failed
 }
 
 // Unexported but used to check gorm import usage

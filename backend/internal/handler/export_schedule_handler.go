@@ -6,24 +6,26 @@ import (
 
 	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
+	"translator-checkin/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 // ExportScheduleHandler handles export schedule endpoints.
 type ExportScheduleHandler struct {
-	repo *repository.ExportScheduleRepository
+	repo          *repository.ExportScheduleRepository
+	exportService *service.ExportService
 }
 
 // NewExportScheduleHandler creates a new ExportScheduleHandler.
-func NewExportScheduleHandler(repo *repository.ExportScheduleRepository) *ExportScheduleHandler {
-	return &ExportScheduleHandler{repo: repo}
+func NewExportScheduleHandler(repo *repository.ExportScheduleRepository, exportService *service.ExportService) *ExportScheduleHandler {
+	return &ExportScheduleHandler{repo: repo, exportService: exportService}
 }
 
 // GetExportSchedule handles GET /api/admin/export/schedule
 func (h *ExportScheduleHandler) GetExportSchedule(c *gin.Context) {
 	adminID := c.GetUint("userID")
-	es, err := h.repo.FindByAdmin(adminID)
+	es, err := h.repo.WithCtx(c.Request.Context()).FindByAdmin(adminID)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"data": nil})
 		return
@@ -64,9 +66,26 @@ func (h *ExportScheduleHandler) UpsertExportSchedule(c *gin.Context) {
 		Enabled:    req.Enabled,
 		UpdatedAt:  now,
 	}
-	if err := h.repo.Upsert(es); err != nil {
+	if err := h.repo.WithCtx(c.Request.Context()).Upsert(es); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Export schedule saved"})
+}
+
+// RunExportNow handles POST /api/admin/export/schedule/run.
+// Triggers the same export logic the cron uses, immediately, for the calling
+// admin. Useful for verifying the configuration without waiting until the
+// scheduled day.
+func (h *ExportScheduleHandler) RunExportNow(c *gin.Context) {
+	adminID := c.GetUint("userID")
+	result, err := h.exportService.RunExportForAdmin(c.Request.Context(), adminID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Export executed successfully",
+		"result":  result,
+	})
 }

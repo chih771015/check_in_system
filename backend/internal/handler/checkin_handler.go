@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,22 +13,18 @@ import (
 	"translator-checkin/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/sheets/v4"
 )
-
-// ensure context import is used
-var _ = context.Background
 
 // CheckinHandler handles check-in endpoints.
 type CheckinHandler struct {
 	checkinService *service.CheckinService
+	exportService  *service.ExportService
+	auditService   *service.AuditService
 }
 
 // NewCheckinHandler creates a new CheckinHandler.
-func NewCheckinHandler(checkinService *service.CheckinService) *CheckinHandler {
-	return &CheckinHandler{checkinService: checkinService}
+func NewCheckinHandler(checkinService *service.CheckinService, exportService *service.ExportService, auditService *service.AuditService) *CheckinHandler {
+	return &CheckinHandler{checkinService: checkinService, exportService: exportService, auditService: auditService}
 }
 
 // Checkin handles POST /api/checkins (multipart form with photos).
@@ -65,6 +60,7 @@ func (h *CheckinHandler) Checkin(c *gin.Context) {
 	}
 
 	resp, err := h.checkinService.Checkin(
+		c.Request.Context(),
 		userID.(uint),
 		req.ScheduleID,
 		req.Type,
@@ -113,6 +109,7 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 	}
 
 	resp, err := h.checkinService.Checkin(
+		c.Request.Context(),
 		userID.(uint),
 		req.ScheduleID,
 		req.Type,
@@ -126,6 +123,77 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": resp})
+}
+
+// AdminUpdateCheckin handles PUT /api/admin/checkins/:id.
+func (h *CheckinHandler) AdminUpdateCheckin(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid checkin ID"})
+		return
+	}
+
+	var req dto.AdminUpdateCheckinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+	if err := h.checkinService.AdminUpdateCheckin(ctx, uint(id), req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	adminID := c.GetUint("userID")
+	h.auditService.Log(ctx, adminID, "update_checkin", "checkin", uint(id), "")
+	c.JSON(http.StatusOK, gin.H{"message": "Checkin updated successfully"})
+}
+
+// AdminDeleteCheckin handles DELETE /api/admin/checkins/:id.
+func (h *CheckinHandler) AdminDeleteCheckin(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid checkin ID"})
+		return
+	}
+	ctx := c.Request.Context()
+	if err := h.checkinService.AdminDeleteCheckin(ctx, uint(id)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	adminID := c.GetUint("userID")
+	h.auditService.Log(ctx, adminID, "delete_checkin", "checkin", uint(id), "")
+	c.JSON(http.StatusOK, gin.H{"message": "Checkin deleted successfully"})
+}
+
+// MyCheckins handles GET /api/checkins for translators to view their own records.
+func (h *CheckinHandler) MyCheckins(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		return
+	}
+	list, err := h.checkinService.MyHistory(c.Request.Context(), userID.(uint), c.Query("dateFrom"), c.Query("dateTo"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": list})
+}
+
+// MyStats handles GET /api/checkins/stats for translators to view their own stats.
+func (h *CheckinHandler) MyStats(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		return
+	}
+	stats, err := h.checkinService.MyStats(c.Request.Context(), userID.(uint), c.Query("dateFrom"), c.Query("dateTo"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": stats})
 }
 
 // AdminListCheckins handles GET /api/admin/checkins
@@ -147,7 +215,7 @@ func (h *CheckinHandler) AdminListCheckins(c *gin.Context) {
 		params.IsMakeup = &v
 	}
 
-	checkins, err := h.checkinService.AdminList(params)
+	checkins, err := h.checkinService.AdminList(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -157,63 +225,12 @@ func (h *CheckinHandler) AdminListCheckins(c *gin.Context) {
 
 // AdminExportExcel handles GET /api/admin/export/excel
 func (h *CheckinHandler) AdminExportExcel(c *gin.Context) {
-	params := service.AdminListParams{
-		DateFrom:    c.Query("dateFrom"),
-		DateTo:      c.Query("dateTo"),
-		CheckinType: c.Query("type"),
-	}
-	if idStr := c.Query("translatorId"); idStr != "" {
-		id, err := strconv.ParseUint(idStr, 10, 32)
-		if err == nil {
-			params.TranslatorID = uint(id)
-		}
-	}
+	params := parseExportParams(c)
 
-	checkins, err := h.checkinService.AdminList(params)
+	f, err := h.exportService.BuildCheckinExcel(c.Request.Context(), params)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
-	}
-
-	f := excelize.NewFile()
-	sheet := "打卡紀錄"
-	f.NewSheet(sheet)
-	f.DeleteSheet("Sheet1")
-
-	headers := []string{"打卡ID", "翻譯員ID", "翻譯員姓名", "打卡類型", "打卡時間", "地點", "GPS緯度", "GPS經度", "自拍照URL", "環境照URL", "是否補打卡", "補打卡原因"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
-	}
-
-	for rowIdx, ck := range checkins {
-		row := rowIdx + 2
-		typeLabel := "到達"
-		if ck.Type == "leave" {
-			typeLabel = "離開"
-		}
-		isMakeupLabel := "否"
-		if ck.IsMakeup {
-			isMakeupLabel = "是"
-		}
-		values := []interface{}{
-			ck.ID,
-			ck.TranslatorID,
-			ck.TranslatorName,
-			typeLabel,
-			ck.CheckinTime.Format("2006-01-02 15:04:05"),
-			ck.Address,
-			ck.Latitude,
-			ck.Longitude,
-			ck.SelfieURL,
-			ck.EnvironmentURL,
-			isMakeupLabel,
-			ck.MakeupReason,
-		}
-		for colIdx, val := range values {
-			cell, _ := excelize.CoordinatesToCellName(colIdx+1, row)
-			f.SetCellValue(sheet, cell, val)
-		}
 	}
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -225,13 +242,11 @@ func (h *CheckinHandler) AdminExportExcel(c *gin.Context) {
 
 // AdminExportGoogleSheet handles POST /api/admin/export/google-sheet
 func (h *CheckinHandler) AdminExportGoogleSheet(c *gin.Context) {
-	credFile := config.AppConfig.GoogleCredentialsFile
-	if credFile == "" {
+	if config.AppConfig.GoogleCredentialsFile == "" {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google credentials not configured. Set GOOGLE_CREDENTIALS_FILE env variable."})
 		return
 	}
 
-	// Parse request body for optional title
 	var req struct {
 		Title string `json:"title"`
 	}
@@ -240,86 +255,31 @@ func (h *CheckinHandler) AdminExportGoogleSheet(c *gin.Context) {
 		req.Title = fmt.Sprintf("打卡紀錄_%s", time.Now().Format("20060102_150405"))
 	}
 
-	// Get checkin data (same filter logic as Excel export)
+	params := parseExportParams(c)
+
+	url, err := h.exportService.CreateCheckinGoogleSheet(c.Request.Context(), params, req.Title)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"url": url, "title": req.Title})
+}
+
+// parseExportParams pulls the common filter query params shared by Excel and
+// Google Sheet export endpoints.
+func parseExportParams(c *gin.Context) service.AdminListParams {
 	params := service.AdminListParams{
 		DateFrom:    c.Query("dateFrom"),
 		DateTo:      c.Query("dateTo"),
 		CheckinType: c.Query("type"),
 	}
 	if idStr := c.Query("translatorId"); idStr != "" {
-		id, err := strconv.ParseUint(idStr, 10, 32)
-		if err == nil {
+		if id, err := strconv.ParseUint(idStr, 10, 32); err == nil {
 			params.TranslatorID = uint(id)
 		}
 	}
-
-	checkins, err := h.checkinService.AdminList(params)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Authenticate
-	ctx := c.Request.Context()
-	b, err := os.ReadFile(credFile)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read credentials file"})
-		return
-	}
-	conf, err := google.JWTConfigFromJSON(b, "https://www.googleapis.com/auth/spreadsheets")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid credentials: " + err.Error()})
-		return
-	}
-	client := conf.Client(ctx)
-
-	srv, err := sheets.New(client)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create Sheets client"})
-		return
-	}
-
-	// Create spreadsheet
-	spreadsheet, err := srv.Spreadsheets.Create(&sheets.Spreadsheet{
-		Properties: &sheets.SpreadsheetProperties{Title: req.Title},
-	}).Context(ctx).Do()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create spreadsheet: " + err.Error()})
-		return
-	}
-
-	// Prepare data
-	headers := []interface{}{"打卡ID", "翻譯員ID", "翻譯員姓名", "打卡類型", "打卡時間", "地址", "GPS緯度", "GPS經度", "自拍照URL", "環境照URL", "是否補打卡", "補打卡原因"}
-	rows := [][]interface{}{headers}
-	for _, ck := range checkins {
-		typeLabel := "到達"
-		if ck.Type == "leave" {
-			typeLabel = "離開"
-		}
-		isMakeupLabel := "否"
-		if ck.IsMakeup {
-			isMakeupLabel = "是"
-		}
-		rows = append(rows, []interface{}{
-			ck.ID, ck.TranslatorID, ck.TranslatorName, typeLabel,
-			ck.CheckinTime.Format("2006-01-02 15:04:05"),
-			ck.Address, ck.Latitude, ck.Longitude,
-			ck.SelfieURL, ck.EnvironmentURL, isMakeupLabel, ck.MakeupReason,
-		})
-	}
-
-	vr := &sheets.ValueRange{Values: rows}
-	_, err = srv.Spreadsheets.Values.Update(spreadsheet.SpreadsheetId, "Sheet1!A1", vr).
-		ValueInputOption("RAW").Context(ctx).Do()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write data: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"url":   fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s", spreadsheet.SpreadsheetId),
-		"title": req.Title,
-	})
+	return params
 }
 
 // saveUploadedFile saves a multipart file and returns its URL path.

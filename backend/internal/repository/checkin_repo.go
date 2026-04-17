@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"translator-checkin/internal/model"
 
 	"gorm.io/gorm"
@@ -14,6 +16,12 @@ type CheckinRepository struct {
 // NewCheckinRepository creates a new CheckinRepository.
 func NewCheckinRepository(db *gorm.DB) *CheckinRepository {
 	return &CheckinRepository{db: db}
+}
+
+// WithCtx returns a copy whose *gorm.DB carries the request context so
+// the GORM OTel plugin nests SQL spans under the active HTTP span.
+func (r *CheckinRepository) WithCtx(ctx context.Context) *CheckinRepository {
+	return &CheckinRepository{db: r.db.WithContext(ctx)}
 }
 
 // FindByScheduleID returns all checkins for a given schedule.
@@ -40,6 +48,25 @@ func (r *CheckinRepository) FindByScheduleAndType(scheduleID uint, checkinType s
 // Create inserts a new checkin record.
 func (r *CheckinRepository) Create(checkin *model.Checkin) error {
 	return r.db.Create(checkin).Error
+}
+
+// FindByID returns a checkin by ID.
+func (r *CheckinRepository) FindByID(id uint) (*model.Checkin, error) {
+	var c model.Checkin
+	if err := r.db.First(&c, id).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// UpdateFields applies a partial update to a checkin record.
+func (r *CheckinRepository) UpdateFields(id uint, fields map[string]any) error {
+	return r.db.Model(&model.Checkin{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// Delete removes a checkin by ID.
+func (r *CheckinRepository) Delete(id uint) error {
+	return r.db.Delete(&model.Checkin{}, id).Error
 }
 
 // ListAllParams holds optional filter parameters.

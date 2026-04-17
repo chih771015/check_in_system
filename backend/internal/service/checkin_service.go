@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -16,6 +17,7 @@ type CheckinService struct {
 	checkinRepo  *repository.CheckinRepository
 	scheduleRepo *repository.ScheduleRepository
 	userRepo     *repository.UserRepository
+	geocoding    *GeocodingService
 }
 
 // NewCheckinService creates a new CheckinService.
@@ -23,16 +25,21 @@ func NewCheckinService(
 	checkinRepo *repository.CheckinRepository,
 	scheduleRepo *repository.ScheduleRepository,
 	userRepo *repository.UserRepository,
+	geocoding *GeocodingService,
 ) *CheckinService {
 	return &CheckinService{
 		checkinRepo:  checkinRepo,
 		scheduleRepo: scheduleRepo,
 		userRepo:     userRepo,
+		geocoding:    geocoding,
 	}
 }
 
 // Checkin processes a translator's check-in (arrive or leave).
+// The context is propagated to reverse-geocoding so the outbound Nominatim
+// call appears as a child span of the HTTP request in Jaeger.
 func (s *CheckinService) Checkin(
+	ctx context.Context,
 	translatorID uint,
 	scheduleID uint,
 	checkinType string,
@@ -41,8 +48,12 @@ func (s *CheckinService) Checkin(
 	isMakeup bool,
 	makeupReason string,
 ) (*dto.CheckinResponse, error) {
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	ckRepo := s.checkinRepo.WithCtx(ctx)
+	uRepo := s.userRepo.WithCtx(ctx)
+
 	// Validate schedule exists and belongs to translator
-	schedule, err := s.scheduleRepo.FindByID(scheduleID)
+	schedule, err := schRepo.FindByID(scheduleID)
 	if err != nil {
 		return nil, errors.New("schedule not found")
 	}
@@ -51,14 +62,14 @@ func (s *CheckinService) Checkin(
 	}
 
 	// Check for duplicate checkin type
-	existing, err := s.checkinRepo.FindByScheduleAndType(scheduleID, checkinType)
+	existing, err := ckRepo.FindByScheduleAndType(scheduleID, checkinType)
 	if err == nil && existing != nil {
 		return nil, errors.New("already checked in with type: " + checkinType)
 	}
 
 	// If leaving, ensure arrival was recorded first
 	if checkinType == "leave" {
-		_, err := s.checkinRepo.FindByScheduleAndType(scheduleID, "arrive")
+		_, err := ckRepo.FindByScheduleAndType(scheduleID, "arrive")
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errors.New("must check in (arrive) before checking out (leave)")
@@ -67,8 +78,16 @@ func (s *CheckinService) Checkin(
 		}
 	}
 
+	// If address is missing, attempt reverse geocoding. Failures are silently
+	// ignored so we never block a checkin over a third-party outage.
+	if address == "" && s.geocoding != nil && (lat != 0 || lng != 0) {
+		if resolved, err := s.geocoding.ReverseGeocode(ctx, lat, lng); err == nil {
+			address = resolved
+		}
+	}
+
 	// Get translator info
-	user, err := s.userRepo.FindByID(translatorID)
+	user, err := uRepo.FindByID(translatorID)
 	if err != nil {
 		return nil, errors.New("translator not found")
 	}
@@ -87,7 +106,7 @@ func (s *CheckinService) Checkin(
 		MakeupReason:   makeupReason,
 	}
 
-	if err := s.checkinRepo.Create(checkin); err != nil {
+	if err := ckRepo.Create(checkin); err != nil {
 		return nil, errors.New("failed to create checkin record")
 	}
 
@@ -109,6 +128,124 @@ func (s *CheckinService) Checkin(
 	}, nil
 }
 
+// AdminUpdateCheckin applies admin-editable fields to an existing checkin.
+// Photos and translator/schedule linkage are intentionally not editable.
+func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dto.AdminUpdateCheckinRequest) error {
+	repo := s.checkinRepo.WithCtx(ctx)
+	if _, err := repo.FindByID(id); err != nil {
+		return errors.New("checkin not found")
+	}
+
+	fields := map[string]any{}
+	if req.CheckinTime != nil {
+		fields["checkin_time"] = *req.CheckinTime
+	}
+	if req.Address != nil {
+		fields["address"] = *req.Address
+	}
+	if req.MakeupReason != nil {
+		fields["makeup_reason"] = *req.MakeupReason
+	}
+	if len(fields) == 0 {
+		return errors.New("no fields to update")
+	}
+	return repo.UpdateFields(id, fields)
+}
+
+// AdminDeleteCheckin permanently removes a checkin record.
+func (s *CheckinService) AdminDeleteCheckin(ctx context.Context, id uint) error {
+	repo := s.checkinRepo.WithCtx(ctx)
+	if _, err := repo.FindByID(id); err != nil {
+		return errors.New("checkin not found")
+	}
+	return repo.Delete(id)
+}
+
+// MyHistory returns the translator's own checkin history with optional filters.
+func (s *CheckinService) MyHistory(ctx context.Context, translatorID uint, dateFrom, dateTo string) ([]dto.CheckinResponse, error) {
+	checkins, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
+		DateFrom:     dateFrom,
+		DateTo:       dateTo,
+		TranslatorID: translatorID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	user, _ := s.userRepo.WithCtx(ctx).FindByID(translatorID)
+	name := ""
+	if user != nil {
+		name = user.Name
+	}
+	results := make([]dto.CheckinResponse, 0, len(checkins))
+	for _, c := range checkins {
+		results = append(results, dto.CheckinResponse{
+			ID:             c.ID,
+			ScheduleID:     c.ScheduleID,
+			TranslatorID:   c.TranslatorID,
+			TranslatorName: name,
+			Type:           c.Type,
+			CheckinTime:    c.CheckinTime,
+			Latitude:       c.Latitude,
+			Longitude:      c.Longitude,
+			Address:        c.Address,
+			SelfieURL:      c.SelfieURL,
+			EnvironmentURL: c.EnvironmentURL,
+			IsMakeup:       c.IsMakeup,
+			MakeupReason:   c.MakeupReason,
+			CreatedAt:      c.CreatedAt,
+		})
+	}
+	return results, nil
+}
+
+// MyStats returns aggregate stats for a translator within the given date range.
+type CheckinStats struct {
+	Total       int `json:"total"`
+	ArriveCount int `json:"arriveCount"`
+	LeaveCount  int `json:"leaveCount"`
+	MakeupCount int `json:"makeupCount"`
+	OnTimeCount int `json:"onTimeCount"`
+	LateCount   int `json:"lateCount"`
+}
+
+// MyStats computes aggregate checkin stats for a translator.
+func (s *CheckinService) MyStats(ctx context.Context, translatorID uint, dateFrom, dateTo string) (*CheckinStats, error) {
+	ckRepo := s.checkinRepo.WithCtx(ctx)
+	schRepo := s.scheduleRepo.WithCtx(ctx)
+	checkins, err := ckRepo.ListAll(repository.ListAllParams{
+		DateFrom:     dateFrom,
+		DateTo:       dateTo,
+		TranslatorID: translatorID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stats := &CheckinStats{Total: len(checkins)}
+	for _, c := range checkins {
+		switch c.Type {
+		case "arrive":
+			stats.ArriveCount++
+			// Compare with schedule start time to detect late arrival.
+			if sch, err := schRepo.FindByID(c.ScheduleID); err == nil {
+				dateStr := sch.Date.Format("2006-01-02")
+				if startLocal, perr := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+sch.StartTime, time.Local); perr == nil {
+					if c.CheckinTime.After(startLocal.Add(5 * time.Minute)) {
+						stats.LateCount++
+					} else {
+						stats.OnTimeCount++
+					}
+				}
+			}
+		case "leave":
+			stats.LeaveCount++
+		}
+		if c.IsMakeup {
+			stats.MakeupCount++
+		}
+	}
+	return stats, nil
+}
+
 // AdminListParams mirrors repository.ListAllParams for service layer.
 type AdminListParams struct {
 	DateFrom     string
@@ -119,8 +256,8 @@ type AdminListParams struct {
 }
 
 // AdminList returns all checkins with optional filters for admin view.
-func (s *CheckinService) AdminList(params AdminListParams) ([]dto.CheckinResponse, error) {
-	checkins, err := s.checkinRepo.ListAll(repository.ListAllParams{
+func (s *CheckinService) AdminList(ctx context.Context, params AdminListParams) ([]dto.CheckinResponse, error) {
+	checkins, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
 		DateFrom:     params.DateFrom,
 		DateTo:       params.DateTo,
 		TranslatorID: params.TranslatorID,
@@ -131,9 +268,10 @@ func (s *CheckinService) AdminList(params AdminListParams) ([]dto.CheckinRespons
 		return nil, err
 	}
 
+	uRepo := s.userRepo.WithCtx(ctx)
 	results := make([]dto.CheckinResponse, 0, len(checkins))
 	for _, c := range checkins {
-		user, err := s.userRepo.FindByID(c.TranslatorID)
+		user, err := uRepo.FindByID(c.TranslatorID)
 		translatorName := ""
 		if err == nil {
 			translatorName = user.Name

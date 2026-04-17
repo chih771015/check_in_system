@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"translator-checkin/internal/model"
 
 	"gorm.io/gorm"
@@ -14,6 +16,12 @@ type ScheduleRepository struct {
 // NewScheduleRepository creates a new ScheduleRepository.
 func NewScheduleRepository(db *gorm.DB) *ScheduleRepository {
 	return &ScheduleRepository{db: db}
+}
+
+// WithCtx returns a copy whose *gorm.DB carries the request context so
+// the GORM OTel plugin nests SQL spans under the active HTTP span.
+func (r *ScheduleRepository) WithCtx(ctx context.Context) *ScheduleRepository {
+	return &ScheduleRepository{db: r.db.WithContext(ctx)}
 }
 
 // FindByID returns a schedule by ID with preloaded Translator.
@@ -85,4 +93,11 @@ func (r *ScheduleRepository) Update(schedule *model.Schedule) error {
 // Delete removes a schedule by ID.
 func (r *ScheduleRepository) Delete(id uint) error {
 	return r.db.Delete(&model.Schedule{}, id).Error
+}
+
+// DeleteByRecurrenceGroup deletes every schedule sharing the given recurrence
+// group id and returns the number of rows removed.
+func (r *ScheduleRepository) DeleteByRecurrenceGroup(groupID string) (int64, error) {
+	res := r.db.Where("recurrence_group_id = ?", groupID).Delete(&model.Schedule{})
+	return res.RowsAffected, res.Error
 }

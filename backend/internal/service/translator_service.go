@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"translator-checkin/internal/dto"
@@ -21,8 +22,8 @@ func NewTranslatorService(userRepo *repository.UserRepository) *TranslatorServic
 }
 
 // List returns all translators, optionally filtered by status.
-func (s *TranslatorService) List(status string) ([]dto.TranslatorListResponse, error) {
-	users, err := s.userRepo.FindAll(status)
+func (s *TranslatorService) List(ctx context.Context, status string) ([]dto.TranslatorListResponse, error) {
+	users, err := s.userRepo.WithCtx(ctx).FindAll(status)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +43,10 @@ func (s *TranslatorService) List(status string) ([]dto.TranslatorListResponse, e
 }
 
 // Create adds a new translator account.
-func (s *TranslatorService) Create(req dto.CreateTranslatorRequest) error {
+func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslatorRequest) error {
+	repo := s.userRepo.WithCtx(ctx)
 	// Check if email already exists
-	existing, _ := s.userRepo.FindByEmail(req.Email)
+	existing, _ := repo.FindByEmail(req.Email)
 	if existing != nil {
 		return errors.New("email already exists")
 	}
@@ -64,12 +66,12 @@ func (s *TranslatorService) Create(req dto.CreateTranslatorRequest) error {
 		MustChangePW: true,
 	}
 
-	return s.userRepo.Create(user)
+	return repo.Create(user)
 }
 
 // Update modifies an existing translator's information.
-func (s *TranslatorService) Update(id uint, req dto.UpdateTranslatorRequest) error {
-	user, err := s.userRepo.FindByID(id)
+func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateTranslatorRequest) error {
+	user, err := s.userRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
 		return errors.New("translator not found")
 	}
@@ -91,12 +93,12 @@ func (s *TranslatorService) Update(id uint, req dto.UpdateTranslatorRequest) err
 		user.Status = *req.Status
 	}
 
-	return s.userRepo.Update(user)
+	return s.userRepo.WithCtx(ctx).Update(user)
 }
 
 // Disable sets a translator's status to disabled.
-func (s *TranslatorService) Disable(id uint) error {
-	user, err := s.userRepo.FindByID(id)
+func (s *TranslatorService) Disable(ctx context.Context, id uint) error {
+	user, err := s.userRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
 		return errors.New("translator not found")
 	}
@@ -106,5 +108,5 @@ func (s *TranslatorService) Disable(id uint) error {
 	}
 
 	user.Status = "disabled"
-	return s.userRepo.Update(user)
+	return s.userRepo.WithCtx(ctx).Update(user)
 }

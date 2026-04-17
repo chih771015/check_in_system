@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+
 	"translator-checkin/internal/model"
 
 	"gorm.io/gorm"
@@ -15,6 +17,12 @@ type ExportScheduleRepository struct {
 // NewExportScheduleRepository creates a new ExportScheduleRepository.
 func NewExportScheduleRepository(db *gorm.DB) *ExportScheduleRepository {
 	return &ExportScheduleRepository{db: db}
+}
+
+// WithCtx returns a copy whose *gorm.DB carries the request context so
+// the GORM OTel plugin nests SQL spans under the active HTTP span.
+func (r *ExportScheduleRepository) WithCtx(ctx context.Context) *ExportScheduleRepository {
+	return &ExportScheduleRepository{db: r.db.WithContext(ctx)}
 }
 
 // Upsert inserts or updates an export schedule for the given admin.
