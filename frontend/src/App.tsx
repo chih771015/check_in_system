@@ -8,7 +8,9 @@ import TranslatorManagement from './pages/admin/TranslatorManagement';
 import ScheduleManagement from './pages/admin/ScheduleManagement';
 import CheckinRecords from './pages/admin/CheckinRecords';
 import ExportSettings from './pages/admin/ExportSettings';
+import AuditLogs from './pages/admin/AuditLogs';
 import MySchedules from './pages/translator/MySchedules';
+import MyCheckinsPage from './pages/translator/MyCheckins';
 import CheckInPage from './pages/translator/CheckIn';
 import MakeupCheckInPage from './pages/translator/MakeupCheckIn';
 import type { ReactNode } from 'react';
@@ -82,6 +84,22 @@ function AppRoutes() {
             <RequireAdmin>
               <ExportSettings />
             </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/audit-logs"
+          element={
+            <RequireAdmin>
+              <AuditLogs />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/my-checkins"
+          element={
+            <RequireTranslator>
+              <MyCheckinsPage />
+            </RequireTranslator>
           }
         />
         <Route

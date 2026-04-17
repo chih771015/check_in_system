@@ -7,6 +7,7 @@ import {
   createTranslator,
   updateTranslator,
   disableTranslator,
+  resetTranslatorPassword,
 } from '../../api/translators';
 
 export default function TranslatorManagement() {
@@ -16,8 +17,11 @@ export default function TranslatorManagement() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TranslatorListItem | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState<TranslatorListItem | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const [resetForm] = Form.useForm();
   const { message, modal } = App.useApp();
 
   const fetchData = useCallback(async () => {
@@ -89,6 +93,27 @@ export default function TranslatorManagement() {
     setEditOpen(true);
   };
 
+  const openReset = (record: TranslatorListItem) => {
+    setResetTarget(record);
+    resetForm.resetFields();
+    setResetOpen(true);
+  };
+
+  const handleReset = async (values: { newPassword: string; confirmPassword: string }) => {
+    if (!resetTarget) return;
+    if (values.newPassword !== values.confirmPassword) {
+      message.error('兩次密碼輸入不一致');
+      return;
+    }
+    try {
+      await resetTranslatorPassword(resetTarget.id, values.newPassword);
+      message.success(`已重設「${resetTarget.name}」的密碼，請通知該使用者下次登入需自行變更`);
+      setResetOpen(false);
+    } catch {
+      message.error('重設密碼失敗');
+    }
+  };
+
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: '姓名', dataIndex: 'name', key: 'name' },
@@ -105,9 +130,12 @@ export default function TranslatorManagement() {
       title: '操作',
       key: 'action',
       render: (_: unknown, record: TranslatorListItem) => (
-        <Space>
+        <Space wrap>
           <Button size="small" onClick={() => openEdit(record)}>
             編輯
+          </Button>
+          <Button size="small" onClick={() => openReset(record)}>
+            重設密碼
           </Button>
           {record.status === 'active' && (
             <Button size="small" danger onClick={() => handleDisable(record)}>
@@ -214,6 +242,38 @@ export default function TranslatorManagement() {
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
               更新
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={resetTarget ? `重設「${resetTarget.name}」的密碼` : '重設密碼'}
+        open={resetOpen}
+        onCancel={() => setResetOpen(false)}
+        footer={null}
+      >
+        <Form form={resetForm} onFinish={handleReset} layout="vertical">
+          <Form.Item
+            name="newPassword"
+            label="新密碼"
+            rules={[
+              { required: true, message: '請輸入新密碼' },
+              { min: 8, message: '密碼至少 8 個字元' },
+            ]}
+          >
+            <Input.Password placeholder="新密碼" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="確認新密碼"
+            rules={[{ required: true, message: '請再次輸入新密碼' }]}
+          >
+            <Input.Password placeholder="確認新密碼" />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button type="primary" htmlType="submit" block>
+              重設密碼
             </Button>
           </Form.Item>
         </Form>

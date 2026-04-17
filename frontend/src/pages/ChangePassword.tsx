@@ -7,7 +7,7 @@ import { useAuth } from '../stores/authStore';
 
 export default function ChangePasswordPage() {
   const [loading, setLoading] = useState(false);
-  const { user, updateUser, isAdmin } = useAuth();
+  const { user, login, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { message } = App.useApp();
 
@@ -20,10 +20,16 @@ export default function ChangePasswordPage() {
       message.error('新密碼與確認密碼不一致');
       return;
     }
+    if (!user) {
+      message.error('登入狀態異常，請重新登入');
+      return;
+    }
     setLoading(true);
     try {
-      await changePassword(values.oldPassword, values.newPassword);
-      updateUser({ mustChangePW: false });
+      const resp = await changePassword(values.oldPassword, values.newPassword);
+      // Replace the stale token (which still carries must_change_pw=true)
+      // with the new one returned from the backend.
+      login(resp.token, { ...user, mustChangePW: false });
       message.success('密碼已更新');
       if (isAdmin) {
         navigate('/admin/translators');

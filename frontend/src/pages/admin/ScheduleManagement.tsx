@@ -12,13 +12,17 @@ import {
   Space,
   App,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { Upload } from 'antd';
+import type { UploadProps } from 'antd';
 import type { ScheduleItem, TranslatorListItem } from '../../types';
 import {
   getAdminSchedules,
   createSchedule,
   updateSchedule,
   deleteSchedule,
+  deleteScheduleGroup,
+  importSchedules,
 } from '../../api/schedules';
 import { getTranslators } from '../../api/translators';
 
@@ -134,6 +138,25 @@ export default function ScheduleManagement() {
     });
   };
 
+  const handleDeleteGroup = (record: ScheduleItem) => {
+    modal.confirm({
+      title: '刪除整組重複排班',
+      content: `確定要刪除此排班所屬的整組重複排班嗎？此操作無法復原。`,
+      okText: '刪除整組',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const res = await deleteScheduleGroup(record.id);
+          message.success(`已刪除整組 ${res?.deleted ?? ''} 筆排班`);
+          void fetchData();
+        } catch {
+          message.error('刪除整組失敗');
+        }
+      },
+    });
+  };
+
   const openEdit = (record: ScheduleItem) => {
     setEditingRecord(record);
     editForm.setFieldsValue({
@@ -206,13 +229,18 @@ export default function ScheduleManagement() {
       title: '操作',
       key: 'action',
       render: (_: unknown, record: ScheduleItem) => (
-        <Space>
+        <Space wrap>
           <Button size="small" onClick={() => openEdit(record)}>
             編輯
           </Button>
           <Button size="small" danger onClick={() => handleDelete(record)}>
             刪除
           </Button>
+          {record.recurrenceGroupId && (
+            <Button size="small" danger onClick={() => handleDeleteGroup(record)}>
+              刪除整組
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -331,6 +359,29 @@ export default function ScheduleManagement() {
           onSearch={handleLocationSearch}
         />
         <div style={{ flex: 1 }} />
+        <Upload
+          {...({
+            accept: '.xlsx,.xls',
+            showUploadList: false,
+            beforeUpload: (file: File) => {
+              importSchedules(file)
+                .then((res) => {
+                  if (res.failed && res.failed.length > 0) {
+                    message.warning(
+                      `成功 ${res.success} 筆，失敗 ${res.failed.length} 筆（第一筆錯誤：${res.failed[0].error}）`,
+                    );
+                  } else {
+                    message.success(`匯入成功 ${res.success} 筆`);
+                  }
+                  void fetchData();
+                })
+                .catch(() => message.error('匯入失敗'));
+              return false;
+            },
+          } as UploadProps)}
+        >
+          <Button icon={<UploadOutlined />}>Excel 批次匯入</Button>
+        </Upload>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
           新增排班
         </Button>

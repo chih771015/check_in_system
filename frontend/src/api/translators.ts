@@ -26,3 +26,9 @@ export function updateTranslator(
 export function disableTranslator(id: number) {
   return client.delete(`/admin/translators/${id}`).then((r) => r.data);
 }
+
+export function resetTranslatorPassword(id: number, newPassword: string) {
+  return client
+    .post(`/admin/translators/${id}/reset-password`, { newPassword })
+    .then((r) => r.data);
+}

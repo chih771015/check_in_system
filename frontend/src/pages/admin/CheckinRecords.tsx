@@ -9,11 +9,19 @@ import {
   Modal,
   Image,
   Typography,
+  Form,
+  Input,
   App,
 } from 'antd';
 import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { CheckinItem, TranslatorListItem } from '../../types';
-import { getAdminCheckins, exportCheckinExcel, exportCheckinGoogleSheet } from '../../api/checkins';
+import {
+  getAdminCheckins,
+  exportCheckinExcel,
+  exportCheckinGoogleSheet,
+  updateCheckin,
+  deleteCheckin,
+} from '../../api/checkins';
 import { getTranslators } from '../../api/translators';
 
 const { RangePicker } = DatePicker;
@@ -31,7 +39,9 @@ export default function CheckinRecords() {
   const [exportingSheet, setExportingSheet] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [detailRecord, setDetailRecord] = useState<CheckinItem | null>(null);
-  const { message } = App.useApp();
+  const [editRecord, setEditRecord] = useState<CheckinItem | null>(null);
+  const [editForm] = Form.useForm();
+  const { message, modal } = App.useApp();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -60,6 +70,54 @@ export default function CheckinRecords() {
     } finally {
       setExporting(false);
     }
+  };
+
+  const openEditCheckin = (record: CheckinItem) => {
+    setEditRecord(record);
+    editForm.setFieldsValue({
+      checkinTime: record.checkinTime ? record.checkinTime.slice(0, 16) : '',
+      address: record.address,
+      makeupReason: record.makeupReason,
+    });
+  };
+
+  const handleEditCheckin = async (values: {
+    checkinTime: string;
+    address: string;
+    makeupReason: string;
+  }) => {
+    if (!editRecord) return;
+    try {
+      await updateCheckin(editRecord.id, {
+        checkinTime: values.checkinTime ? new Date(values.checkinTime).toISOString() : undefined,
+        address: values.address,
+        makeupReason: values.makeupReason,
+      });
+      message.success('打卡紀錄已更新');
+      setEditRecord(null);
+      void fetchData();
+    } catch {
+      message.error('更新失敗');
+    }
+  };
+
+  const handleDeleteCheckin = (record: CheckinItem) => {
+    modal.confirm({
+      title: '確認刪除',
+      content: `確定要刪除此打卡紀錄嗎？此操作無法復原。`,
+      okText: '確認刪除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteCheckin(record.id);
+          message.success('已刪除');
+          void fetchData();
+        } catch {
+          message.error('刪除失敗');
+        }
+      },
+    });
   };
 
   const handleGoogleSheet = async () => {
@@ -123,11 +181,19 @@ export default function CheckinRecords() {
     {
       title: '操作',
       key: 'action',
-      width: 80,
+      width: 180,
       render: (_: unknown, record: CheckinItem) => (
-        <Button size="small" onClick={() => setDetailRecord(record)}>
-          詳情
-        </Button>
+        <Space>
+          <Button size="small" onClick={() => setDetailRecord(record)}>
+            詳情
+          </Button>
+          <Button size="small" onClick={() => openEditCheckin(record)}>
+            編輯
+          </Button>
+          <Button size="small" danger onClick={() => handleDeleteCheckin(record)}>
+            刪除
+          </Button>
+        </Space>
       ),
     },
   ];
@@ -276,6 +342,34 @@ export default function CheckinRecords() {
               </div>
             </div>
           </Space>
+        )}
+      </Modal>
+
+      <Modal
+        title="編輯打卡紀錄"
+        open={!!editRecord}
+        onCancel={() => setEditRecord(null)}
+        footer={null}
+      >
+        {editRecord && (
+          <Form form={editForm} onFinish={handleEditCheckin} layout="vertical">
+            <Form.Item name="checkinTime" label="打卡時間">
+              <Input type="datetime-local" />
+            </Form.Item>
+            <Form.Item name="address" label="地址">
+              <Input />
+            </Form.Item>
+            {editRecord.isMakeup && (
+              <Form.Item name="makeupReason" label="補打卡原因">
+                <Input.TextArea rows={2} />
+              </Form.Item>
+            )}
+            <Form.Item>
+              <Button type="primary" htmlType="submit" block>
+                更新
+              </Button>
+            </Form.Item>
+          </Form>
         )}
       </Modal>
     </div>

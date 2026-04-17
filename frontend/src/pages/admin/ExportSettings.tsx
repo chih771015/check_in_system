@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Form, Select, InputNumber, Input, Switch, Button, Card, Typography, Alert, App } from 'antd';
-import { getExportSchedule, upsertExportSchedule } from '../../api/export';
+import { getExportSchedule, upsertExportSchedule, runExportNow } from '../../api/export';
 
 export default function ExportSettings() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState(false);
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
   const { message } = App.useApp();
 
@@ -43,6 +44,25 @@ export default function ExportSettings() {
       message.error('儲存失敗');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRunNow = async () => {
+    setRunning(true);
+    try {
+      const res = await runExportNow();
+      const r = res.result ?? res;
+      message.success(
+        `匯出完成（${r.rangeFrom} ~ ${r.rangeTo}），已寄至 ${r.emailTo}`,
+      );
+      setLastRunAt(r.ranAt ?? new Date().toISOString());
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ?? '執行失敗';
+      message.error(msg);
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -96,6 +116,15 @@ export default function ExportSettings() {
             儲存設定
           </Button>
         </Form>
+
+        <Button
+          style={{ marginTop: 16 }}
+          block
+          loading={running}
+          onClick={handleRunNow}
+        >
+          立即執行一次
+        </Button>
       </Card>
     </div>
   );

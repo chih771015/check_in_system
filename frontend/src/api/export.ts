@@ -16,3 +16,19 @@ export function getExportSchedule() {
 export function upsertExportSchedule(data: Omit<ExportScheduleData, 'lastRunAt'>) {
   return client.post('/admin/export/schedule', data).then((r) => r.data);
 }
+
+export interface RunExportResult {
+  format: string;
+  emailTo: string;
+  sheetUrl?: string;
+  filename?: string;
+  rangeFrom: string;
+  rangeTo: string;
+  ranAt: string;
+}
+
+export function runExportNow() {
+  return client
+    .post<{ message: string; result: RunExportResult }>('/admin/export/schedule/run')
+    .then((r) => r.data);
+}

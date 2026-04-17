@@ -23,6 +23,38 @@ export function getAdminCheckins(params?: Record<string, string>) {
     .then((r) => r.data);
 }
 
+export function getMyCheckins(params?: Record<string, string>) {
+  return client
+    .get<CheckinItem[]>('/checkins', { params })
+    .then((r) => r.data);
+}
+
+export interface MyCheckinStats {
+  total: number;
+  arriveCount: number;
+  leaveCount: number;
+  makeupCount: number;
+  onTimeCount: number;
+  lateCount: number;
+}
+
+export function getMyCheckinStats(params?: Record<string, string>) {
+  return client
+    .get<MyCheckinStats>('/checkins/stats', { params })
+    .then((r) => r.data);
+}
+
+export function updateCheckin(
+  id: number,
+  data: { checkinTime?: string; address?: string; makeupReason?: string },
+) {
+  return client.put(`/admin/checkins/${id}`, data).then((r) => r.data);
+}
+
+export function deleteCheckin(id: number) {
+  return client.delete(`/admin/checkins/${id}`).then((r) => r.data);
+}
+
 export function exportCheckinGoogleSheet(params?: Record<string, string>) {
   return client
     .post<{ url: string; title: string }>('/admin/export/google-sheet', {}, { params })

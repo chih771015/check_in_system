@@ -10,6 +10,8 @@ import {
   MenuUnfoldOutlined,
   CheckSquareOutlined,
   SettingOutlined,
+  FileSearchOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 
@@ -48,6 +50,11 @@ export default function AppLayout() {
       icon: <SettingOutlined />,
       label: '定期匯出設定',
     },
+    {
+      key: '/admin/audit-logs',
+      icon: <FileSearchOutlined />,
+      label: '操作紀錄',
+    },
   ];
 
   const translatorMenuItems = [
@@ -55,6 +62,11 @@ export default function AppLayout() {
       key: '/my-schedules',
       icon: <CalendarOutlined />,
       label: '我的排班',
+    },
+    {
+      key: '/my-checkins',
+      icon: <HistoryOutlined />,
+      label: '我的打卡紀錄',
     },
   ];
 

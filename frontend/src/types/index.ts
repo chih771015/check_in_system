@@ -28,6 +28,7 @@ export interface ScheduleItem {
   patientName: string;
   note: string;
   checkinStatus: 'none' | 'arrived' | 'completed' | 'makeup';
+  recurrenceGroupId?: string | null;
 }
 
 export interface CheckinItem {
