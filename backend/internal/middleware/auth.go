@@ -14,19 +14,21 @@ import (
 
 // Claims represents the JWT claims payload.
 type Claims struct {
-	UserID uint   `json:"user_id"`
-	Role   string `json:"role"`
+	UserID       uint   `json:"user_id"`
+	Role         string `json:"role"`
+	MustChangePW bool   `json:"must_change_pw"`
 	jwt.RegisteredClaims
 }
 
 // GenerateToken creates a signed JWT for the given user.
-func GenerateToken(userID uint, role string) (string, error) {
+func GenerateToken(userID uint, role string, mustChangePW bool) (string, error) {
 	cfg := config.AppConfig
 	expiryDuration := time.Duration(cfg.JWTExpiryHrs) * time.Hour
 
 	claims := &Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:       userID,
+		Role:         role,
+		MustChangePW: mustChangePW,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiryDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -37,8 +39,9 @@ func GenerateToken(userID uint, role string) (string, error) {
 	return token.SignedString([]byte(cfg.JWTSecret))
 }
 
-// ParseToken validates a JWT string and extracts user ID and role.
-func ParseToken(tokenString string) (uint, string, error) {
+// ParseToken validates a JWT string and extracts user ID, role, and the
+// "must change password" flag.
+func ParseToken(tokenString string) (uint, string, bool, error) {
 	cfg := config.AppConfig
 
 	claims := &Claims{}
@@ -49,13 +52,13 @@ func ParseToken(tokenString string) (uint, string, error) {
 		return []byte(cfg.JWTSecret), nil
 	})
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
 	}
 	if !token.Valid {
-		return 0, "", errors.New("invalid token")
+		return 0, "", false, errors.New("invalid token")
 	}
 
-	return claims.UserID, claims.Role, nil
+	return claims.UserID, claims.Role, claims.MustChangePW, nil
 }
 
 // JWTAuth is a Gin middleware that validates the Bearer token and sets
@@ -76,7 +79,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
-		userID, role, err := ParseToken(parts[1])
+		userID, role, mustChangePW, err := ParseToken(parts[1])
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
@@ -85,6 +88,29 @@ func JWTAuth() gin.HandlerFunc {
 
 		c.Set("userID", userID)
 		c.Set("userRole", role)
+		c.Set("mustChangePW", mustChangePW)
+		c.Next()
+	}
+}
+
+// RequirePasswordChanged blocks any request whose token still carries the
+// must_change_pw flag. Apply this to every protected route group except
+// the change-password endpoint itself.
+func RequirePasswordChanged() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		v, exists := c.Get("mustChangePW")
+		if !exists {
+			c.Next()
+			return
+		}
+		if must, ok := v.(bool); ok && must {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":  "PASSWORD_CHANGE_REQUIRED",
+				"error": "password change required",
+			})
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }

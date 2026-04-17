@@ -18,6 +18,18 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"newPassword" binding:"required,min=6"`
 }
 
+// ChangePasswordResponse returns a new token after a successful password change
+// so the client can drop the stale "must change password" claim.
+type ChangePasswordResponse struct {
+	Message string `json:"message"`
+	Token   string `json:"token"`
+}
+
+// AdminResetPasswordRequest is the payload for admin-initiated password reset.
+type AdminResetPasswordRequest struct {
+	NewPassword string `json:"newPassword" binding:"required,min=8"`
+}
+
 // UserResponse is the safe user representation sent to clients.
 type UserResponse struct {
 	ID           uint   `json:"id"`

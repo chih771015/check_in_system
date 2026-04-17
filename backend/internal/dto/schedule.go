@@ -25,16 +25,17 @@ type UpdateScheduleRequest struct {
 
 // ScheduleResponse represents a schedule with checkin status.
 type ScheduleResponse struct {
-	ID             uint   `json:"id"`
-	TranslatorID   uint   `json:"translatorId"`
-	TranslatorName string `json:"translatorName"`
-	Date           string `json:"date"`
-	StartTime      string `json:"startTime"`
-	EndTime        string `json:"endTime"`
-	Location       string `json:"location"`
-	PatientName    string `json:"patientName"`
-	Note           string `json:"note"`
-	CheckinStatus  string `json:"checkinStatus"`
+	ID                uint    `json:"id"`
+	TranslatorID      uint    `json:"translatorId"`
+	TranslatorName    string  `json:"translatorName"`
+	Date              string  `json:"date"`
+	StartTime         string  `json:"startTime"`
+	EndTime           string  `json:"endTime"`
+	Location          string  `json:"location"`
+	PatientName       string  `json:"patientName"`
+	Note              string  `json:"note"`
+	CheckinStatus     string  `json:"checkinStatus"`
+	RecurrenceGroupID *string `json:"recurrenceGroupId,omitempty"`
 }
 
 // ScheduleListQuery holds optional query parameters for listing schedules.

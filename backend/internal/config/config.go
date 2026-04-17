@@ -17,6 +17,16 @@ type Config struct {
 	UploadDir             string
 	Port                  string
 	GoogleCredentialsFile string
+	SMTPHost              string
+	SMTPPort              string
+	SMTPUser              string
+	SMTPPassword          string
+	SMTPFrom              string
+	MaxLoginAttempts      int
+	LockDurationMinutes   int
+	PhotoRetentionDays    int
+	AdminDefaultPassword  string
+	LineChannelAccessToken string
 }
 
 // AppConfig is the global configuration instance.
@@ -31,6 +41,27 @@ func Load() *Config {
 		}
 	}
 
+	maxLoginAttempts := 5
+	if v := os.Getenv("MAX_LOGIN_ATTEMPTS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			maxLoginAttempts = parsed
+		}
+	}
+
+	lockDurationMinutes := 15
+	if v := os.Getenv("LOCK_DURATION_MINUTES"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			lockDurationMinutes = parsed
+		}
+	}
+
+	photoRetentionDays := 90
+	if v := os.Getenv("PHOTO_RETENTION_DAYS"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			photoRetentionDays = parsed
+		}
+	}
+
 	cfg := &Config{
 		DBHost:                getEnv("DB_HOST", "localhost"),
 		DBPort:                getEnv("DB_PORT", "5432"),
@@ -42,6 +73,16 @@ func Load() *Config {
 		UploadDir:             getEnv("UPLOAD_DIR", "./uploads"),
 		Port:                  getEnv("PORT", "8080"),
 		GoogleCredentialsFile: getEnv("GOOGLE_CREDENTIALS_FILE", ""),
+		SMTPHost:              getEnv("SMTP_HOST", ""),
+		SMTPPort:              getEnv("SMTP_PORT", "587"),
+		SMTPUser:              getEnv("SMTP_USER", ""),
+		SMTPPassword:          getEnv("SMTP_PASSWORD", ""),
+		SMTPFrom:               getEnv("SMTP_FROM", ""),
+		MaxLoginAttempts:       maxLoginAttempts,
+		LockDurationMinutes:   lockDurationMinutes,
+		PhotoRetentionDays:    photoRetentionDays,
+		AdminDefaultPassword:  getEnv("ADMIN_DEFAULT_PASSWORD", ""),
+		LineChannelAccessToken: getEnv("LINE_CHANNEL_ACCESS_TOKEN", ""),
 	}
 
 	AppConfig = cfg

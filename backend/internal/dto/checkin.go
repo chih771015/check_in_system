@@ -15,6 +15,14 @@ type CheckinMakeupRequest struct {
 	MakeupReason string `form:"makeupReason" binding:"required"`
 }
 
+// AdminUpdateCheckinRequest is the payload for an admin editing a checkin record.
+// Only mutable, non-photo fields are allowed.
+type AdminUpdateCheckinRequest struct {
+	CheckinTime  *time.Time `json:"checkinTime"`
+	Address      *string    `json:"address"`
+	MakeupReason *string    `json:"makeupReason"`
+}
+
 // CheckinResponse is returned after a successful check-in.
 type CheckinResponse struct {
 	ID             uint      `json:"id"`
