@@ -26,11 +26,16 @@ func (r *ExportScheduleRepository) WithCtx(ctx context.Context) *ExportScheduleR
 }
 
 // Upsert inserts or updates an export schedule for the given admin.
+// We use Select() to force GORM to include all named columns in the INSERT
+// statement, even zero-value booleans (enabled=false), so that the
+// ON CONFLICT DO UPDATE clause can assign EXCLUDED.enabled correctly.
 func (r *ExportScheduleRepository) Upsert(es *model.ExportSchedule) error {
-	return r.db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "admin_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"frequency", "day_of_month", "format", "email_to", "enabled", "updated_at"}),
-	}).Create(es).Error
+	return r.db.
+		Select("admin_id", "frequency", "day_of_month", "format", "email_to", "enabled", "updated_at").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "admin_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"frequency", "day_of_month", "format", "email_to", "enabled", "updated_at"}),
+		}).Create(es).Error
 }
 
 // FindByAdmin returns the export schedule for a given admin ID.

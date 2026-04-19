@@ -35,7 +35,7 @@ type ScheduleResponse struct {
 	PatientName       string  `json:"patientName"`
 	Note              string  `json:"note"`
 	CheckinStatus     string  `json:"checkinStatus"`
-	RecurrenceGroupID *string `json:"recurrenceGroupId,omitempty"`
+	RecurrenceGroupID *string `json:"recurrenceGroupId"`
 }
 
 // ScheduleListQuery holds optional query parameters for listing schedules.
