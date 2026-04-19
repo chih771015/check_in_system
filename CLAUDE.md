@@ -33,3 +33,10 @@ When making large changes across multiple files, organize commits by logical lay
 6. Documentation / Reports
 
 Each commit message should include a Chinese summary and a bullet list of what changed and why.
+
+**Mandatory: Changelog file after every task**
+After every staged commit, write a markdown file to `changelogs/`:
+- Filename: `changelogs/YYYY-MM-DD_簡短描述.md`
+- Content: date, commit hashes + messages, summary of what was done, affected modules, notes
+- Commit the changelog file as the final commit of the session (or include in last layer)
+- Use `/staged-commit` slash command which enforces this step
