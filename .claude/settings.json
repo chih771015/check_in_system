@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'git rev-parse --git-dir > /dev/null 2>&1 || exit 0; if [ -n \"$(git status --porcelain 2>/dev/null)\" ]; then echo \"仍有未提交的變更，請依照 staged-commit 工作流程進行分層 commit，並撰寫這次工作的更動報告\"; exit 2; fi'",
+            "asyncRewake": true,
+            "statusMessage": "檢查未提交變更...",
+            "rewakeSummary": "有未提交變更需要收尾"
+          }
+        ]
+      }
+    ]
+  }
+}

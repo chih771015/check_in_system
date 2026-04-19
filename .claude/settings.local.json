@@ -16,7 +16,15 @@
       "Read(//Applications/Docker.app/**)",
       "Bash(/usr/local/cli-plugins/docker-compose version:*)",
       "Bash(docker info:*)",
-      "Bash(/usr/local/cli-plugins/docker-compose up:*)"
+      "Bash(/usr/local/cli-plugins/docker-compose up:*)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)",
+      "Bash(git apply *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(bash -c 'git rev-parse --git-dir > /dev/null 2>&1 || exit 0; if [ -n \"$\\(git status --porcelain 2>/dev/null\\)\" ]; then echo \"有未提交變更\"; exit 2; fi; echo \"無變更\"')"
     ]
   }
 }
