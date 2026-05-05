@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Backend — runtime generated
+backend/uploads/
+backend/*.log
+backend/tmp/
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
+
+# Go build cache (local)
+backend/vendor/
+
+# Environment secrets (never commit)
+.env
+.env.local
+.env.*.local
+
+# Claude Code local overrides (already gitignored via settings.local.json rule, belt-and-suspenders)
+.claude/settings.local.json
