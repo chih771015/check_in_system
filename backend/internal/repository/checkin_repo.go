@@ -69,6 +69,21 @@ func (r *CheckinRepository) Delete(id uint) error {
 	return r.db.Delete(&model.Checkin{}, id).Error
 }
 
+// DeleteByScheduleID removes all checkins belonging to the given schedule.
+// Called before deleting a schedule to satisfy the FK constraint.
+func (r *CheckinRepository) DeleteByScheduleID(scheduleID uint) error {
+	return r.db.Where("schedule_id = ?", scheduleID).Delete(&model.Checkin{}).Error
+}
+
+// DeleteByScheduleIDs removes all checkins belonging to any of the given schedules.
+// Called before bulk-deleting a recurrence group.
+func (r *CheckinRepository) DeleteByScheduleIDs(scheduleIDs []uint) error {
+	if len(scheduleIDs) == 0 {
+		return nil
+	}
+	return r.db.Where("schedule_id IN ?", scheduleIDs).Delete(&model.Checkin{}).Error
+}
+
 // ListAllParams holds optional filter parameters.
 type ListAllParams struct {
 	DateFrom     string

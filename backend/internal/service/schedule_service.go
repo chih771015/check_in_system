@@ -304,11 +304,15 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 }
 
 // Delete removes a schedule by ID.
+// Associated checkins are deleted first to satisfy the FK constraint.
 func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
 	repo := s.scheduleRepo.WithCtx(ctx)
 	_, err := repo.FindByID(id)
 	if err != nil {
 		return errors.New("schedule not found")
+	}
+	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
+		return err
 	}
 	return repo.Delete(id)
 }
@@ -316,6 +320,7 @@ func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
 // DeleteRecurrenceGroup removes every schedule sharing the same
 // recurrence_group_id as the given schedule. If the schedule isn't part of a
 // group, it falls back to deleting just that single record.
+// Associated checkins are deleted first to satisfy the FK constraint.
 func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (int64, error) {
 	repo := s.scheduleRepo.WithCtx(ctx)
 	schedule, err := repo.FindByID(id)
@@ -323,10 +328,21 @@ func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (i
 		return 0, errors.New("schedule not found")
 	}
 	if schedule.RecurrenceGroupID == nil || *schedule.RecurrenceGroupID == "" {
+		if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
+			return 0, err
+		}
 		if err := repo.Delete(id); err != nil {
 			return 0, err
 		}
 		return 1, nil
+	}
+	// Bulk group delete: collect schedule IDs first, then delete checkins, then schedules.
+	scheduleIDs, err := repo.IDsByRecurrenceGroup(*schedule.RecurrenceGroupID)
+	if err != nil {
+		return 0, err
+	}
+	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleIDs(scheduleIDs); err != nil {
+		return 0, err
 	}
 	return repo.DeleteByRecurrenceGroup(*schedule.RecurrenceGroupID)
 }

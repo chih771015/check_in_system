@@ -95,6 +95,16 @@ func (r *ScheduleRepository) Delete(id uint) error {
 	return r.db.Delete(&model.Schedule{}, id).Error
 }
 
+// IDsByRecurrenceGroup returns the IDs of every schedule sharing the given
+// recurrence group, so the caller can delete related checkins first.
+func (r *ScheduleRepository) IDsByRecurrenceGroup(groupID string) ([]uint, error) {
+	var ids []uint
+	err := r.db.Model(&model.Schedule{}).
+		Where("recurrence_group_id = ?", groupID).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
 // DeleteByRecurrenceGroup deletes every schedule sharing the given recurrence
 // group id and returns the number of rows removed.
 func (r *ScheduleRepository) DeleteByRecurrenceGroup(groupID string) (int64, error) {
