@@ -96,3 +96,19 @@ func (r *UserRepository) LockUser(id uint, until time.Time) error {
 	return r.db.Model(&model.User{}).Where("id = ?", id).
 		Update("locked_until", until).Error
 }
+
+// FindAllAdmins returns all users with role = "admin", ordered by creation time.
+func (r *UserRepository) FindAllAdmins() ([]model.User, error) {
+	var users []model.User
+	if err := r.db.Where("role = ?", "admin").
+		Order("created_at ASC").Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+// DeleteByID hard-deletes a user by primary key.
+// The caller is responsible for verifying business rules (e.g. no self-delete).
+func (r *UserRepository) DeleteByID(id uint) error {
+	return r.db.Delete(&model.User{}, id).Error
+}
