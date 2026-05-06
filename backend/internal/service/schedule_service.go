@@ -370,11 +370,14 @@ func (s *ScheduleService) getCheckinStatus(ctx context.Context, scheduleID uint)
 		}
 	}
 
-	if hasMakeup {
-		return "makeup"
-	}
+	// "completed" takes priority: both arrive and leave are recorded,
+	// regardless of whether they were makeup or on-time.
 	if hasArrive && hasLeave {
 		return "completed"
+	}
+	// Makeup arrive done but leave still pending.
+	if hasMakeup {
+		return "makeup"
 	}
 	if hasArrive {
 		return "arrived"

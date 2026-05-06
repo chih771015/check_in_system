@@ -43,8 +43,15 @@ export default function MySchedules() {
   }, [fetchSchedules]);
 
   const isPast = (schedule: ScheduleItem) => {
-    const today = new Date().toISOString().slice(0, 10);
-    return schedule.date < today;
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (schedule.date < today) return true;
+    if (schedule.date > today) return false;
+    // 同一天：比對排班結束時間，超過才算「過期」
+    const [endH, endM] = schedule.endTime.split(':').map(Number);
+    const endAt = new Date();
+    endAt.setHours(endH, endM, 0, 0);
+    return now > endAt;
   };
 
   const renderActions = (schedule: ScheduleItem) => {
@@ -89,6 +96,15 @@ export default function MySchedules() {
     }
 
     if (schedule.checkinStatus === 'arrived' && past) {
+      return (
+        <Button onClick={() => navigate(`/makeup/${schedule.id}/leave`)}>
+          補打卡(離開)
+        </Button>
+      );
+    }
+
+    // 補打卡到達已完成，但離開尚未打卡
+    if (schedule.checkinStatus === 'makeup') {
       return (
         <Button onClick={() => navigate(`/makeup/${schedule.id}/leave`)}>
           補打卡(離開)
