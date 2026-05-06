@@ -5,6 +5,7 @@ import AppLayout from './components/AppLayout';
 import LoginPage from './pages/Login';
 import ChangePasswordPage from './pages/ChangePassword';
 import TranslatorManagement from './pages/admin/TranslatorManagement';
+import AdminManagement from './pages/admin/AdminManagement';
 import ScheduleManagement from './pages/admin/ScheduleManagement';
 import CheckinRecords from './pages/admin/CheckinRecords';
 import ExportSettings from './pages/admin/ExportSettings';
@@ -91,6 +92,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <AuditLogs />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/admins"
+          element={
+            <RequireAdmin>
+              <AdminManagement />
             </RequireAdmin>
           }
         />

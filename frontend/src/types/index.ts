@@ -48,6 +48,14 @@ export interface CheckinItem {
   createdAt: string;
 }
 
+export interface AdminListItem {
+  id: number;
+  email: string;
+  name: string;
+  status: 'active' | 'disabled';
+  createdAt: string;
+}
+
 export interface LoginResponse {
   token: string;
   user: User;
