@@ -24,8 +24,8 @@ if [ -f "$HEAD_FILE" ]; then
   NOW=$(git rev-parse HEAD 2>/dev/null)
 
   if [ "$START" != "$NOW" ]; then
-    CHANGELOG_COUNT=$(git log "${START}..HEAD" --name-only --format="" -- changelogs/ 2>/dev/null | grep -c "." 2>/dev/null || echo 0)
-    if [ "$CHANGELOG_COUNT" -eq 0 ]; then
+    CHANGELOG_FILES=$(git log "${START}..HEAD" --name-only --format="" -- changelogs/ 2>/dev/null)
+    if [ -z "$CHANGELOG_FILES" ]; then
       echo "本次 session 有新 commit 但缺少更動報告，請補寫 changelogs/YYYY-MM-DD_描述.md 並 commit"
       exit 2
     fi
