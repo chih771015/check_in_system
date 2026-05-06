@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const client = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  // 使用相對路徑，讓 nginx（Docker）或 Vite dev proxy 統一轉發
+  // 避免 baseURL 寫死 localhost 導致外部瀏覽器打到本機
+  baseURL: '/api',
 });
 
 client.interceptors.request.use((config) => {
