@@ -28,7 +28,8 @@ export default function MySchedules() {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
-      if (!showHistory) params.upcoming = 'true';
+      // 不顯示歷史時，只撈今天（含）以後的排班
+      if (!showHistory) params.date_from = new Date().toISOString().slice(0, 10);
       const list = await getMySchedules(params);
       setSchedules(list);
     } catch {
