@@ -1,9 +1,12 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
+
+const insecureDefaultSecret = "dev-secret-key-change-in-production"
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
@@ -83,6 +86,16 @@ func Load() *Config {
 		PhotoRetentionDays:    photoRetentionDays,
 		AdminDefaultPassword:  getEnv("ADMIN_DEFAULT_PASSWORD", ""),
 		LineChannelAccessToken: getEnv("LINE_CHANNEL_ACCESS_TOKEN", ""),
+	}
+
+	// Enforce strong JWT_SECRET — refuse to boot with the insecure default
+	// or any secret shorter than 32 characters.
+	if cfg.JWTSecret == insecureDefaultSecret || len(cfg.JWTSecret) < 32 {
+		fmt.Fprintln(os.Stderr,
+			"FATAL: JWT_SECRET is insecure (default value or length < 32 characters).\n"+
+				"Set a strong secret in the JWT_SECRET environment variable before starting.\n"+
+				"Generate one with: openssl rand -hex 32")
+		os.Exit(1)
 	}
 
 	AppConfig = cfg
