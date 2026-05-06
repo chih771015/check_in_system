@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import type { CheckinItem } from '../../types';
 import { getMyCheckins, getMyCheckinStats, type MyCheckinStats } from '../../api/checkins';
+import MapLink from '../../components/MapLink';
 
 const { RangePicker } = DatePicker;
 
@@ -53,8 +54,11 @@ export default function MyCheckinsPage() {
     },
     {
       title: '地址',
-      dataIndex: 'address',
+      key: 'address',
       ellipsis: true,
+      render: (_: unknown, r: CheckinItem) => (
+        <MapLink latitude={r.latitude} longitude={r.longitude} address={r.address} />
+      ),
     },
     {
       title: '補打卡',

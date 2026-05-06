@@ -13,6 +13,7 @@ import {
   Input,
   App,
 } from 'antd';
+import MapLink from '../../components/MapLink';
 import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
 import type { CheckinItem, TranslatorListItem } from '../../types';
 import {
@@ -170,7 +171,13 @@ export default function CheckinRecords() {
         return <Tag color={info.color}>{info.label}</Tag>;
       },
     },
-    { title: '地址', dataIndex: 'address', key: 'address' },
+    {
+      title: '地址',
+      key: 'address',
+      render: (_: unknown, r: CheckinItem) => (
+        <MapLink latitude={r.latitude} longitude={r.longitude} address={r.address} />
+      ),
+    },
     {
       title: '補打卡',
       dataIndex: 'isMakeup',
@@ -305,12 +312,17 @@ export default function CheckinRecords() {
               <div>{new Date(detailRecord.checkinTime).toLocaleString('zh-TW')}</div>
             </div>
             <div>
-              <Typography.Text type="secondary">GPS 地址</Typography.Text>
-              <div>{detailRecord.address || '—'}</div>
-            </div>
-            <div>
-              <Typography.Text type="secondary">GPS 座標</Typography.Text>
-              <div>{detailRecord.latitude}, {detailRecord.longitude}</div>
+              <Typography.Text type="secondary">GPS 位置</Typography.Text>
+              <div>
+                <MapLink
+                  latitude={detailRecord.latitude}
+                  longitude={detailRecord.longitude}
+                  address={detailRecord.address}
+                />
+              </div>
+              <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+                {detailRecord.latitude.toFixed(6)}, {detailRecord.longitude.toFixed(6)}
+              </div>
             </div>
             {detailRecord.isMakeup && (
               <div>
