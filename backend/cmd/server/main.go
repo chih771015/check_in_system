@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -32,6 +34,20 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// CLI mode: -reset-password <email> <newPassword>
+	// Usage: docker exec thai-backend ./server -reset-password admin@admin.com "NewPass123"
+	resetPW := flag.Bool("reset-password", false, "Reset a user's password (CLI mode)")
+	flag.Parse()
+	if *resetPW {
+		args := flag.Args()
+		if len(args) != 2 {
+			fmt.Fprintln(os.Stderr, "Usage: server -reset-password <email> <newPassword>")
+			os.Exit(1)
+		}
+		runResetPassword(cfg, args[0], args[1])
+		os.Exit(0)
+	}
 
 	// Initialize OpenTelemetry tracing (OTLP → Jaeger). If the collector is
 	// down we still boot — spans will be dropped, not the app.
@@ -97,6 +113,7 @@ func main() {
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
+	adminService := service.NewAdminService(userRepo)
 	translatorService := service.NewTranslatorService(userRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, checkinRepo, userRepo)
 	geocodingService := service.NewGeocodingService()
@@ -109,6 +126,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
+	adminHandler := handler.NewAdminHandler(adminService, auditService)
 	translatorHandler := handler.NewTranslatorHandler(translatorService, authService, auditService)
 	scheduleHandler := handler.NewScheduleHandler(scheduleService, auditService)
 	checkinHandler := handler.NewCheckinHandler(checkinService, exportService, auditService)
@@ -191,6 +209,11 @@ func main() {
 
 			// Audit logs
 			admin.GET("/audit-logs", auditHandler.ListAuditLogs)
+
+			// Admin account management
+			admin.GET("/admins", adminHandler.ListAdmins)
+			admin.POST("/admins", adminHandler.CreateAdmin)
+			admin.DELETE("/admins/:id", adminHandler.DeleteAdmin)
 		}
 
 		// Translator routes
@@ -349,4 +372,30 @@ func ternary(cond bool, a, b string) string {
 		return a
 	}
 	return b
+}
+
+// runResetPassword connects to DB and resets a user's password directly.
+// Intended for emergency recovery inside the Docker container.
+func runResetPassword(cfg *config.Config, email, newPW string) {
+	if len(newPW) < 8 {
+		fmt.Fprintln(os.Stderr, "Error: new password must be at least 8 characters")
+		os.Exit(1)
+	}
+	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("[reset-password] DB connect failed: %v", err)
+	}
+	userRepo := repository.NewUserRepository(db)
+	user, err := userRepo.FindByEmail(email)
+	if err != nil {
+		log.Fatalf("[reset-password] User not found: %s", email)
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPW), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("[reset-password] Hash failed: %v", err)
+	}
+	if err := userRepo.UpdatePasswordAndForceChange(user.ID, string(hash)); err != nil {
+		log.Fatalf("[reset-password] Update failed: %v", err)
+	}
+	log.Printf("[reset-password] Password reset for %s (id=%d). must_change_pw=true", email, user.ID)
 }
