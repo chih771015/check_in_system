@@ -2,6 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type GeoState = 'idle' | 'requesting' | 'success' | 'denied' | 'unavailable' | 'timeout';
 
+/** Nominatim reverse geocoding（與後端使用相同服務）。失敗時回傳 null，不阻斷打卡。 */
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=zh-TW`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'translator-checkin/1.0' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { display_name?: string };
+    return data.display_name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface GeolocationResult {
   state: GeoState;
   latitude: number | null;
@@ -42,12 +57,16 @@ export function useGeolocation(): GeolocationResult {
     setState('requesting');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLatitude(pos.coords.latitude);
-        setLongitude(pos.coords.longitude);
-        setAddress(
-          `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`,
-        );
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setLatitude(lat);
+        setLongitude(lng);
+        // 先顯示座標，Nominatim 回來後換成文字地址
+        setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
         setState('success');
+        reverseGeocode(lat, lng).then((name) => {
+          if (name) setAddress(name);
+        });
       },
       (err) => {
         if (err.code === GeolocationPositionError.PERMISSION_DENIED) {

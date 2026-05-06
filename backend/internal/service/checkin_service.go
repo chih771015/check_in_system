@@ -78,6 +78,22 @@ func (s *CheckinService) Checkin(
 		}
 	}
 
+	// Auto-detect late / out-of-window checkin.
+	// If the current time is past the schedule end time and the caller did not
+	// explicitly flag this as a makeup, mark it as makeup automatically so it
+	// shows up correctly in admin reports.
+	if !isMakeup {
+		dateStr := schedule.Date.Format("2006-01-02")
+		if endLocal, perr := time.ParseInLocation("2006-01-02 15:04", dateStr+" "+schedule.EndTime, time.Local); perr == nil {
+			if time.Now().After(endLocal) {
+				isMakeup = true
+				if makeupReason == "" {
+					makeupReason = "打卡時間超過排班結束時間（系統自動標記）"
+				}
+			}
+		}
+	}
+
 	// If address is missing, attempt reverse geocoding. Failures are silently
 	// ignored so we never block a checkin over a third-party outage.
 	if address == "" && s.geocoding != nil && (lat != 0 || lng != 0) {
