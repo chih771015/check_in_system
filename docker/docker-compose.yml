@@ -51,6 +51,9 @@ services:
       DEPLOY_ENV: dev
     volumes:
       - ../backend/uploads:/app/uploads
+      # Google Service Account 憑證（選填）
+      # 將下載的 JSON 放到 backend/google-credentials.json 後取消下一行註解
+      # - ../backend/google-credentials.json:/app/google-credentials.json:ro
 
   frontend:
     build:
