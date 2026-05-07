@@ -109,6 +109,7 @@ export default function AppLayout() {
   const menuItems = isAdmin ? adminMenuItems : translatorMenuItems;
 
   return (
+    <>
     <Layout style={{ minHeight: '100vh' }}>
       <Sider
         collapsible
@@ -211,5 +212,6 @@ export default function AppLayout() {
           </Form.Item>
         </Form>
       </Modal>
+    </>
   );
 }

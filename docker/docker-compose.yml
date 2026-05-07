@@ -41,7 +41,6 @@ services:
       - ../backend/.env
     environment:
       DB_HOST: postgres
-      JWT_SECRET: ${JWT_SECRET}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
