@@ -12,7 +12,7 @@ import {
   Space,
   App,
 } from 'antd';
-import { PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
 import type { UploadProps } from 'antd';
 import type { ScheduleItem, TranslatorListItem } from '../../types';
@@ -25,6 +25,23 @@ import {
   importSchedules,
 } from '../../api/schedules';
 import { getTranslators } from '../../api/translators';
+import * as XLSX from 'xlsx';
+
+function downloadImportTemplate() {
+  const headers = ['翻譯員ID', '日期(YYYY-MM-DD)', '開始時間(HH:mm)', '結束時間(HH:mm)', '地點', '病患姓名', '備註(選填)'];
+  const example = [3, '2026-05-10', '09:00', '12:00', '台大醫院門診', '王小明', ''];
+  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+
+  // 欄位寬度
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
+    { wch: 20 }, { wch: 12 }, { wch: 16 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '排班匯入範本');
+  XLSX.writeFile(wb, '排班匯入範本.xlsx');
+}
 
 const { RangePicker } = DatePicker;
 
@@ -359,6 +376,9 @@ export default function ScheduleManagement() {
           onSearch={handleLocationSearch}
         />
         <div style={{ flex: 1 }} />
+        <Button icon={<DownloadOutlined />} onClick={downloadImportTemplate}>
+          下載匯入範本
+        </Button>
         <Upload
           {...({
             accept: '.xlsx,.xls',
