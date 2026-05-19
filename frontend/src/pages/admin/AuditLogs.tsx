@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Typography, DatePicker, Select, Space, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
+import { useTranslation } from 'react-i18next';
 import { getAuditLogs, type AuditLog } from '../../api/audit';
 
 const { RangePicker } = DatePicker;
@@ -18,20 +19,11 @@ const actionColors: Record<string, string> = {
   update_checkin: 'blue',
   delete_checkin: 'red',
   import_schedules: 'purple',
-};
-
-const actionLabels: Record<string, string> = {
-  create_translator: '新增翻譯員',
-  update_translator: '修改翻譯員',
-  disable_translator: '停用翻譯員',
-  reset_password: '重設密碼',
-  create_schedule: '新增排班',
-  update_schedule: '修改排班',
-  delete_schedule: '刪除排班',
-  delete_schedule_group: '刪除整組排班',
-  update_checkin: '修改打卡',
-  delete_checkin: '刪除打卡',
-  import_schedules: '批次匯入排班',
+  create_admin: 'green',
+  delete_admin: 'red',
+  create_patient: 'green',
+  update_patient: 'blue',
+  delete_patient: 'red',
 };
 
 export default function AuditLogs() {
@@ -43,6 +35,7 @@ export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState<string | undefined>();
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -55,67 +48,51 @@ export default function AuditLogs() {
       setData(resp.data || []);
       setTotal(resp.total || 0);
     } catch {
-      message.error('載入操作紀錄失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, actionFilter, dateRange, message]);
+  }, [page, pageSize, actionFilter, dateRange, message, t]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  const allActions = Object.keys(actionColors);
+
   const columns: ColumnsType<AuditLog> = [
     {
-      title: '時間',
+      title: t('audit.action'),
       dataIndex: 'created_at',
       width: 170,
       render: (v) => dayjs(v).format('YYYY-MM-DD HH:mm:ss'),
     },
+    { title: t('audit.operator'), dataIndex: 'admin_name', width: 140 },
     {
-      title: '操作者',
-      dataIndex: 'admin_name',
-      width: 140,
-    },
-    {
-      title: '動作',
+      title: t('audit.action'),
       dataIndex: 'action',
-      width: 160,
-      render: (v: string) => (
-        <Tag color={actionColors[v] || 'default'}>{actionLabels[v] || v}</Tag>
-      ),
+      width: 200,
+      render: (v: string) => <Tag color={actionColors[v] || 'default'}>{v}</Tag>,
     },
-    {
-      title: '對象類型',
-      dataIndex: 'target_type',
-      width: 120,
-    },
-    {
-      title: '對象 ID',
-      dataIndex: 'target_id',
-      width: 100,
-    },
-    {
-      title: '備註',
-      dataIndex: 'detail',
-      ellipsis: true,
-    },
+    { title: t('audit.targetType'), dataIndex: 'target_type', width: 120 },
+    { title: t('common.id'), dataIndex: 'target_id', width: 100 },
+    { title: t('audit.detailField'), dataIndex: 'detail', ellipsis: true },
   ];
 
   return (
     <div>
-      <Typography.Title level={4}>操作紀錄</Typography.Title>
+      <Typography.Title level={4}>{t('audit.title')}</Typography.Title>
       <Space style={{ marginBottom: 16 }}>
         <Select
           allowClear
-          placeholder="所有動作"
+          placeholder={t('audit.filterAction')}
           style={{ width: 200 }}
           value={actionFilter}
           onChange={(v) => {
             setPage(1);
             setActionFilter(v);
           }}
-          options={Object.entries(actionLabels).map(([k, v]) => ({ value: k, label: v }))}
+          options={allActions.map((k) => ({ value: k, label: k }))}
         />
         <RangePicker
           onChange={(range) => {

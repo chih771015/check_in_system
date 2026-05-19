@@ -15,6 +15,7 @@ import {
 import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
 import type { UploadProps } from 'antd';
+import { useTranslation } from 'react-i18next';
 import type { ScheduleItem, TranslatorListItem } from '../../types';
 import {
   getAdminSchedules,
@@ -28,28 +29,25 @@ import { getTranslators } from '../../api/translators';
 import * as XLSX from 'xlsx';
 
 function downloadImportTemplate() {
-  const headers = ['翻譯員ID', '日期(YYYY-MM-DD)', '開始時間(HH:mm)', '結束時間(HH:mm)', '地點', '病患姓名', '備註(選填)'];
-  const example = [3, '2026-05-10', '09:00', '12:00', '台大醫院門診', '王小明', ''];
+  const headers = ['TranslatorID', 'Date(YYYY-MM-DD)', 'StartTime(HH:mm)', 'EndTime(HH:mm)', 'Location', 'PatientName', 'Note(optional)'];
+  const example = [3, '2026-05-10', '09:00', '12:00', 'NTU Hospital', 'John Doe', ''];
   const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-
-  // 欄位寬度
   ws['!cols'] = [
     { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
     { wch: 20 }, { wch: 12 }, { wch: 16 },
   ];
-
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '排班匯入範本');
-  XLSX.writeFile(wb, '排班匯入範本.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, 'schedule_template.xlsx');
 }
 
 const { RangePicker } = DatePicker;
 
-const statusTagMap: Record<string, { color: string; label: string }> = {
-  none: { color: 'default', label: '未打卡' },
-  arrived: { color: 'orange', label: '已到達' },
-  completed: { color: 'green', label: '已完成' },
-  makeup: { color: 'blue', label: '補打卡' },
+const statusColorMap: Record<string, string> = {
+  none: 'default',
+  arrived: 'orange',
+  completed: 'green',
+  makeup: 'blue',
 };
 
 export default function ScheduleManagement() {
@@ -63,6 +61,7 @@ export default function ScheduleManagement() {
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const { message, modal } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -70,11 +69,11 @@ export default function ScheduleManagement() {
       const list = await getAdminSchedules(filters);
       setData(list);
     } catch {
-      message.error('載入排班列表失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [filters, message]);
+  }, [filters, message, t]);
 
   const fetchTranslators = useCallback(async () => {
     try {
@@ -106,12 +105,12 @@ export default function ScheduleManagement() {
         payload.recurrenceUntil = (values.recurrenceUntil as { format: (f: string) => string }).format('YYYY-MM-DD');
       }
       await createSchedule(payload as Parameters<typeof createSchedule>[0]);
-      message.success('新增成功');
+      message.success(t('common.success'));
       setCreateOpen(false);
       createForm.resetFields();
       void fetchData();
     } catch {
-      message.error('新增失敗');
+      message.error(t('common.failed'));
     }
   };
 
@@ -128,28 +127,28 @@ export default function ScheduleManagement() {
         note: (values.note as string) || undefined,
       };
       await updateSchedule(editingRecord.id, payload);
-      message.success('更新成功');
+      message.success(t('common.success'));
       setEditOpen(false);
       void fetchData();
     } catch {
-      message.error('更新失敗');
+      message.error(t('common.failed'));
     }
   };
 
   const handleDelete = (record: ScheduleItem) => {
     modal.confirm({
-      title: '確認刪除',
-      content: `確定要刪除此排班嗎？`,
-      okText: '確認',
-      cancelText: '取消',
+      title: t('common.confirm'),
+      content: t('schedules.confirmDelete'),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await deleteSchedule(record.id);
-          message.success('已刪除');
+          message.success(t('common.success'));
           void fetchData();
         } catch {
-          message.error('刪除失敗');
+          message.error(t('common.failed'));
         }
       },
     });
@@ -157,18 +156,18 @@ export default function ScheduleManagement() {
 
   const handleDeleteGroup = (record: ScheduleItem) => {
     modal.confirm({
-      title: '刪除整組重複排班',
-      content: `確定要刪除此排班所屬的整組重複排班嗎？此操作無法復原。`,
-      okText: '刪除整組',
-      cancelText: '取消',
+      title: t('schedules.deleteGroup'),
+      content: t('schedules.confirmDeleteGroup'),
+      okText: t('schedules.deleteGroup'),
+      cancelText: t('common.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          const res = await deleteScheduleGroup(record.id);
-          message.success(`已刪除整組 ${res?.deleted ?? ''} 筆排班`);
+          await deleteScheduleGroup(record.id);
+          message.success(t('common.success'));
           void fetchData();
         } catch {
-          message.error('刪除整組失敗');
+          message.error(t('common.failed'));
         }
       },
     });
@@ -223,39 +222,34 @@ export default function ScheduleManagement() {
   };
 
   const columns = [
-    { title: '日期', dataIndex: 'date', key: 'date', width: 110 },
+    { title: t('schedules.date'), dataIndex: 'date', key: 'date', width: 110 },
     {
-      title: '時間',
+      title: t('schedules.startTime'),
       key: 'time',
       width: 120,
       render: (_: unknown, r: ScheduleItem) => `${r.startTime} - ${r.endTime}`,
     },
-    { title: '翻譯員', dataIndex: 'translatorName', key: 'translatorName' },
-    { title: '地點', dataIndex: 'location', key: 'location' },
-    { title: '病患姓名', dataIndex: 'patientName', key: 'patientName' },
+    { title: t('schedules.translator'), dataIndex: 'translatorName', key: 'translatorName' },
+    { title: t('schedules.location'), dataIndex: 'location', key: 'location' },
+    { title: t('schedules.patientName'), dataIndex: 'patientName', key: 'patientName' },
     {
-      title: '打卡狀態',
+      title: t('common.status'),
       dataIndex: 'checkinStatus',
       key: 'checkinStatus',
-      render: (status: string) => {
-        const info = statusTagMap[status] ?? statusTagMap.none;
-        return <Tag color={info.color}>{info.label}</Tag>;
-      },
+      render: (status: string) => (
+        <Tag color={statusColorMap[status] ?? 'default'}>{status}</Tag>
+      ),
     },
     {
-      title: '操作',
+      title: t('common.operation'),
       key: 'action',
       render: (_: unknown, record: ScheduleItem) => (
         <Space wrap>
-          <Button size="small" onClick={() => openEdit(record)}>
-            編輯
-          </Button>
-          <Button size="small" danger onClick={() => handleDelete(record)}>
-            刪除
-          </Button>
+          <Button size="small" onClick={() => openEdit(record)}>{t('common.edit')}</Button>
+          <Button size="small" danger onClick={() => handleDelete(record)}>{t('common.delete')}</Button>
           {record.recurrenceGroupId && (
             <Button size="small" danger onClick={() => handleDeleteGroup(record)}>
-              刪除整組
+              {t('schedules.deleteGroup')}
             </Button>
           )}
         </Space>
@@ -263,51 +257,31 @@ export default function ScheduleManagement() {
     },
   ];
 
-  const translatorOptions = translators.map((t) => ({ value: t.id, label: t.name }));
+  const translatorOptions = translators.map((tr) => ({ value: tr.id, label: tr.name }));
 
   const scheduleFormFields = (
     <>
-      <Form.Item
-        name="translatorId"
-        label="翻譯員"
-        rules={[{ required: true, message: '請選擇翻譯員' }]}
-      >
-        <Select options={translatorOptions} placeholder="請選擇" showSearch optionFilterProp="label" />
+      <Form.Item name="translatorId" label={t('schedules.translator')} rules={[{ required: true }]}>
+        <Select options={translatorOptions} showSearch optionFilterProp="label" />
       </Form.Item>
-      <Form.Item name="date" label="日期" rules={[{ required: true, message: '請選擇日期' }]}>
+      <Form.Item name="date" label={t('schedules.date')} rules={[{ required: true }]}>
         <DatePicker style={{ width: '100%' }} />
       </Form.Item>
       <Space style={{ width: '100%' }} size="middle">
-        <Form.Item
-          name="startTime"
-          label="開始時間"
-          rules={[{ required: true, message: '請選擇開始時間' }]}
-        >
+        <Form.Item name="startTime" label={t('schedules.startTime')} rules={[{ required: true }]}>
           <TimePicker format="HH:mm" />
         </Form.Item>
-        <Form.Item
-          name="endTime"
-          label="結束時間"
-          rules={[{ required: true, message: '請選擇結束時間' }]}
-        >
+        <Form.Item name="endTime" label={t('schedules.endTime')} rules={[{ required: true }]}>
           <TimePicker format="HH:mm" />
         </Form.Item>
       </Space>
-      <Form.Item
-        name="location"
-        label="地點"
-        rules={[{ required: true, message: '請輸入地點' }]}
-      >
+      <Form.Item name="location" label={t('schedules.location')} rules={[{ required: true }]}>
         <Input />
       </Form.Item>
-      <Form.Item
-        name="patientName"
-        label="病患姓名"
-        rules={[{ required: true, message: '請輸入病患姓名' }]}
-      >
+      <Form.Item name="patientName" label={t('schedules.patientName')} rules={[{ required: true }]}>
         <Input />
       </Form.Item>
-      <Form.Item name="note" label="備註">
+      <Form.Item name="note" label={t('schedules.note')}>
         <Input.TextArea rows={2} />
       </Form.Item>
     </>
@@ -315,17 +289,16 @@ export default function ScheduleManagement() {
 
   const recurrenceFields = (
     <>
-      <Form.Item name="recurrenceRule" label="重複規則">
+      <Form.Item name="recurrenceRule" label={t('schedules.showHistory')}>
         <Select
           allowClear
-          placeholder="不重複"
           options={[
-            { value: 'daily', label: '每日' },
-            { value: 'weekly:1,3,5', label: '每週一三五' },
-            { value: 'weekly:2,4', label: '每週二四' },
-            { value: 'weekly:1,2,3,4,5', label: '每週一至五' },
-            { value: 'monthly:1', label: '每月1日' },
-            { value: 'monthly:15', label: '每月15日' },
+            { value: 'daily', label: 'Daily' },
+            { value: 'weekly:1,3,5', label: 'Mon/Wed/Fri' },
+            { value: 'weekly:2,4', label: 'Tue/Thu' },
+            { value: 'weekly:1,2,3,4,5', label: 'Mon-Fri' },
+            { value: 'monthly:1', label: 'Monthly day 1' },
+            { value: 'monthly:15', label: 'Monthly day 15' },
           ]}
         />
       </Form.Item>
@@ -335,12 +308,8 @@ export default function ScheduleManagement() {
       >
         {({ getFieldValue }) =>
           getFieldValue('recurrenceRule') ? (
-            <Form.Item
-              name="recurrenceUntil"
-              label="重複至"
-              rules={[{ required: true, message: '請選擇結束日期' }]}
-            >
-              <DatePicker style={{ width: '100%' }} placeholder="重複結束日期" />
+            <Form.Item name="recurrenceUntil" label={t('schedules.endTime')} rules={[{ required: true }]}>
+              <DatePicker style={{ width: '100%' }} />
             </Form.Item>
           ) : null
         }
@@ -359,11 +328,11 @@ export default function ScheduleManagement() {
           alignItems: 'center',
         }}
       >
-        <RangePicker onChange={handleDateRangeChange} placeholder={['開始日期', '結束日期']} />
+        <RangePicker onChange={handleDateRangeChange} />
         <Select
           style={{ width: 160 }}
           allowClear
-          placeholder="翻譯員"
+          placeholder={t('schedules.filterTranslator')}
           options={translatorOptions}
           onChange={(v) => handleTranslatorFilter(v ? String(v) : '')}
           showSearch
@@ -371,13 +340,13 @@ export default function ScheduleManagement() {
         />
         <Input.Search
           style={{ width: 200 }}
-          placeholder="搜尋地點"
+          placeholder={t('schedules.searchLocation')}
           allowClear
           onSearch={handleLocationSearch}
         />
         <div style={{ flex: 1 }} />
         <Button icon={<DownloadOutlined />} onClick={downloadImportTemplate}>
-          下載匯入範本
+          {t('schedules.downloadTemplate')}
         </Button>
         <Upload
           {...({
@@ -388,22 +357,22 @@ export default function ScheduleManagement() {
                 .then((res) => {
                   if (res.failed && res.failed.length > 0) {
                     message.warning(
-                      `成功 ${res.success} 筆，失敗 ${res.failed.length} 筆（第一筆錯誤：${res.failed[0].error}）`,
+                      `${t('common.success')}: ${res.success}, ${t('common.failed')}: ${res.failed.length}`,
                     );
                   } else {
-                    message.success(`匯入成功 ${res.success} 筆`);
+                    message.success(`${t('common.success')}: ${res.success}`);
                   }
                   void fetchData();
                 })
-                .catch(() => message.error('匯入失敗'));
+                .catch(() => message.error(t('common.failed')));
               return false;
             },
           } as UploadProps)}
         >
-          <Button icon={<UploadOutlined />}>Excel 批次匯入</Button>
+          <Button icon={<UploadOutlined />}>{t('schedules.import')}</Button>
         </Upload>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-          新增排班
+          {t('schedules.add')}
         </Button>
       </div>
 
@@ -417,7 +386,7 @@ export default function ScheduleManagement() {
       />
 
       <Modal
-        title="新增排班"
+        title={t('schedules.add')}
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
@@ -428,18 +397,18 @@ export default function ScheduleManagement() {
           {recurrenceFields}
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              新增
+              {t('common.create')}
             </Button>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="編輯排班" open={editOpen} onCancel={() => setEditOpen(false)} footer={null}>
+      <Modal title={t('schedules.edit')} open={editOpen} onCancel={() => setEditOpen(false)} footer={null}>
         <Form form={editForm} onFinish={handleEdit} layout="vertical">
           {scheduleFormFields}
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              更新
+              {t('common.update')}
             </Button>
           </Form.Item>
         </Form>

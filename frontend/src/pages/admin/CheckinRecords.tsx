@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import MapLink from '../../components/MapLink';
 import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { CheckinItem, TranslatorListItem } from '../../types';
 import {
   getAdminCheckins,
@@ -27,9 +28,9 @@ import { getTranslators } from '../../api/translators';
 
 const { RangePicker } = DatePicker;
 
-const typeTagMap: Record<string, { color: string; label: string }> = {
-  arrive: { color: 'blue', label: '到達' },
-  leave: { color: 'green', label: '離開' },
+const typeColorMap: Record<string, string> = {
+  arrive: 'blue',
+  leave: 'green',
 };
 
 export default function CheckinRecords() {
@@ -43,6 +44,7 @@ export default function CheckinRecords() {
   const [editRecord, setEditRecord] = useState<CheckinItem | null>(null);
   const [editForm] = Form.useForm();
   const { message, modal } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -50,11 +52,11 @@ export default function CheckinRecords() {
       const list = await getAdminCheckins(filters);
       setData(Array.isArray(list) ? list : []);
     } catch {
-      message.error('載入打卡紀錄失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [filters, message]);
+  }, [filters, message, t]);
 
   useEffect(() => {
     void fetchData();
@@ -65,9 +67,9 @@ export default function CheckinRecords() {
     setExporting(true);
     try {
       await exportCheckinExcel(filters);
-      message.success('匯出成功');
+      message.success(t('common.success'));
     } catch {
-      message.error('匯出失敗');
+      message.error(t('errors.EXPORT_FAILED'));
     } finally {
       setExporting(false);
     }
@@ -94,28 +96,28 @@ export default function CheckinRecords() {
         address: values.address,
         makeupReason: values.makeupReason,
       });
-      message.success('打卡紀錄已更新');
+      message.success(t('common.success'));
       setEditRecord(null);
       void fetchData();
     } catch {
-      message.error('更新失敗');
+      message.error(t('common.failed'));
     }
   };
 
   const handleDeleteCheckin = (record: CheckinItem) => {
     modal.confirm({
-      title: '確認刪除',
-      content: `確定要刪除此打卡紀錄嗎？此操作無法復原。`,
-      okText: '確認刪除',
-      cancelText: '取消',
+      title: t('common.confirm'),
+      content: t('schedules.confirmDelete'),
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
           await deleteCheckin(record.id);
-          message.success('已刪除');
+          message.success(t('common.success'));
           void fetchData();
         } catch {
-          message.error('刪除失敗');
+          message.error(t('common.failed'));
         }
       },
     });
@@ -125,14 +127,14 @@ export default function CheckinRecords() {
     setExportingSheet(true);
     try {
       const res = await exportCheckinGoogleSheet(filters);
-      message.success('Google Sheet 建立成功');
+      message.success(t('common.success'));
       window.open(res.url, '_blank');
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      if (msg?.includes('not configured')) {
-        message.warning('尚未設定 Google 憑證，請聯絡系統管理員');
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      if (code === 'GOOGLE_NOT_CONFIGURED') {
+        message.warning(t('errors.GOOGLE_NOT_CONFIGURED'));
       } else {
-        message.error('Google Sheet 匯出失敗');
+        message.error(t('errors.EXPORT_FAILED'));
       }
     } finally {
       setExportingSheet(false);
@@ -154,67 +156,60 @@ export default function CheckinRecords() {
 
   const columns = [
     {
-      title: '打卡時間',
+      title: t('checkins.checkinTime'),
       dataIndex: 'checkinTime',
       key: 'checkinTime',
       width: 160,
-      render: (v: string) => new Date(v).toLocaleString('zh-TW'),
+      render: (v: string) => new Date(v).toLocaleString(),
     },
-    { title: '翻譯員', dataIndex: 'translatorName', key: 'translatorName', width: 100 },
+    { title: t('schedules.translator'), dataIndex: 'translatorName', key: 'translatorName', width: 100 },
     {
-      title: '類型',
+      title: t('common.status'),
       dataIndex: 'type',
       key: 'type',
       width: 80,
-      render: (t: string) => {
-        const info = typeTagMap[t] ?? { color: 'default', label: t };
-        return <Tag color={info.color}>{info.label}</Tag>;
-      },
+      render: (v: string) => (
+        <Tag color={typeColorMap[v] ?? 'default'}>{t(`checkins.type.${v}`)}</Tag>
+      ),
     },
     {
-      title: '地址',
+      title: t('checkins.address'),
       key: 'address',
       render: (_: unknown, r: CheckinItem) => (
         <MapLink latitude={r.latitude} longitude={r.longitude} address={r.address} />
       ),
     },
     {
-      title: '補打卡',
+      title: t('checkins.isMakeup'),
       dataIndex: 'isMakeup',
       key: 'isMakeup',
       width: 80,
-      render: (v: boolean) => (v ? <Tag color="orange">是</Tag> : <Tag>否</Tag>),
+      render: (v: boolean) => (v ? <Tag color="orange">{t('common.yes')}</Tag> : <Tag>{t('common.no')}</Tag>),
     },
     {
-      title: '操作',
+      title: t('common.operation'),
       key: 'action',
       width: 180,
       render: (_: unknown, record: CheckinItem) => (
         <Space>
-          <Button size="small" onClick={() => setDetailRecord(record)}>
-            詳情
-          </Button>
-          <Button size="small" onClick={() => openEditCheckin(record)}>
-            編輯
-          </Button>
-          <Button size="small" danger onClick={() => handleDeleteCheckin(record)}>
-            刪除
-          </Button>
+          <Button size="small" onClick={() => setDetailRecord(record)}>{t('common.detail')}</Button>
+          <Button size="small" onClick={() => openEditCheckin(record)}>{t('common.edit')}</Button>
+          <Button size="small" danger onClick={() => handleDeleteCheckin(record)}>{t('common.delete')}</Button>
         </Space>
       ),
     },
   ];
 
-  const translatorOptions = translators.map((t) => ({ value: String(t.id), label: t.name }));
+  const translatorOptions = translators.map((tr) => ({ value: String(tr.id), label: tr.name }));
 
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-        <RangePicker onChange={handleDateChange} placeholder={['開始日期', '結束日期']} />
+        <RangePicker onChange={handleDateChange} />
         <Select
           style={{ width: 140 }}
           allowClear
-          placeholder="翻譯員"
+          placeholder={t('schedules.translator')}
           options={translatorOptions}
           onChange={(v) =>
             setFilters((prev) => {
@@ -226,12 +221,12 @@ export default function CheckinRecords() {
           }
         />
         <Select
-          style={{ width: 110 }}
+          style={{ width: 120 }}
           allowClear
-          placeholder="類型"
+          placeholder={t('checkins.filterType')}
           options={[
-            { value: 'arrive', label: '到達' },
-            { value: 'leave', label: '離開' },
+            { value: 'arrive', label: t('checkins.type.arrive') },
+            { value: 'leave', label: t('checkins.type.leave') },
           ]}
           onChange={(v) =>
             setFilters((prev) => {
@@ -243,12 +238,12 @@ export default function CheckinRecords() {
           }
         />
         <Select
-          style={{ width: 110 }}
+          style={{ width: 130 }}
           allowClear
-          placeholder="補打卡"
+          placeholder={t('checkins.isMakeup')}
           options={[
-            { value: 'true', label: '是' },
-            { value: 'false', label: '否' },
+            { value: 'true', label: t('common.yes') },
+            { value: 'false', label: t('common.no') },
           ]}
           onChange={(v) =>
             setFilters((prev) => {
@@ -260,19 +255,11 @@ export default function CheckinRecords() {
           }
         />
         <div style={{ flex: 1 }} />
-        <Button
-          icon={<FileTextOutlined />}
-          loading={exportingSheet}
-          onClick={handleGoogleSheet}
-        >
-          匯出 Google Sheet
+        <Button icon={<FileTextOutlined />} loading={exportingSheet} onClick={handleGoogleSheet}>
+          {t('checkins.exportGoogleSheet')}
         </Button>
-        <Button
-          icon={<DownloadOutlined />}
-          loading={exporting}
-          onClick={handleExport}
-        >
-          匯出 Excel
+        <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>
+          {t('checkins.exportExcel')}
         </Button>
       </div>
 
@@ -286,7 +273,7 @@ export default function CheckinRecords() {
       />
 
       <Modal
-        title="打卡詳情"
+        title={t('checkins.detailModal')}
         open={!!detailRecord}
         onCancel={() => setDetailRecord(null)}
         footer={null}
@@ -295,24 +282,22 @@ export default function CheckinRecords() {
         {detailRecord && (
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             <div>
-              <Typography.Text type="secondary">翻譯員</Typography.Text>
+              <Typography.Text type="secondary">{t('schedules.translator')}</Typography.Text>
               <div>{detailRecord.translatorName}（ID: {detailRecord.translatorId}）</div>
             </div>
             <div>
-              <Typography.Text type="secondary">打卡類型</Typography.Text>
+              <Typography.Text type="secondary">{t('common.status')}</Typography.Text>
               <div>
-                <Tag color={typeTagMap[detailRecord.type]?.color}>
-                  {typeTagMap[detailRecord.type]?.label}
-                </Tag>
-                {detailRecord.isMakeup && <Tag color="orange">補打卡</Tag>}
+                <Tag color={typeColorMap[detailRecord.type]}>{t(`checkins.type.${detailRecord.type}`)}</Tag>
+                {detailRecord.isMakeup && <Tag color="orange">{t('checkins.isMakeup')}</Tag>}
               </div>
             </div>
             <div>
-              <Typography.Text type="secondary">打卡時間</Typography.Text>
-              <div>{new Date(detailRecord.checkinTime).toLocaleString('zh-TW')}</div>
+              <Typography.Text type="secondary">{t('checkins.checkinTime')}</Typography.Text>
+              <div>{new Date(detailRecord.checkinTime).toLocaleString()}</div>
             </div>
             <div>
-              <Typography.Text type="secondary">GPS 位置</Typography.Text>
+              <Typography.Text type="secondary">GPS</Typography.Text>
               <div>
                 <MapLink
                   latitude={detailRecord.latitude}
@@ -326,15 +311,14 @@ export default function CheckinRecords() {
             </div>
             {detailRecord.isMakeup && (
               <div>
-                <Typography.Text type="secondary">補打卡原因</Typography.Text>
+                <Typography.Text type="secondary">{t('checkins.makeupReason')}</Typography.Text>
                 <div>{detailRecord.makeupReason}</div>
               </div>
             )}
             <div>
-              <Typography.Text type="secondary">照片</Typography.Text>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                 <div>
-                  <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>自拍</div>
+                  <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{t('checkins.selfie')}</div>
                   <Image
                     src={`http://localhost:8080${detailRecord.selfieUrl}`}
                     width={200}
@@ -342,15 +326,17 @@ export default function CheckinRecords() {
                     fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                   />
                 </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>環境照</div>
-                  <Image
-                    src={`http://localhost:8080${detailRecord.environmentUrl}`}
-                    width={200}
-                    style={{ borderRadius: 8 }}
-                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-                  />
-                </div>
+                {detailRecord.environmentUrl && (
+                  <div>
+                    <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{t('checkins.environment')}</div>
+                    <Image
+                      src={`http://localhost:8080${detailRecord.environmentUrl}`}
+                      width={200}
+                      style={{ borderRadius: 8 }}
+                      fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </Space>
@@ -358,28 +344,26 @@ export default function CheckinRecords() {
       </Modal>
 
       <Modal
-        title="編輯打卡紀錄"
+        title={t('common.edit')}
         open={!!editRecord}
         onCancel={() => setEditRecord(null)}
         footer={null}
       >
         {editRecord && (
           <Form form={editForm} onFinish={handleEditCheckin} layout="vertical">
-            <Form.Item name="checkinTime" label="打卡時間">
+            <Form.Item name="checkinTime" label={t('checkins.checkinTime')}>
               <Input type="datetime-local" />
             </Form.Item>
-            <Form.Item name="address" label="地址">
+            <Form.Item name="address" label={t('checkins.address')}>
               <Input />
             </Form.Item>
             {editRecord.isMakeup && (
-              <Form.Item name="makeupReason" label="補打卡原因">
+              <Form.Item name="makeupReason" label={t('checkins.makeupReason')}>
                 <Input.TextArea rows={2} />
               </Form.Item>
             )}
             <Form.Item>
-              <Button type="primary" htmlType="submit" block>
-                更新
-              </Button>
+              <Button type="primary" htmlType="submit" block>{t('common.update')}</Button>
             </Form.Item>
           </Form>
         )}
