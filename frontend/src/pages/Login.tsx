@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, App } from 'antd';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { login as loginApi } from '../api/auth';
 import { useAuth } from '../stores/authStore';
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
@@ -24,7 +26,7 @@ export default function LoginPage() {
         navigate('/my-schedules');
       }
     } catch {
-      message.error('登入失敗，請檢查帳號密碼');
+      message.error(t('errors.INVALID_CREDENTIALS'));
     } finally {
       setLoading(false);
     }
@@ -42,18 +44,18 @@ export default function LoginPage() {
     >
       <Card style={{ width: 400, maxWidth: '90vw' }}>
         <Typography.Title level={3} style={{ textAlign: 'center', marginBottom: 24 }}>
-          翻譯員打卡系統
+          {t('app.title')}
         </Typography.Title>
         <Form onFinish={onFinish} layout="vertical">
-          <Form.Item name="email" rules={[{ required: true, message: '請輸入電子信箱' }]}>
-            <Input prefix={<MailOutlined />} placeholder="電子信箱" size="large" />
+          <Form.Item name="email" rules={[{ required: true }]}>
+            <Input prefix={<MailOutlined />} placeholder={t('login.emailPlaceholder')} size="large" />
           </Form.Item>
-          <Form.Item name="password" rules={[{ required: true, message: '請輸入密碼' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="密碼" size="large" />
+          <Form.Item name="password" rules={[{ required: true }]}>
+            <Input.Password prefix={<LockOutlined />} placeholder={t('login.passwordPlaceholder')} size="large" />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block size="large" loading={loading}>
-              登入
+              {t('login.submit')}
             </Button>
           </Form.Item>
         </Form>
