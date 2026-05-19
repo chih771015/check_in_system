@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Typography, theme, Modal, Form, Input, App } from 'antd';
+import { Layout, Menu, Button, Typography, theme, Modal, Form, Input, App, Select } from 'antd';
+import { useTranslation } from 'react-i18next';
+import { setLanguage, SUPPORTED_LANGUAGES } from '../i18n';
 import {
   TeamOutlined,
   ScheduleOutlined,
@@ -31,6 +33,7 @@ export default function AppLayout() {
   const location = useLocation();
   const { token: themeToken } = theme.useToken();
   const { message } = App.useApp();
+  const { t, i18n } = useTranslation();
 
   const handleChangePW = async (values: {
     oldPassword: string;
@@ -38,19 +41,18 @@ export default function AppLayout() {
     confirmPassword: string;
   }) => {
     if (values.newPassword !== values.confirmPassword) {
-      void message.error('兩次輸入的密碼不一致');
+      void message.error(t('changePassword.mismatch'));
       return;
     }
     setChangePWLoading(true);
     try {
       const res = await changePassword(values.oldPassword, values.newPassword);
-      // Update stored token so the session continues without re-login
       if (user) login(res.token, { ...user, mustChangePW: false });
-      void message.success('密碼已更新');
+      void message.success(t('changePassword.successUpdated'));
       setChangePWOpen(false);
       changePWForm.resetFields();
     } catch {
-      void message.error('舊密碼錯誤或更新失敗');
+      void message.error(t('errors.OLD_PASSWORD_INCORRECT'));
     } finally {
       setChangePWLoading(false);
     }
@@ -62,54 +64,18 @@ export default function AppLayout() {
   };
 
   const adminMenuItems = [
-    {
-      key: '/admin/translators',
-      icon: <TeamOutlined />,
-      label: '翻譯員管理',
-    },
-    {
-      key: '/admin/schedules',
-      icon: <ScheduleOutlined />,
-      label: '排班管理',
-    },
-    {
-      key: '/admin/patients',
-      icon: <IdcardOutlined />,
-      label: '病人管理',
-    },
-    {
-      key: '/admin/checkins',
-      icon: <CheckSquareOutlined />,
-      label: '打卡紀錄',
-    },
-    {
-      key: '/admin/export-settings',
-      icon: <SettingOutlined />,
-      label: '定期匯出設定',
-    },
-    {
-      key: '/admin/audit-logs',
-      icon: <FileSearchOutlined />,
-      label: '操作紀錄',
-    },
-    {
-      key: '/admin/admins',
-      icon: <UserSwitchOutlined />,
-      label: '帳號管理',
-    },
+    { key: '/admin/translators', icon: <TeamOutlined />, label: t('nav.translators') },
+    { key: '/admin/schedules', icon: <ScheduleOutlined />, label: t('nav.schedules') },
+    { key: '/admin/patients', icon: <IdcardOutlined />, label: t('nav.patients') },
+    { key: '/admin/checkins', icon: <CheckSquareOutlined />, label: t('nav.checkins') },
+    { key: '/admin/export-settings', icon: <SettingOutlined />, label: t('nav.exportSettings') },
+    { key: '/admin/audit-logs', icon: <FileSearchOutlined />, label: t('nav.auditLogs') },
+    { key: '/admin/admins', icon: <UserSwitchOutlined />, label: t('nav.admins') },
   ];
 
   const translatorMenuItems = [
-    {
-      key: '/my-schedules',
-      icon: <CalendarOutlined />,
-      label: '我的排班',
-    },
-    {
-      key: '/my-checkins',
-      icon: <HistoryOutlined />,
-      label: '我的打卡紀錄',
-    },
+    { key: '/my-schedules', icon: <CalendarOutlined />, label: t('nav.mySchedules') },
+    { key: '/my-checkins', icon: <HistoryOutlined />, label: t('nav.myCheckins') },
   ];
 
   const menuItems = isAdmin ? adminMenuItems : translatorMenuItems;
@@ -137,7 +103,7 @@ export default function AppLayout() {
         >
           {!collapsed && (
             <Typography.Text strong style={{ fontSize: 14 }}>
-              翻譯員打卡系統
+              {t('app.title')}
             </Typography.Text>
           )}
         </div>
@@ -165,14 +131,21 @@ export default function AppLayout() {
             onClick={() => setCollapsed(!collapsed)}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Select
+              size="small"
+              value={i18n.language}
+              style={{ width: 110 }}
+              onChange={(v) => setLanguage(v as (typeof SUPPORTED_LANGUAGES)[number])}
+              options={SUPPORTED_LANGUAGES.map((l) => ({ value: l, label: t(`language.${l}`) }))}
+            />
             <Typography.Text>{user?.name}</Typography.Text>
             {isAdmin && (
               <Button type="text" icon={<LockOutlined />} onClick={() => setChangePWOpen(true)}>
-                修改密碼
+                {t('common.changePassword')}
               </Button>
             )}
             <Button type="text" icon={<LogoutOutlined />} onClick={handleLogout}>
-              登出
+              {t('common.logout')}
             </Button>
           </div>
         </Header>
@@ -184,36 +157,32 @@ export default function AppLayout() {
 
       {/* Change password modal — admin only */}
       <Modal
-        title="修改密碼"
+        title={t('common.changePassword')}
         open={changePWOpen}
         onCancel={() => { setChangePWOpen(false); changePWForm.resetFields(); }}
         footer={null}
         destroyOnClose
       >
         <Form form={changePWForm} layout="vertical" onFinish={handleChangePW} style={{ marginTop: 8 }}>
-          <Form.Item name="oldPassword" label="舊密碼" rules={[{ required: true, message: '請輸入舊密碼' }]}>
+          <Form.Item name="oldPassword" label={t('common.oldPassword')} rules={[{ required: true }]}>
             <Input.Password />
           </Form.Item>
           <Form.Item
             name="newPassword"
-            label="新密碼"
+            label={t('common.newPassword')}
             rules={[
-              { required: true, message: '請輸入新密碼' },
-              { min: 8, message: '密碼至少 8 個字元' },
+              { required: true },
+              { min: 8, message: t('changePassword.minLength') },
             ]}
           >
             <Input.Password />
           </Form.Item>
-          <Form.Item
-            name="confirmPassword"
-            label="確認新密碼"
-            rules={[{ required: true, message: '請再次輸入新密碼' }]}
-          >
+          <Form.Item name="confirmPassword" label={t('common.confirmPassword')} rules={[{ required: true }]}>
             <Input.Password />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" block loading={changePWLoading}>
-              確認修改
+              {t('changePassword.submit')}
             </Button>
           </Form.Item>
         </Form>

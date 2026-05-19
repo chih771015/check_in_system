@@ -1,4 +1,5 @@
 import axios from 'axios';
+import i18n from '../i18n';
 
 const client = axios.create({
   // 使用相對路徑，讓 nginx（Docker）或 Vite dev proxy 統一轉發
@@ -30,6 +31,21 @@ client.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const code = error.response?.data?.code;
+    const rawMessage = error.response?.data?.message;
+
+    // Translate error code into i18n message; fallback to backend message
+    if (code) {
+      const translated = i18n.t(`errors.${code}`, { defaultValue: rawMessage || '' });
+      if (translated) {
+        error.translatedMessage = translated;
+        // Override the response message so callers using err.response.data.message
+        // get the translated version automatically.
+        if (error.response?.data) {
+          error.response.data.message = translated;
+        }
+      }
+    }
+
     if (status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

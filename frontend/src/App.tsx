@@ -1,5 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { App as AntApp } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
+import enUS from 'antd/locale/en_US';
+import zhTW from 'antd/locale/zh_TW';
+import thTH from 'antd/locale/th_TH';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './stores/authStore';
 import AppLayout from './components/AppLayout';
 import LoginPage from './pages/Login';
@@ -159,12 +163,23 @@ function AppRoutes() {
   );
 }
 
+const antdLocaleMap = {
+  en: enUS,
+  'zh-TW': zhTW,
+  th: thTH,
+} as const;
+
 export default function App() {
+  const { i18n } = useTranslation();
+  const lang = (i18n.language || 'en') as keyof typeof antdLocaleMap;
+  const antdLocale = antdLocaleMap[lang] ?? enUS;
   return (
-    <AntApp>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </AntApp>
+    <ConfigProvider locale={antdLocale}>
+      <AntApp>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </AntApp>
+    </ConfigProvider>
   );
 }

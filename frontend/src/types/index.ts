@@ -61,6 +61,11 @@ export interface LoginResponse {
   user: User;
 }
 
+export interface ApiError {
+  code: string;
+  message: string;
+}
+
 export type IDType = 'passport' | 'hn' | 'unid';
 
 export interface Patient {
