@@ -60,3 +60,47 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+export type IDType = 'passport' | 'hn' | 'unid';
+
+export interface Patient {
+  id: number;
+  name: string;
+  phone: string;
+  idType: IDType;
+  idNumber: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TranslatorPatient {
+  id: number;
+  name: string;
+  phone: string;
+  idType: IDType;
+  idNumber: string;
+}
+
+export interface PatientHistoryEntry {
+  scheduleId: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  translatorName: string;
+  status: string;
+  noShowReason?: string;
+  diagnosisPhotos: string[];
+}
+
+export interface PatientListResponse {
+  data: Patient[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface PatientHistoryResponse {
+  patient: Patient;
+  history: PatientHistoryEntry[];
+}

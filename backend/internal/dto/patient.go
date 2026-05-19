@@ -1,0 +1,81 @@
+package dto
+
+import "time"
+
+// CreatePatientRequest is the payload for creating a patient record.
+// IDType is restricted to passport/hn/unid.
+type CreatePatientRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Phone    string `json:"phone" binding:"required"`
+	IDType   string `json:"idType" binding:"required,oneof=passport hn unid"`
+	IDNumber string `json:"idNumber" binding:"required"`
+}
+
+// UpdatePatientRequest is the payload for editing a patient record.
+type UpdatePatientRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Phone    string `json:"phone" binding:"required"`
+	IDType   string `json:"idType" binding:"required,oneof=passport hn unid"`
+	IDNumber string `json:"idNumber" binding:"required"`
+}
+
+// PatientResponse is the full admin-facing view of a patient.
+type PatientResponse struct {
+	ID        uint      `json:"id"`
+	Name      string    `json:"name"`
+	Phone     string    `json:"phone"`
+	IDType    string    `json:"idType"`
+	IDNumber  string    `json:"idNumber"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// TranslatorPatientResponse is the trimmed-down translator view. It hides
+// admin-only fields like timestamps so translators only see what they need
+// to verify the patient in front of them.
+type TranslatorPatientResponse struct {
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	Phone    string `json:"phone"`
+	IDType   string `json:"idType"`
+	IDNumber string `json:"idNumber"`
+}
+
+// PatientListQuery captures the query parameters for the admin patient list
+// endpoint. Search matches against name / phone / id_number (case-insensitive).
+type PatientListQuery struct {
+	Search   string `form:"search"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+}
+
+// PatientListResponse wraps the paginated patient list with totals so the
+// frontend can render pagination without a second count call.
+type PatientListResponse struct {
+	Data     []PatientResponse `json:"data"`
+	Total    int64             `json:"total"`
+	Page     int               `json:"page"`
+	PageSize int               `json:"pageSize"`
+}
+
+// PatientHistoryEntry is one row in a patient's visit history.
+// Stage 2 returns an empty slice; the real aggregation is implemented in
+// stage 4 once SchedulePatient / DiagnosisPhoto exist.
+type PatientHistoryEntry struct {
+	ScheduleID      uint     `json:"scheduleId"`
+	Date            string   `json:"date"`
+	StartTime       string   `json:"startTime"`
+	EndTime         string   `json:"endTime"`
+	Location        string   `json:"location"`
+	TranslatorName  string   `json:"translatorName"`
+	Status          string   `json:"status"`
+	NoShowReason    string   `json:"noShowReason,omitempty"`
+	DiagnosisPhotos []string `json:"diagnosisPhotos"`
+}
+
+// PatientHistoryResponse wraps the history list with the patient header so the
+// frontend can render a single page from one network call.
+type PatientHistoryResponse struct {
+	Patient PatientResponse       `json:"patient"`
+	History []PatientHistoryEntry `json:"history"`
+}

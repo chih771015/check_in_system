@@ -91,6 +91,7 @@ func main() {
 		&model.Checkin{},
 		&model.ExportSchedule{},
 		&model.AuditLog{},
+		&model.Patient{},
 	); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -110,6 +111,7 @@ func main() {
 	checkinRepo := repository.NewCheckinRepository(db)
 	exportScheduleRepo := repository.NewExportScheduleRepository(db)
 	auditRepo := repository.NewAuditLogRepository(db)
+	patientRepo := repository.NewPatientRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
@@ -123,6 +125,7 @@ func main() {
 	auditService := service.NewAuditService(auditRepo, userRepo)
 	notificationService := service.NewNotificationService(userRepo, scheduleRepo, mailService)
 	cleanupService := service.NewCleanupService()
+	patientService := service.NewPatientService(patientRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -132,6 +135,7 @@ func main() {
 	checkinHandler := handler.NewCheckinHandler(checkinService, exportService, auditService)
 	exportScheduleHandler := handler.NewExportScheduleHandler(exportScheduleRepo, exportService)
 	auditHandler := handler.NewAuditHandler(auditService)
+	patientHandler := handler.NewPatientHandler(patientService, auditService)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -214,6 +218,13 @@ func main() {
 			admin.GET("/admins", adminHandler.ListAdmins)
 			admin.POST("/admins", adminHandler.CreateAdmin)
 			admin.DELETE("/admins/:id", adminHandler.DeleteAdmin)
+
+			// Patient management
+			admin.GET("/patients", patientHandler.ListPatients)
+			admin.POST("/patients", patientHandler.CreatePatient)
+			admin.PUT("/patients/:id", patientHandler.UpdatePatient)
+			admin.DELETE("/patients/:id", patientHandler.DeletePatient)
+			admin.GET("/patients/:id/history", patientHandler.GetPatientHistory)
 		}
 
 		// Translator routes
@@ -225,6 +236,10 @@ func main() {
 			translatorRoutes.POST("/checkins/makeup", checkinHandler.MakeupCheckin)
 			translatorRoutes.GET("/checkins", checkinHandler.MyCheckins)
 			translatorRoutes.GET("/checkins/stats", checkinHandler.MyStats)
+
+			// Patient list for translator (trimmed view).
+			// TODO(stage 3): restrict to patients in caller's schedules.
+			translatorRoutes.GET("/patients", patientHandler.ListPatientsForTranslator)
 		}
 	}
 
