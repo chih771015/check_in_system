@@ -7,14 +7,22 @@ import {
   UserOutlined,
   CheckCircleFilled,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { ScheduleItem } from '../../types';
 import { getMySchedules } from '../../api/schedules';
 
-const statusConfig: Record<string, { color: string; label: string }> = {
-  none: { color: 'default', label: '未打卡' },
-  arrived: { color: 'orange', label: '已到達' },
-  completed: { color: 'green', label: '已完成' },
-  makeup: { color: 'blue', label: '補打卡' },
+const statusColorMap: Record<string, string> = {
+  none: 'default',
+  arrived: 'orange',
+  completed: 'green',
+  makeup: 'blue',
+};
+
+const statusLabelKey: Record<string, string> = {
+  none: 'checkins.type.arrive',
+  arrived: 'checkins.type.arrive',
+  completed: 'common.success',
+  makeup: 'checkins.isMakeup',
 };
 
 export default function MySchedules() {
@@ -23,21 +31,21 @@ export default function MySchedules() {
   const [showHistory, setShowHistory] = useState(false);
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, string> = {};
-      // 不顯示歷史時，只撈今天（含）以後的排班
       if (!showHistory) params.date_from = new Date().toISOString().slice(0, 10);
       const list = await getMySchedules(params);
       setSchedules(list);
     } catch {
-      message.error('載入排班失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [showHistory, message]);
+  }, [showHistory, message, t]);
 
   useEffect(() => {
     void fetchSchedules();
@@ -48,7 +56,6 @@ export default function MySchedules() {
     const today = now.toISOString().slice(0, 10);
     if (schedule.date < today) return true;
     if (schedule.date > today) return false;
-    // 同一天：比對排班結束時間，超過才算「過期」
     const [endH, endM] = schedule.endTime.split(':').map(Number);
     const endAt = new Date();
     endAt.setHours(endH, endM, 0, 0);
@@ -59,60 +66,43 @@ export default function MySchedules() {
     const past = isPast(schedule);
 
     if (schedule.checkinStatus === 'completed') {
-      return (
-        <Tag icon={<CheckCircleFilled />} color="green">
-          已完成
-        </Tag>
-      );
+      return <Tag icon={<CheckCircleFilled />} color="green">{t('common.success')}</Tag>;
     }
-
     if (schedule.checkinStatus === 'none' && !past) {
       return (
-        <Button
-          type="primary"
-          onClick={() => navigate(`/checkin/${schedule.id}/arrive`)}
-        >
-          到達打卡
+        <Button type="primary" onClick={() => navigate(`/checkin/${schedule.id}/arrive`)}>
+          {t('checkin.checkinType.arrive')}
         </Button>
       );
     }
-
     if (schedule.checkinStatus === 'arrived' && !past) {
       return (
-        <Button
-          type="primary"
-          onClick={() => navigate(`/checkin/${schedule.id}/leave`)}
-        >
-          離開打卡
+        <Button type="primary" onClick={() => navigate(`/checkin/${schedule.id}/leave`)}>
+          {t('checkin.checkinType.leave')}
         </Button>
       );
     }
-
     if (schedule.checkinStatus === 'none' && past) {
       return (
         <Button onClick={() => navigate(`/makeup/${schedule.id}/arrive`)}>
-          補打卡(到達)
+          {t('checkins.isMakeup')} ({t('checkins.type.arrive')})
         </Button>
       );
     }
-
     if (schedule.checkinStatus === 'arrived' && past) {
       return (
         <Button onClick={() => navigate(`/makeup/${schedule.id}/leave`)}>
-          補打卡(離開)
+          {t('checkins.isMakeup')} ({t('checkins.type.leave')})
         </Button>
       );
     }
-
-    // 補打卡到達已完成，但離開尚未打卡
     if (schedule.checkinStatus === 'makeup') {
       return (
         <Button onClick={() => navigate(`/makeup/${schedule.id}/leave`)}>
-          補打卡(離開)
+          {t('checkins.isMakeup')} ({t('checkins.type.leave')})
         </Button>
       );
     }
-
     return null;
   };
 
@@ -127,10 +117,10 @@ export default function MySchedules() {
         }}
       >
         <Typography.Title level={4} style={{ margin: 0 }}>
-          我的排班
+          {t('nav.mySchedules')}
         </Typography.Title>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Typography.Text>顯示歷史</Typography.Text>
+          <Typography.Text>{t('schedules.showHistory')}</Typography.Text>
           <Switch checked={showHistory} onChange={setShowHistory} />
         </div>
       </div>
@@ -140,51 +130,48 @@ export default function MySchedules() {
           <Spin size="large" />
         </div>
       ) : schedules.length === 0 ? (
-        <Empty description="目前沒有排班" />
+        <Empty />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {schedules.map((s) => {
-            const info = statusConfig[s.checkinStatus] ?? statusConfig.none;
-            return (
-              <Card key={s.id} size="small">
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ marginBottom: 4 }}>
-                      <Typography.Text strong>{s.date}</Typography.Text>
-                      <Tag color={info.color} style={{ marginLeft: 8 }}>
-                        {info.label}
-                      </Tag>
-                    </div>
-                    <div style={{ color: '#666', fontSize: 14 }}>
-                      <div>
-                        <ClockCircleOutlined style={{ marginRight: 4 }} />
-                        {s.startTime} - {s.endTime}
-                      </div>
-                      <div>
-                        <EnvironmentOutlined style={{ marginRight: 4 }} />
-                        {s.location}
-                      </div>
-                      <div>
-                        <UserOutlined style={{ marginRight: 4 }} />
-                        {s.patientName}
-                      </div>
-                    </div>
+          {schedules.map((s) => (
+            <Card key={s.id} size="small">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ marginBottom: 4 }}>
+                    <Typography.Text strong>{s.date}</Typography.Text>
+                    <Tag color={statusColorMap[s.checkinStatus] ?? 'default'} style={{ marginLeft: 8 }}>
+                      {t(statusLabelKey[s.checkinStatus] ?? 'common.status')}
+                    </Tag>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {renderActions(s)}
+                  <div style={{ color: '#666', fontSize: 14 }}>
+                    <div>
+                      <ClockCircleOutlined style={{ marginRight: 4 }} />
+                      {s.startTime} - {s.endTime}
+                    </div>
+                    <div>
+                      <EnvironmentOutlined style={{ marginRight: 4 }} />
+                      {s.location}
+                    </div>
+                    <div>
+                      <UserOutlined style={{ marginRight: 4 }} />
+                      {s.patientName}
+                    </div>
                   </div>
                 </div>
-              </Card>
-            );
-          })}
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {renderActions(s)}
+                </div>
+              </div>
+            </Card>
+          ))}
         </div>
       )}
     </div>

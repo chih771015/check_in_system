@@ -8,6 +8,7 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { ScheduleItem } from '../../types';
 import { getMySchedules } from '../../api/schedules';
 import { checkin } from '../../api/checkins';
@@ -17,6 +18,7 @@ export default function CheckInPage() {
   const { scheduleId, type } = useParams<{ scheduleId: string; type: string }>();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const [schedule, setSchedule] = useState<ScheduleItem | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
@@ -37,10 +39,10 @@ export default function CheckInPage() {
         const found = list.find((s) => s.id === Number(scheduleId));
         if (found) setSchedule(found);
       } catch {
-        message.error('載入排班資訊失敗');
+        message.error(t('errors.INTERNAL_ERROR'));
       }
     })();
-  }, [scheduleId, message]);
+  }, [scheduleId, message, t]);
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -53,9 +55,9 @@ export default function CheckInPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selfie) { message.warning('請拍攝自拍照'); return; }
-    if (!environment) { message.warning('請拍攝環境照'); return; }
-    if (latitude === null || longitude === null) { message.warning('尚未取得定位資訊'); return; }
+    if (!selfie) { message.warning(t('errors.SELFIE_REQUIRED')); return; }
+    if (!environment) { message.warning(t('errors.ENVIRONMENT_PHOTO_REQUIRED')); return; }
+    if (latitude === null || longitude === null) { message.warning(t('checkin.geo.requesting')); return; }
 
     setSubmitting(true);
     try {
@@ -68,10 +70,10 @@ export default function CheckInPage() {
       fd.append('longitude', String(longitude));
       fd.append('address', address);
       await checkin(fd);
-      message.success('打卡成功');
+      message.success(t('common.success'));
       navigate('/my-schedules');
     } catch {
-      message.error('打卡失敗');
+      message.error(t('common.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -81,51 +83,48 @@ export default function CheckInPage() {
     return <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>;
   }
 
-  const typeLabel = type === 'arrive' ? '到達打卡' : '離開打卡';
+  const typeLabel = type === 'arrive' ? t('checkin.checkinType.arrive') : t('checkin.checkinType.leave');
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
       <Typography.Title level={4}>{typeLabel}</Typography.Title>
 
-      {/* 排班資訊 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong>排班資訊</Typography.Text>
+        <Typography.Text strong>{t('nav.mySchedules')}</Typography.Text>
         <div style={{ marginTop: 8, color: '#666' }}>
-          <div>日期: {schedule.date}</div>
-          <div>時間: {schedule.startTime} - {schedule.endTime}</div>
-          <div>地點: {schedule.location}</div>
-          <div>病患: {schedule.patientName}</div>
+          <div>{t('schedules.date')}: {schedule.date}</div>
+          <div>{t('schedules.startTime')}: {schedule.startTime} - {schedule.endTime}</div>
+          <div>{t('schedules.location')}: {schedule.location}</div>
+          <div>{t('schedules.patientName')}: {schedule.patientName}</div>
         </div>
       </Card>
 
-      {/* 拍照 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong><CameraOutlined /> 拍照</Typography.Text>
+        <Typography.Text strong><CameraOutlined /> {t('checkin.takingSelfie')}</Typography.Text>
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
               onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>拍攝自拍</Button>
+            <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
             {selfiePreview && (
-              <img src={selfiePreview} alt="自拍預覽"
+              <img src={selfiePreview} alt=""
                 style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
             )}
           </div>
           <div>
             <input ref={envRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
               onChange={(e) => handleFileChange(e, setEnvironment, setEnvironmentPreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => envRef.current?.click()} block>拍攝環境照</Button>
+            <Button icon={<CameraOutlined />} onClick={() => envRef.current?.click()} block>{t('checkins.environment')}</Button>
             {environmentPreview && (
-              <img src={environmentPreview} alt="環境照預覽"
+              <img src={environmentPreview} alt=""
                 style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
             )}
           </div>
         </div>
       </Card>
 
-      {/* 定位 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong><EnvironmentOutlined /> 定位資訊</Typography.Text>
+        <Typography.Text strong><EnvironmentOutlined /> GPS</Typography.Text>
         <div style={{ marginTop: 12 }}>
           <GeoStatusBlock state={geoState} address={address} onRequest={requestGeo} />
         </div>
@@ -133,13 +132,12 @@ export default function CheckInPage() {
 
       <Button type="primary" size="large" block loading={submitting} onClick={handleSubmit}
         disabled={geoState !== 'success'}>
-        確認送出
+        {t('checkin.submit')}
       </Button>
     </div>
   );
 }
 
-// ── 共用定位狀態區塊 ────────────────────────────────────────────────────────
 interface GeoStatusBlockProps {
   state: string;
   address: string;
@@ -147,6 +145,7 @@ interface GeoStatusBlockProps {
 }
 
 export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProps) {
+  const { t } = useTranslation();
   switch (state) {
     case 'idle':
       return (
@@ -154,11 +153,10 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
           type="warning"
           showIcon
           icon={<EnvironmentOutlined />}
-          message="需要定位權限"
-          description="打卡需要記錄您的位置。點下方按鈕後，瀏覽器會詢問是否允許，請選擇「允許」。"
+          message={t('checkin.geo.idle')}
           action={
             <Button type="primary" size="small" onClick={onRequest} style={{ marginTop: 8 }}>
-              授權定位
+              {t('checkin.requestPermission')}
             </Button>
           }
         />
@@ -168,7 +166,7 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
       return (
         <div style={{ padding: '12px 0', color: '#1677ff', display: 'flex', alignItems: 'center', gap: 8 }}>
           <LoadingOutlined />
-          <span>正在取得定位，請稍候…</span>
+          <span>{t('checkin.geo.requesting')}</span>
         </div>
       );
 
@@ -176,7 +174,7 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
       return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#52c41a' }}>
           <CheckCircleOutlined style={{ fontSize: 18 }} />
-          <span>{address}</span>
+          <span>{address || t('checkin.geo.success')}</span>
         </div>
       );
 
@@ -186,16 +184,14 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
           type="error"
           showIcon
           icon={<ExclamationCircleOutlined />}
-          message="定位權限已被拒絕"
+          message={t('checkin.geo.denied')}
           description={
             <div>
-              <p style={{ margin: '4px 0' }}>請按照以下步驟手動開啟：</p>
               <ul style={{ margin: '4px 0', paddingLeft: 20 }}>
-                <li><strong>iOS Safari：</strong>設定 → Safari → 位置 → 允許</li>
-                <li><strong>Android Chrome：</strong>點網址列左側鎖頭 → 權限 → 位置 → 允許</li>
-                <li><strong>電腦 Chrome：</strong>點網址列右側 🔒 → 位置 → 允許</li>
+                <li>{t('checkin.iosInstructions')}</li>
+                <li>{t('checkin.androidInstructions')}</li>
+                <li>{t('checkin.chromeInstructions')}</li>
               </ul>
-              <p style={{ margin: '4px 0' }}>開啟後請重新整理此頁面。</p>
             </div>
           }
         />
@@ -206,10 +202,9 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
         <Alert
           type="warning"
           showIcon
-          message="定位超時"
-          description="取得位置時間過長，可能是 GPS 訊號不佳。請移至戶外或靠近窗戶後重試。"
+          message={t('checkin.geo.timeout')}
           action={
-            <Button size="small" onClick={onRequest} style={{ marginTop: 8 }}>重試</Button>
+            <Button size="small" onClick={onRequest} style={{ marginTop: 8 }}>{t('checkin.tryAgain')}</Button>
           }
         />
       );
@@ -220,10 +215,9 @@ export function GeoStatusBlock({ state, address, onRequest }: GeoStatusBlockProp
         <Alert
           type="warning"
           showIcon
-          message="無法取得定位"
-          description="裝置目前無法取得位置資訊，請確認 GPS 已開啟或連上網路後重試。"
+          message={t('checkin.geo.unavailable')}
           action={
-            <Button size="small" onClick={onRequest} style={{ marginTop: 8 }}>重試</Button>
+            <Button size="small" onClick={onRequest} style={{ marginTop: 8 }}>{t('checkin.tryAgain')}</Button>
           }
         />
       );

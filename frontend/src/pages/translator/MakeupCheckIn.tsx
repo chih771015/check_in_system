@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, Typography, Spin, Input, App } from 'antd';
 import { CameraOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { ScheduleItem } from '../../types';
 import { getMySchedules } from '../../api/schedules';
 import { makeupCheckin } from '../../api/checkins';
@@ -12,6 +13,7 @@ export default function MakeupCheckInPage() {
   const { scheduleId, type } = useParams<{ scheduleId: string; type: string }>();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const [schedule, setSchedule] = useState<ScheduleItem | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
@@ -33,10 +35,10 @@ export default function MakeupCheckInPage() {
         const found = list.find((s) => s.id === Number(scheduleId));
         if (found) setSchedule(found);
       } catch {
-        message.error('載入排班資訊失敗');
+        message.error(t('errors.INTERNAL_ERROR'));
       }
     })();
-  }, [scheduleId, message]);
+  }, [scheduleId, message, t]);
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -49,10 +51,10 @@ export default function MakeupCheckInPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selfie) { message.warning('請拍攝自拍照'); return; }
-    if (!environment) { message.warning('請拍攝環境照'); return; }
-    if (latitude === null || longitude === null) { message.warning('尚未取得定位資訊'); return; }
-    if (!makeupReason.trim()) { message.warning('請填寫補打卡原因'); return; }
+    if (!selfie) { message.warning(t('errors.SELFIE_REQUIRED')); return; }
+    if (!environment) { message.warning(t('errors.ENVIRONMENT_PHOTO_REQUIRED')); return; }
+    if (latitude === null || longitude === null) { message.warning(t('checkin.geo.requesting')); return; }
+    if (!makeupReason.trim()) { message.warning(t('checkins.makeupReason')); return; }
 
     setSubmitting(true);
     try {
@@ -66,10 +68,10 @@ export default function MakeupCheckInPage() {
       fd.append('address', address);
       fd.append('makeupReason', makeupReason);
       await makeupCheckin(fd);
-      message.success('補打卡成功');
+      message.success(t('common.success'));
       navigate('/my-schedules');
     } catch {
-      message.error('補打卡失敗');
+      message.error(t('common.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -79,58 +81,56 @@ export default function MakeupCheckInPage() {
     return <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>;
   }
 
-  const typeLabel = type === 'arrive' ? '補打卡(到達)' : '補打卡(離開)';
+  const typeLabel = type === 'arrive'
+    ? `${t('checkins.isMakeup')} (${t('checkins.type.arrive')})`
+    : `${t('checkins.isMakeup')} (${t('checkins.type.leave')})`;
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto' }}>
       <Typography.Title level={4}>{typeLabel}</Typography.Title>
 
-      {/* 排班資訊 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong>排班資訊</Typography.Text>
+        <Typography.Text strong>{t('nav.mySchedules')}</Typography.Text>
         <div style={{ marginTop: 8, color: '#666' }}>
-          <div>日期: {schedule.date}</div>
-          <div>時間: {schedule.startTime} - {schedule.endTime}</div>
-          <div>地點: {schedule.location}</div>
-          <div>病患: {schedule.patientName}</div>
+          <div>{t('schedules.date')}: {schedule.date}</div>
+          <div>{t('schedules.startTime')}: {schedule.startTime} - {schedule.endTime}</div>
+          <div>{t('schedules.location')}: {schedule.location}</div>
+          <div>{t('schedules.patientName')}: {schedule.patientName}</div>
         </div>
       </Card>
 
-      {/* 補打卡原因 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong>補打卡原因</Typography.Text>
-        <Input.TextArea rows={3} placeholder="請輸入補打卡原因（必填）"
+        <Typography.Text strong>{t('checkins.makeupReason')}</Typography.Text>
+        <Input.TextArea rows={3} placeholder={t('checkins.makeupReason')}
           value={makeupReason} onChange={(e) => setMakeupReason(e.target.value)} style={{ marginTop: 8 }} />
       </Card>
 
-      {/* 拍照 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong><CameraOutlined /> 拍照</Typography.Text>
+        <Typography.Text strong><CameraOutlined /> {t('checkin.takingSelfie')}</Typography.Text>
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div>
             <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
               onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>拍攝自拍</Button>
+            <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
             {selfiePreview && (
-              <img src={selfiePreview} alt="自拍預覽"
+              <img src={selfiePreview} alt=""
                 style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
             )}
           </div>
           <div>
             <input ref={envRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
               onChange={(e) => handleFileChange(e, setEnvironment, setEnvironmentPreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => envRef.current?.click()} block>拍攝環境照</Button>
+            <Button icon={<CameraOutlined />} onClick={() => envRef.current?.click()} block>{t('checkins.environment')}</Button>
             {environmentPreview && (
-              <img src={environmentPreview} alt="環境照預覽"
+              <img src={environmentPreview} alt=""
                 style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
             )}
           </div>
         </div>
       </Card>
 
-      {/* 定位 */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Typography.Text strong><EnvironmentOutlined /> 定位資訊</Typography.Text>
+        <Typography.Text strong><EnvironmentOutlined /> GPS</Typography.Text>
         <div style={{ marginTop: 12 }}>
           <GeoStatusBlock state={geoState} address={address} onRequest={requestGeo} />
         </div>
@@ -138,7 +138,7 @@ export default function MakeupCheckInPage() {
 
       <Button type="primary" size="large" block loading={submitting} onClick={handleSubmit}
         disabled={geoState !== 'success'}>
-        確認送出
+        {t('checkin.submit')}
       </Button>
     </div>
   );

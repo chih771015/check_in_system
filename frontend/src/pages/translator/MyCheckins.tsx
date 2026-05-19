@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Typography, DatePicker, Row, Col, Card, Statistic, App } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
+import { useTranslation } from 'react-i18next';
 import type { CheckinItem } from '../../types';
 import { getMyCheckins, getMyCheckinStats, type MyCheckinStats } from '../../api/checkins';
 import MapLink from '../../components/MapLink';
@@ -17,6 +18,7 @@ export default function MyCheckinsPage() {
     dayjs().endOf('month'),
   ]);
   const { message } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -28,11 +30,11 @@ export default function MyCheckinsPage() {
       setData(list || []);
       setStats(s);
     } catch {
-      message.error('載入打卡紀錄失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [dateRange, message]);
+  }, [dateRange, message, t]);
 
   useEffect(() => {
     fetchData();
@@ -40,20 +42,20 @@ export default function MyCheckinsPage() {
 
   const columns: ColumnsType<CheckinItem> = [
     {
-      title: '時間',
+      title: t('checkins.checkinTime'),
       dataIndex: 'checkinTime',
       width: 170,
       render: (v) => dayjs(v).format('YYYY-MM-DD HH:mm'),
     },
     {
-      title: '類型',
+      title: t('common.status'),
       dataIndex: 'type',
       width: 100,
       render: (v: string) =>
-        v === 'arrive' ? <Tag color="green">到達</Tag> : <Tag color="blue">離開</Tag>,
+        v === 'arrive' ? <Tag color="green">{t('checkins.type.arrive')}</Tag> : <Tag color="blue">{t('checkins.type.leave')}</Tag>,
     },
     {
-      title: '地址',
+      title: t('checkins.address'),
       key: 'address',
       ellipsis: true,
       render: (_: unknown, r: CheckinItem) => (
@@ -61,13 +63,13 @@ export default function MyCheckinsPage() {
       ),
     },
     {
-      title: '補打卡',
+      title: t('checkins.isMakeup'),
       dataIndex: 'isMakeup',
       width: 100,
-      render: (v) => (v ? <Tag color="orange">補打卡</Tag> : '-'),
+      render: (v) => (v ? <Tag color="orange">{t('checkins.isMakeup')}</Tag> : '-'),
     },
     {
-      title: '備註',
+      title: t('checkins.makeupReason'),
       dataIndex: 'makeupReason',
       ellipsis: true,
     },
@@ -75,7 +77,7 @@ export default function MyCheckinsPage() {
 
   return (
     <div>
-      <Typography.Title level={4}>我的打卡紀錄</Typography.Title>
+      <Typography.Title level={4}>{t('checkins.myTitle')}</Typography.Title>
 
       <div style={{ marginBottom: 16 }}>
         <RangePicker value={dateRange} onChange={(v) => setDateRange(v)} />
@@ -83,36 +85,12 @@ export default function MyCheckinsPage() {
 
       {stats && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={4}>
-            <Card>
-              <Statistic title="總打卡數" value={stats.total} />
-            </Card>
-          </Col>
-          <Col span={4}>
-            <Card>
-              <Statistic title="到達" value={stats.arriveCount} />
-            </Card>
-          </Col>
-          <Col span={4}>
-            <Card>
-              <Statistic title="離開" value={stats.leaveCount} />
-            </Card>
-          </Col>
-          <Col span={4}>
-            <Card>
-              <Statistic title="補打卡" value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} />
-            </Card>
-          </Col>
-          <Col span={4}>
-            <Card>
-              <Statistic title="準時" value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} />
-            </Card>
-          </Col>
-          <Col span={4}>
-            <Card>
-              <Statistic title="遲到" value={stats.lateCount} valueStyle={{ color: '#f5222d' }} />
-            </Card>
-          </Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.makeup')} value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.onTime')} value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+          <Col span={4}><Card><Statistic title={t('checkins.stats.late')} value={stats.lateCount} valueStyle={{ color: '#f5222d' }} /></Card></Col>
         </Row>
       )}
 
