@@ -6,6 +6,8 @@ import LoginPage from './pages/Login';
 import ChangePasswordPage from './pages/ChangePassword';
 import TranslatorManagement from './pages/admin/TranslatorManagement';
 import AdminManagement from './pages/admin/AdminManagement';
+import PatientManagement from './pages/admin/PatientManagement';
+import PatientHistory from './pages/admin/PatientHistory';
 import ScheduleManagement from './pages/admin/ScheduleManagement';
 import CheckinRecords from './pages/admin/CheckinRecords';
 import ExportSettings from './pages/admin/ExportSettings';
@@ -92,6 +94,22 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <AuditLogs />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/patients"
+          element={
+            <RequireAdmin>
+              <PatientManagement />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/patients/:id/history"
+          element={
+            <RequireAdmin>
+              <PatientHistory />
             </RequireAdmin>
           }
         />

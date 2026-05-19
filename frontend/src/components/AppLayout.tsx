@@ -14,6 +14,7 @@ import {
   HistoryOutlined,
   LockOutlined,
   UserSwitchOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 import { changePassword } from '../api/auth';
@@ -70,6 +71,11 @@ export default function AppLayout() {
       key: '/admin/schedules',
       icon: <ScheduleOutlined />,
       label: '排班管理',
+    },
+    {
+      key: '/admin/patients',
+      icon: <IdcardOutlined />,
+      label: '病人管理',
     },
     {
       key: '/admin/checkins',
