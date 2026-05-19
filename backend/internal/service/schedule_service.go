@@ -17,6 +17,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// Sentinel errors returned by ScheduleService.
+var (
+	ErrScheduleNotFound      = errors.New("schedule not found")
+	ErrInvalidDateFormat     = errors.New("invalid date format, use YYYY-MM-DD")
+	ErrRecurrenceUntilReq    = errors.New("recurrenceUntil is required when recurrenceRule is set")
+	ErrRecurrenceBeforeStart = errors.New("recurrenceUntil must be after or equal to date")
+	ErrInvalidRecurrence     = errors.New("invalid recurrenceRule")
+	ErrNoDatesGenerated      = errors.New("no dates generated for the given recurrence rule and range")
+)
+
 // ScheduleService handles schedule management business logic.
 type ScheduleService struct {
 	scheduleRepo *repository.ScheduleRepository
@@ -60,10 +70,10 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 	// Verify translator exists
 	user, err := s.userRepo.WithCtx(ctx).FindByID(req.TranslatorID)
 	if err != nil {
-		return nil, errors.New("translator not found")
+		return nil, ErrTranslatorNotFound
 	}
 	if user.Role != "translator" {
-		return nil, errors.New("user is not a translator")
+		return nil, ErrNotATranslator
 	}
 
 	if req.RecurrenceRule != "" {
@@ -72,7 +82,7 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 
 	date, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
-		return nil, errors.New("invalid date format, use YYYY-MM-DD")
+		return nil, ErrInvalidDateFormat
 	}
 
 	schedule := &model.Schedule{
@@ -103,21 +113,21 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 // createRecurring creates multiple schedule records based on a recurrence rule.
 func (s *ScheduleService) createRecurring(ctx context.Context, req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
 	if req.RecurrenceUntil == "" {
-		return nil, errors.New("recurrenceUntil is required when recurrenceRule is set")
+		return nil, ErrRecurrenceUntilReq
 	}
 
 	startDate, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
-		return nil, errors.New("invalid date format, use YYYY-MM-DD")
+		return nil, ErrInvalidDateFormat
 	}
 
 	untilDate, err := time.Parse("2006-01-02", req.RecurrenceUntil)
 	if err != nil {
-		return nil, errors.New("invalid recurrenceUntil format, use YYYY-MM-DD")
+		return nil, ErrInvalidDateFormat
 	}
 
 	if untilDate.Before(startDate) {
-		return nil, errors.New("recurrenceUntil must be after or equal to date")
+		return nil, ErrRecurrenceBeforeStart
 	}
 
 	rule := req.RecurrenceRule
@@ -125,11 +135,11 @@ func (s *ScheduleService) createRecurring(ctx context.Context, req dto.CreateSch
 
 	dates, err := expandRecurrenceDates(startDate, untilDate, rule)
 	if err != nil {
-		return nil, fmt.Errorf("invalid recurrenceRule: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidRecurrence, err)
 	}
 
 	if len(dates) == 0 {
-		return nil, errors.New("no dates generated for the given recurrence rule and range")
+		return nil, ErrNoDatesGenerated
 	}
 
 	schedules := make([]*model.Schedule, 0, len(dates))
@@ -261,13 +271,13 @@ func parseIntList(s string) ([]int, error) {
 func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateScheduleRequest) (*dto.ScheduleResponse, error) {
 	schedule, err := s.scheduleRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
-		return nil, errors.New("schedule not found")
+		return nil, ErrScheduleNotFound
 	}
 
 	if req.Date != nil {
 		date, err := time.Parse("2006-01-02", *req.Date)
 		if err != nil {
-			return nil, errors.New("invalid date format, use YYYY-MM-DD")
+			return nil, ErrInvalidDateFormat
 		}
 		schedule.Date = date
 	}
@@ -309,7 +319,7 @@ func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
 	repo := s.scheduleRepo.WithCtx(ctx)
 	_, err := repo.FindByID(id)
 	if err != nil {
-		return errors.New("schedule not found")
+		return ErrScheduleNotFound
 	}
 	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
 		return err
@@ -325,7 +335,7 @@ func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (i
 	repo := s.scheduleRepo.WithCtx(ctx)
 	schedule, err := repo.FindByID(id)
 	if err != nil {
-		return 0, errors.New("schedule not found")
+		return 0, ErrScheduleNotFound
 	}
 	if schedule.RecurrenceGroupID == nil || *schedule.RecurrenceGroupID == "" {
 		if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {

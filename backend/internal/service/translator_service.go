@@ -11,6 +11,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Sentinel errors returned by TranslatorService.
+var (
+	ErrTranslatorNotFound = errors.New("translator not found")
+	ErrNotATranslator     = errors.New("user is not a translator")
+	ErrInvalidStatus      = errors.New("status must be 'active' or 'disabled'")
+)
+
 // TranslatorService handles translator management business logic.
 type TranslatorService struct {
 	userRepo *repository.UserRepository
@@ -48,12 +55,12 @@ func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslator
 	// Check if email already exists
 	existing, _ := repo.FindByEmail(req.Email)
 	if existing != nil {
-		return errors.New("email already exists")
+		return ErrEmailTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return errors.New("failed to hash password")
+		return ErrPasswordHashFailed
 	}
 
 	user := &model.User{
@@ -73,11 +80,11 @@ func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslator
 func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateTranslatorRequest) error {
 	user, err := s.userRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
-		return errors.New("translator not found")
+		return ErrTranslatorNotFound
 	}
 
 	if user.Role != "translator" {
-		return errors.New("user is not a translator")
+		return ErrNotATranslator
 	}
 
 	if req.Name != nil {
@@ -88,7 +95,7 @@ func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateT
 	}
 	if req.Status != nil {
 		if *req.Status != "active" && *req.Status != "disabled" {
-			return errors.New("status must be 'active' or 'disabled'")
+			return ErrInvalidStatus
 		}
 		user.Status = *req.Status
 	}
@@ -100,11 +107,11 @@ func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateT
 func (s *TranslatorService) Disable(ctx context.Context, id uint) error {
 	user, err := s.userRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
-		return errors.New("translator not found")
+		return ErrTranslatorNotFound
 	}
 
 	if user.Role != "translator" {
-		return errors.New("user is not a translator")
+		return ErrNotATranslator
 	}
 
 	user.Status = "disabled"

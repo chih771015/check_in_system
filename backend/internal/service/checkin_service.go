@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"translator-checkin/internal/dto"
@@ -10,6 +11,17 @@ import (
 	"translator-checkin/internal/repository"
 
 	"gorm.io/gorm"
+)
+
+// Sentinel errors returned by CheckinService.
+var (
+	ErrCheckinNotFound    = errors.New("checkin not found")
+	ErrScheduleNotOwned   = errors.New("schedule does not belong to this translator")
+	ErrDuplicateCheckin   = errors.New("duplicate checkin type")
+	ErrArriveBeforeLeave  = errors.New("must check in (arrive) before checking out (leave)")
+	ErrArriveVerifyFailed = errors.New("failed to verify arrival status")
+	ErrCheckinCreate      = errors.New("failed to create checkin record")
+	ErrNoFieldsToUpdate   = errors.New("no fields to update")
 )
 
 // CheckinService handles check-in business logic.
@@ -55,16 +67,16 @@ func (s *CheckinService) Checkin(
 	// Validate schedule exists and belongs to translator
 	schedule, err := schRepo.FindByID(scheduleID)
 	if err != nil {
-		return nil, errors.New("schedule not found")
+		return nil, ErrScheduleNotFound
 	}
 	if schedule.TranslatorID != translatorID {
-		return nil, errors.New("schedule does not belong to this translator")
+		return nil, ErrScheduleNotOwned
 	}
 
 	// Check for duplicate checkin type
 	existing, err := ckRepo.FindByScheduleAndType(scheduleID, checkinType)
 	if err == nil && existing != nil {
-		return nil, errors.New("already checked in with type: " + checkinType)
+		return nil, fmt.Errorf("%w: %s", ErrDuplicateCheckin, checkinType)
 	}
 
 	// If leaving, ensure arrival was recorded first
@@ -72,9 +84,9 @@ func (s *CheckinService) Checkin(
 		_, err := ckRepo.FindByScheduleAndType(scheduleID, "arrive")
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errors.New("must check in (arrive) before checking out (leave)")
+				return nil, ErrArriveBeforeLeave
 			}
-			return nil, errors.New("failed to verify arrival status")
+			return nil, ErrArriveVerifyFailed
 		}
 	}
 
@@ -105,7 +117,7 @@ func (s *CheckinService) Checkin(
 	// Get translator info
 	user, err := uRepo.FindByID(translatorID)
 	if err != nil {
-		return nil, errors.New("translator not found")
+		return nil, ErrTranslatorNotFound
 	}
 
 	checkin := &model.Checkin{
@@ -123,7 +135,7 @@ func (s *CheckinService) Checkin(
 	}
 
 	if err := ckRepo.Create(checkin); err != nil {
-		return nil, errors.New("failed to create checkin record")
+		return nil, ErrCheckinCreate
 	}
 
 	return &dto.CheckinResponse{
@@ -149,7 +161,7 @@ func (s *CheckinService) Checkin(
 func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dto.AdminUpdateCheckinRequest) error {
 	repo := s.checkinRepo.WithCtx(ctx)
 	if _, err := repo.FindByID(id); err != nil {
-		return errors.New("checkin not found")
+		return ErrCheckinNotFound
 	}
 
 	fields := map[string]any{}
@@ -163,7 +175,7 @@ func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dt
 		fields["makeup_reason"] = *req.MakeupReason
 	}
 	if len(fields) == 0 {
-		return errors.New("no fields to update")
+		return ErrNoFieldsToUpdate
 	}
 	return repo.UpdateFields(id, fields)
 }
@@ -172,7 +184,7 @@ func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dt
 func (s *CheckinService) AdminDeleteCheckin(ctx context.Context, id uint) error {
 	repo := s.checkinRepo.WithCtx(ctx)
 	if _, err := repo.FindByID(id); err != nil {
-		return errors.New("checkin not found")
+		return ErrCheckinNotFound
 	}
 	return repo.Delete(id)
 }

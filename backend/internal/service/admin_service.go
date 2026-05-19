@@ -11,6 +11,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Sentinel errors returned by AdminService.
+var (
+	ErrEmailTaken       = errors.New("email already exists")
+	ErrAdminNotFound    = errors.New("admin not found")
+	ErrCannotDeleteSelf = errors.New("cannot delete your own admin account")
+	ErrNotAnAdmin       = errors.New("target user is not an admin")
+)
+
 // AdminService handles admin account management operations.
 type AdminService struct {
 	userRepo *repository.UserRepository
@@ -48,12 +56,12 @@ func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminReque
 
 	existing, _ := repo.FindByEmail(req.Email)
 	if existing != nil {
-		return errors.New("此 Email 已被使用")
+		return ErrEmailTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return errors.New("密碼雜湊失敗")
+		return ErrPasswordHashFailed
 	}
 
 	user := &model.User{
@@ -71,16 +79,16 @@ func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminReque
 // An admin cannot delete their own account.
 func (s *AdminService) DeleteAdmin(ctx context.Context, requesterID, targetID uint) error {
 	if requesterID == targetID {
-		return errors.New("無法刪除自己的管理員帳號")
+		return ErrCannotDeleteSelf
 	}
 
 	repo := s.userRepo.WithCtx(ctx)
 	target, err := repo.FindByID(targetID)
 	if err != nil {
-		return errors.New("找不到此管理員帳號")
+		return ErrAdminNotFound
 	}
 	if target.Role != "admin" {
-		return errors.New("目標帳號不是管理員")
+		return ErrNotAnAdmin
 	}
 	return repo.DeleteByID(targetID)
 }
