@@ -31,31 +31,29 @@ func NewCheckinHandler(checkinService *service.CheckinService, exportService *se
 func (h *CheckinHandler) Checkin(c *gin.Context) {
 	var req dto.CheckinRequest
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		respondCode(c, http.StatusUnauthorized, dto.CodeUserContextMissing, "User not found in context")
 		return
 	}
 
-	// Parse GPS coordinates
 	lat, _ := strconv.ParseFloat(c.PostForm("latitude"), 64)
 	lng, _ := strconv.ParseFloat(c.PostForm("longitude"), 64)
 	address := c.PostForm("address")
 
-	// Save uploaded photos
 	selfieURL, err := saveUploadedFile(c, "selfie")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Selfie photo is required: " + err.Error()})
+		respondCode(c, http.StatusBadRequest, dto.CodeSelfieRequired, "Selfie photo is required: "+err.Error())
 		return
 	}
 
 	envURL, err := saveUploadedFile(c, "environment")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Environment photo is required: " + err.Error()})
+		respondCode(c, http.StatusBadRequest, dto.CodeEnvironmentRequired, "Environment photo is required: "+err.Error())
 		return
 	}
 
@@ -69,42 +67,40 @@ func (h *CheckinHandler) Checkin(c *gin.Context) {
 		false, "",
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"data": resp})
 }
 
-// MakeupCheckin handles POST /api/checkins/makeup (multipart form with photos + reason).
+// MakeupCheckin handles POST /api/checkins/makeup.
 func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 	var req dto.CheckinMakeupRequest
 	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		respondCode(c, http.StatusUnauthorized, dto.CodeUserContextMissing, "User not found in context")
 		return
 	}
 
-	// Parse GPS coordinates
 	lat, _ := strconv.ParseFloat(c.PostForm("latitude"), 64)
 	lng, _ := strconv.ParseFloat(c.PostForm("longitude"), 64)
 	address := c.PostForm("address")
 
-	// Save uploaded photos
 	selfieURL, err := saveUploadedFile(c, "selfie")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Selfie photo is required: " + err.Error()})
+		respondCode(c, http.StatusBadRequest, dto.CodeSelfieRequired, "Selfie photo is required: "+err.Error())
 		return
 	}
 
 	envURL, err := saveUploadedFile(c, "environment")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Environment photo is required: " + err.Error()})
+		respondCode(c, http.StatusBadRequest, dto.CodeEnvironmentRequired, "Environment photo is required: "+err.Error())
 		return
 	}
 
@@ -118,7 +114,7 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 		true, req.MakeupReason,
 	)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -129,19 +125,19 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 func (h *CheckinHandler) AdminUpdateCheckin(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid checkin ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidCheckinID, "Invalid checkin ID")
 		return
 	}
 
 	var req dto.AdminUpdateCheckinRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
 	if err := h.checkinService.AdminUpdateCheckin(ctx, uint(id), req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	adminID := c.GetUint("userID")
@@ -153,12 +149,12 @@ func (h *CheckinHandler) AdminUpdateCheckin(c *gin.Context) {
 func (h *CheckinHandler) AdminDeleteCheckin(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid checkin ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidCheckinID, "Invalid checkin ID")
 		return
 	}
 	ctx := c.Request.Context()
 	if err := h.checkinService.AdminDeleteCheckin(ctx, uint(id)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	adminID := c.GetUint("userID")
@@ -170,12 +166,12 @@ func (h *CheckinHandler) AdminDeleteCheckin(c *gin.Context) {
 func (h *CheckinHandler) MyCheckins(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		respondCode(c, http.StatusUnauthorized, dto.CodeUserContextMissing, "User not found in context")
 		return
 	}
 	list, err := h.checkinService.MyHistory(c.Request.Context(), userID.(uint), c.Query("dateFrom"), c.Query("dateTo"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": list})
@@ -185,12 +181,12 @@ func (h *CheckinHandler) MyCheckins(c *gin.Context) {
 func (h *CheckinHandler) MyStats(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+		respondCode(c, http.StatusUnauthorized, dto.CodeUserContextMissing, "User not found in context")
 		return
 	}
 	stats, err := h.checkinService.MyStats(c.Request.Context(), userID.(uint), c.Query("dateFrom"), c.Query("dateTo"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": stats})
@@ -217,7 +213,7 @@ func (h *CheckinHandler) AdminListCheckins(c *gin.Context) {
 
 	checkins, err := h.checkinService.AdminList(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": checkins})
@@ -229,21 +225,21 @@ func (h *CheckinHandler) AdminExportExcel(c *gin.Context) {
 
 	f, err := h.exportService.BuildCheckinExcel(c.Request.Context(), params)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", `attachment; filename="checkins.xlsx"`)
 	if err := f.Write(c.Writer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel"})
+		respondCode(c, http.StatusInternalServerError, dto.CodeExportFailed, "Failed to generate Excel")
 	}
 }
 
 // AdminExportGoogleSheet handles POST /api/admin/export/google-sheet
 func (h *CheckinHandler) AdminExportGoogleSheet(c *gin.Context) {
 	if config.AppConfig.GoogleCredentialsFile == "" {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Google credentials not configured. Set GOOGLE_CREDENTIALS_FILE env variable."})
+		respondCode(c, http.StatusServiceUnavailable, dto.CodeGoogleNotConfigured, "Google credentials not configured. Set GOOGLE_CREDENTIALS_FILE env variable.")
 		return
 	}
 
@@ -252,22 +248,20 @@ func (h *CheckinHandler) AdminExportGoogleSheet(c *gin.Context) {
 	}
 	_ = c.ShouldBindJSON(&req)
 	if req.Title == "" {
-		req.Title = fmt.Sprintf("打卡紀錄_%s", time.Now().Format("20060102_150405"))
+		req.Title = fmt.Sprintf("Checkin Records_%s", time.Now().Format("20060102_150405"))
 	}
 
 	params := parseExportParams(c)
 
 	url, err := h.exportService.CreateCheckinGoogleSheet(c.Request.Context(), params, req.Title)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"url": url, "title": req.Title})
 }
 
-// parseExportParams pulls the common filter query params shared by Excel and
-// Google Sheet export endpoints.
 func parseExportParams(c *gin.Context) service.AdminListParams {
 	params := service.AdminListParams{
 		DateFrom:    c.Query("dateFrom"),
@@ -282,21 +276,18 @@ func parseExportParams(c *gin.Context) service.AdminListParams {
 	return params
 }
 
-// saveUploadedFile saves a multipart file and returns its URL path.
 func saveUploadedFile(c *gin.Context, fieldName string) (string, error) {
 	file, err := c.FormFile(fieldName)
 	if err != nil {
 		return "", fmt.Errorf("file field '%s' is required", fieldName)
 	}
 
-	// Generate unique filename
 	ext := filepath.Ext(file.Filename)
 	filename := fmt.Sprintf("%s_%s_%d%s", fieldName, time.Now().Format("20060102_150405"), time.Now().UnixNano(), ext)
 
 	uploadDir := config.AppConfig.UploadDir
 	savePath := filepath.Join(uploadDir, filename)
 
-	// Ensure upload directory exists
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create upload directory: %w", err)
 	}
@@ -305,6 +296,5 @@ func saveUploadedFile(c *gin.Context, fieldName string) (string, error) {
 		return "", fmt.Errorf("failed to save file: %w", err)
 	}
 
-	// Return URL path (relative to server root)
 	return "/uploads/" + filename, nil
 }

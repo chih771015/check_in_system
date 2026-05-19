@@ -25,7 +25,7 @@ func NewAdminHandler(adminService *service.AdminService, auditService *service.A
 func (h *AdminHandler) ListAdmins(c *gin.Context) {
 	admins, err := h.adminService.ListAdmins(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": admins})
@@ -35,32 +35,32 @@ func (h *AdminHandler) ListAdmins(c *gin.Context) {
 func (h *AdminHandler) CreateAdmin(c *gin.Context) {
 	var req dto.CreateAdminRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 	ctx := c.Request.Context()
 	if err := h.adminService.CreateAdmin(ctx, req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
 	h.auditService.Log(ctx, requesterID, "create_admin", "user", 0, "email="+req.Email)
-	c.JSON(http.StatusCreated, gin.H{"message": "管理員帳號建立成功"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Admin account created successfully"})
 }
 
 // DeleteAdmin handles DELETE /api/admin/admins/:id
 func (h *AdminHandler) DeleteAdmin(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的管理員 ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidAdminID, "Invalid admin ID")
 		return
 	}
 	ctx := c.Request.Context()
 	requesterID := c.GetUint("userID")
 	if err := h.adminService.DeleteAdmin(ctx, requesterID, uint(id)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	h.auditService.Log(ctx, requesterID, "delete_admin", "user", uint(id), "")
-	c.JSON(http.StatusOK, gin.H{"message": "管理員帳號已刪除"})
+	c.JSON(http.StatusOK, gin.H{"message": "Admin account deleted"})
 }

@@ -52,7 +52,7 @@ func (h *ExportScheduleHandler) UpsertExportSchedule(c *gin.Context) {
 		Enabled    bool   `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (h *ExportScheduleHandler) UpsertExportSchedule(c *gin.Context) {
 		UpdatedAt:  now,
 	}
 	if err := h.repo.WithCtx(c.Request.Context()).Upsert(es); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Export schedule saved"})
@@ -81,7 +81,7 @@ func (h *ExportScheduleHandler) RunExportNow(c *gin.Context) {
 	adminID := c.GetUint("userID")
 	result, err := h.exportService.RunExportForAdmin(c.Request.Context(), adminID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

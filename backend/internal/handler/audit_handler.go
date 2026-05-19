@@ -46,7 +46,7 @@ func (h *AuditHandler) ListAuditLogs(c *gin.Context) {
 
 	logs, total, err := h.auditService.List(c.Request.Context(), f)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 

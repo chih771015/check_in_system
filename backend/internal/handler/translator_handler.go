@@ -28,7 +28,7 @@ func (h *TranslatorHandler) ListTranslators(c *gin.Context) {
 
 	translators, err := h.translatorService.List(c.Request.Context(), status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -39,13 +39,13 @@ func (h *TranslatorHandler) ListTranslators(c *gin.Context) {
 func (h *TranslatorHandler) CreateTranslator(c *gin.Context) {
 	var req dto.CreateTranslatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
 	if err := h.translatorService.Create(ctx, req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -59,19 +59,19 @@ func (h *TranslatorHandler) CreateTranslator(c *gin.Context) {
 func (h *TranslatorHandler) UpdateTranslator(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid translator ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidTranslatorID, "Invalid translator ID")
 		return
 	}
 
 	var req dto.UpdateTranslatorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
 	if err := h.translatorService.Update(ctx, uint(id), req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -82,25 +82,23 @@ func (h *TranslatorHandler) UpdateTranslator(c *gin.Context) {
 }
 
 // ResetTranslatorPassword handles POST /api/admin/translators/:id/reset-password.
-// The admin supplies a new password; the target user is forced to change it on
-// next login.
 func (h *TranslatorHandler) ResetTranslatorPassword(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid translator ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidTranslatorID, "Invalid translator ID")
 		return
 	}
 
 	var req dto.AdminResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 
 	ctx := c.Request.Context()
 	adminID := c.GetUint("userID")
 	if err := h.authService.AdminResetPassword(ctx, adminID, uint(id), req.NewPassword); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 
@@ -113,13 +111,13 @@ func (h *TranslatorHandler) ResetTranslatorPassword(c *gin.Context) {
 func (h *TranslatorHandler) DisableTranslator(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid translator ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidTranslatorID, "Invalid translator ID")
 		return
 	}
 
 	ctx := c.Request.Context()
 	if err := h.translatorService.Disable(ctx, uint(id)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 

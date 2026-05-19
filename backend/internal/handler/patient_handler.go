@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -24,7 +23,6 @@ func NewPatientHandler(patientService *service.PatientService, auditService *ser
 	return &PatientHandler{patientService: patientService, auditService: auditService}
 }
 
-// toPatientResponse maps a model.Patient to the admin response DTO.
 func toPatientResponse(p *model.Patient) dto.PatientResponse {
 	return dto.PatientResponse{
 		ID:        p.ID,
@@ -37,8 +35,6 @@ func toPatientResponse(p *model.Patient) dto.PatientResponse {
 	}
 }
 
-// toTranslatorPatientResponse maps a model.Patient to the trimmed translator
-// view (no timestamps).
 func toTranslatorPatientResponse(p *model.Patient) dto.TranslatorPatientResponse {
 	return dto.TranslatorPatientResponse{
 		ID:       p.ID,
@@ -53,12 +49,12 @@ func toTranslatorPatientResponse(p *model.Patient) dto.TranslatorPatientResponse
 func (h *PatientHandler) ListPatients(c *gin.Context) {
 	var q dto.PatientListQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 	patients, total, err := h.patientService.List(c.Request.Context(), q)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	data := make([]dto.PatientResponse, len(patients))
@@ -85,17 +81,13 @@ func (h *PatientHandler) ListPatients(c *gin.Context) {
 func (h *PatientHandler) CreatePatient(c *gin.Context) {
 	var req dto.CreatePatientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 	ctx := c.Request.Context()
 	patient, err := h.patientService.Create(ctx, req)
 	if err != nil {
-		if errors.Is(err, service.ErrPatientDuplicate) {
-			c.JSON(http.StatusConflict, gin.H{"error": "病人資料重複（相同 ID 類型與號碼）"})
-			return
-		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
@@ -107,25 +99,18 @@ func (h *PatientHandler) CreatePatient(c *gin.Context) {
 func (h *PatientHandler) UpdatePatient(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的病人 ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidPatientID, "Invalid patient ID")
 		return
 	}
 	var req dto.UpdatePatientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 	ctx := c.Request.Context()
 	patient, err := h.patientService.Update(ctx, uint(id), req)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrPatientDuplicate):
-			c.JSON(http.StatusConflict, gin.H{"error": "病人資料重複（相同 ID 類型與號碼）"})
-		case errors.Is(err, service.ErrPatientNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": "找不到此病人"})
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
+		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
@@ -137,21 +122,17 @@ func (h *PatientHandler) UpdatePatient(c *gin.Context) {
 func (h *PatientHandler) DeletePatient(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的病人 ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidPatientID, "Invalid patient ID")
 		return
 	}
 	ctx := c.Request.Context()
 	if err := h.patientService.Delete(ctx, uint(id)); err != nil {
-		if errors.Is(err, service.ErrPatientNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "找不到此病人"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
 	h.auditService.Log(ctx, requesterID, "delete_patient", "patient", uint(id), "")
-	c.JSON(http.StatusOK, gin.H{"message": "病人資料已刪除"})
+	c.JSON(http.StatusOK, gin.H{"message": "Patient deleted"})
 }
 
 // GetPatientHistory handles GET /api/admin/patients/:id/history
@@ -159,34 +140,29 @@ func (h *PatientHandler) DeletePatient(c *gin.Context) {
 func (h *PatientHandler) GetPatientHistory(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "無效的病人 ID"})
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidPatientID, "Invalid patient ID")
 		return
 	}
 	resp, err := h.patientService.GetHistory(c.Request.Context(), uint(id))
 	if err != nil {
-		if errors.Is(err, service.ErrPatientNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "找不到此病人"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
 }
 
 // ListPatientsForTranslator handles GET /api/patients
-// Returns the trimmed translator view (no timestamps).
 // TODO(stage 3): restrict to patients tied to schedules owned by the caller.
 func (h *PatientHandler) ListPatientsForTranslator(c *gin.Context) {
 	var q dto.PatientListQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondBadRequest(c, err)
 		return
 	}
 	translatorID := c.GetUint("userID")
 	patients, total, err := h.patientService.ListForTranslator(c.Request.Context(), translatorID, q)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		respondError(c, err)
 		return
 	}
 	data := make([]dto.TranslatorPatientResponse, len(patients))

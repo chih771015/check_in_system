@@ -78,4 +78,12 @@ const (
 	CodeCheckinCreateFailed   = "CHECKIN_CREATE_FAILED"
 	CodeGoogleNotConfigured   = "GOOGLE_NOT_CONFIGURED"
 	CodeExportFailed          = "EXPORT_FAILED"
+
+	// Patient
+	CodePatientNotFound  = "PATIENT_NOT_FOUND"
+	CodePatientDuplicate = "PATIENT_DUPLICATE"
+	CodeInvalidPatientID = "INVALID_PATIENT_ID"
+
+	// Audit
+	CodeInvalidPage = "INVALID_PAGE"
 )
