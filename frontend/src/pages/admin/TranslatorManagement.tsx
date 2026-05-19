@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Space, App } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import type { TranslatorListItem } from '../../types';
 import {
   getTranslators,
@@ -23,6 +24,7 @@ export default function TranslatorManagement() {
   const [editForm] = Form.useForm();
   const [resetForm] = Form.useForm();
   const { message, modal } = App.useApp();
+  const { t } = useTranslation();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -30,11 +32,11 @@ export default function TranslatorManagement() {
       const list = await getTranslators(statusFilter || undefined);
       setData(list);
     } catch {
-      message.error('載入翻譯員列表失敗');
+      message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, message]);
+  }, [statusFilter, message, t]);
 
   useEffect(() => {
     void fetchData();
@@ -48,12 +50,12 @@ export default function TranslatorManagement() {
   }) => {
     try {
       await createTranslator(values);
-      message.success('新增成功');
+      message.success(t('common.success'));
       setCreateOpen(false);
       createForm.resetFields();
       void fetchData();
     } catch {
-      message.error('新增失敗');
+      message.error(t('common.failed'));
     }
   };
 
@@ -61,27 +63,27 @@ export default function TranslatorManagement() {
     if (!editingRecord) return;
     try {
       await updateTranslator(editingRecord.id, values);
-      message.success('更新成功');
+      message.success(t('common.success'));
       setEditOpen(false);
       void fetchData();
     } catch {
-      message.error('更新失敗');
+      message.error(t('common.failed'));
     }
   };
 
   const handleDisable = (record: TranslatorListItem) => {
     modal.confirm({
-      title: '確認停用',
-      content: `確定要停用翻譯員「${record.name}」嗎？`,
-      okText: '確認',
-      cancelText: '取消',
+      title: t('common.confirm'),
+      content: t('translators.confirmDisable', { name: record.name }),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
       onOk: async () => {
         try {
           await disableTranslator(record.id);
-          message.success('已停用');
+          message.success(t('common.success'));
           void fetchData();
         } catch {
-          message.error('停用失敗');
+          message.error(t('common.failed'));
         }
       },
     });
@@ -102,44 +104,44 @@ export default function TranslatorManagement() {
   const handleReset = async (values: { newPassword: string; confirmPassword: string }) => {
     if (!resetTarget) return;
     if (values.newPassword !== values.confirmPassword) {
-      message.error('兩次密碼輸入不一致');
+      message.error(t('changePassword.mismatch'));
       return;
     }
     try {
       await resetTranslatorPassword(resetTarget.id, values.newPassword);
-      message.success(`已重設「${resetTarget.name}」的密碼，請通知該使用者下次登入需自行變更`);
+      message.success(t('common.success'));
       setResetOpen(false);
     } catch {
-      message.error('重設密碼失敗');
+      message.error(t('common.failed'));
     }
   };
 
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
-    { title: '姓名', dataIndex: 'name', key: 'name' },
-    { title: '電子信箱', dataIndex: 'email', key: 'email' },
-    { title: '電話', dataIndex: 'phone', key: 'phone' },
+    { title: t('common.id'), dataIndex: 'id', key: 'id', width: 60 },
+    { title: t('common.name'), dataIndex: 'name', key: 'name' },
+    { title: t('common.email'), dataIndex: 'email', key: 'email' },
+    { title: t('common.phone'), dataIndex: 'phone', key: 'phone' },
     {
-      title: '狀態',
+      title: t('common.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) =>
-        status === 'active' ? <Tag color="green">啟用</Tag> : <Tag color="red">停用</Tag>,
+        status === 'active' ? <Tag color="green">{t('common.active')}</Tag> : <Tag color="red">{t('common.disabled')}</Tag>,
     },
     {
-      title: '操作',
+      title: t('common.operation'),
       key: 'action',
       render: (_: unknown, record: TranslatorListItem) => (
         <Space wrap>
           <Button size="small" onClick={() => openEdit(record)}>
-            編輯
+            {t('common.edit')}
           </Button>
           <Button size="small" onClick={() => openReset(record)}>
-            重設密碼
+            {t('translators.resetPassword')}
           </Button>
           {record.status === 'active' && (
             <Button size="small" danger onClick={() => handleDisable(record)}>
-              停用
+              {t('translators.disable')}
             </Button>
           )}
         </Space>
@@ -159,17 +161,17 @@ export default function TranslatorManagement() {
         }}
       >
         <Select
-          style={{ width: 120 }}
+          style={{ width: 140 }}
           value={statusFilter}
           onChange={setStatusFilter}
           options={[
-            { value: '', label: '全部' },
-            { value: 'active', label: '啟用' },
-            { value: 'disabled', label: '停用' },
+            { value: '', label: t('common.actions') },
+            { value: 'active', label: t('common.active') },
+            { value: 'disabled', label: t('common.disabled') },
           ]}
         />
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-          新增翻譯員
+          {t('translators.add')}
         </Button>
       </div>
 
@@ -183,72 +185,66 @@ export default function TranslatorManagement() {
       />
 
       <Modal
-        title="新增翻譯員"
+        title={t('translators.add')}
         open={createOpen}
         onCancel={() => setCreateOpen(false)}
         footer={null}
       >
         <Form form={createForm} onFinish={handleCreate} layout="vertical">
-          <Form.Item name="name" label="姓名" rules={[{ required: true, message: '請輸入姓名' }]}>
+          <Form.Item name="name" label={t('common.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="email"
-            label="電子信箱"
-            rules={[
-              { required: true, message: '請輸入電子信箱' },
-              { type: 'email', message: '請輸入正確的信箱格式' },
-            ]}
+            label={t('common.email')}
+            rules={[{ required: true }, { type: 'email' }]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name="phone" label="電話" rules={[{ required: true, message: '請輸入電話' }]}>
+          <Form.Item name="phone" label={t('common.phone')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item
             name="password"
-            label="密碼"
-            rules={[
-              { required: true, message: '請輸入密碼' },
-              { min: 6, message: '密碼至少6個字元' },
-            ]}
+            label={t('common.password')}
+            rules={[{ required: true }, { min: 6 }]}
           >
             <Input.Password />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              新增
+              {t('common.create')}
             </Button>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="編輯翻譯員" open={editOpen} onCancel={() => setEditOpen(false)} footer={null}>
+      <Modal title={t('translators.edit')} open={editOpen} onCancel={() => setEditOpen(false)} footer={null}>
         <Form form={editForm} onFinish={handleEdit} layout="vertical">
-          <Form.Item name="name" label="姓名" rules={[{ required: true, message: '請輸入姓名' }]}>
+          <Form.Item name="name" label={t('common.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="phone" label="電話" rules={[{ required: true, message: '請輸入電話' }]}>
+          <Form.Item name="phone" label={t('common.phone')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="status" label="狀態">
+          <Form.Item name="status" label={t('common.status')}>
             <Select
               options={[
-                { value: 'active', label: '啟用' },
-                { value: 'disabled', label: '停用' },
+                { value: 'active', label: t('common.active') },
+                { value: 'disabled', label: t('common.disabled') },
               ]}
             />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
-              更新
+              {t('common.update')}
             </Button>
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title={resetTarget ? `重設「${resetTarget.name}」的密碼` : '重設密碼'}
+        title={t('translators.resetPassword')}
         open={resetOpen}
         onCancel={() => setResetOpen(false)}
         footer={null}
@@ -256,24 +252,21 @@ export default function TranslatorManagement() {
         <Form form={resetForm} onFinish={handleReset} layout="vertical">
           <Form.Item
             name="newPassword"
-            label="新密碼"
-            rules={[
-              { required: true, message: '請輸入新密碼' },
-              { min: 8, message: '密碼至少 8 個字元' },
-            ]}
+            label={t('common.newPassword')}
+            rules={[{ required: true }, { min: 8, message: t('changePassword.minLength') }]}
           >
-            <Input.Password placeholder="新密碼" />
+            <Input.Password />
           </Form.Item>
           <Form.Item
             name="confirmPassword"
-            label="確認新密碼"
-            rules={[{ required: true, message: '請再次輸入新密碼' }]}
+            label={t('common.confirmPassword')}
+            rules={[{ required: true }]}
           >
-            <Input.Password placeholder="確認新密碼" />
+            <Input.Password />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
             <Button type="primary" htmlType="submit" block>
-              重設密碼
+              {t('translators.resetPassword')}
             </Button>
           </Form.Item>
         </Form>
