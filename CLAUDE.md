@@ -9,6 +9,28 @@
 
 ## Conventions
 
+### TDD — Test-Driven Development（必須遵守）
+
+**所有新功能或重構必須遵守 TDD 流程：**
+
+1. **先寫測試（Red）**：在動任何 production code 前，先寫一個失敗的測試表達期望行為
+2. **最小實作（Green）**：寫剛好夠讓測試過的程式碼，不過度設計
+3. **重構（Refactor）**：紅綠循環後再清理結構
+
+**規則：**
+- 後端用 Go `testing` + `testify`（assert/require），DB 操作用 in-memory SQLite (`gorm.io/driver/sqlite` `:memory:`）作 fake
+- 前端用 `vitest` + `@testing-library/react`
+- service 層的商業邏輯、handler 的錯誤映射、純函式必須有測試
+- 每個 PR / staged commit 結束時跑 `go test ./...`（後端）與 `npm test`（前端），不過不 merge
+- 修 bug 時：先寫一個會 reproduce bug 的失敗測試，再修，避免再犯
+
+**不需要 TDD 的部分：**
+- 純 UI layout 調整（無邏輯）
+- i18n 字串替換
+- 設定檔 / docker / 文件
+
+當不確定要不要寫測試時，**預設要寫**。
+
 ### Commit Style
 - Prefix: `feat(backend):`, `feat(frontend):`, `feat:`, `fix:`, `docs:`
 - Language: Chinese commit messages (this is a Taiwanese team project)
