@@ -25,3 +25,4 @@ backend/vendor/
 
 # Claude Code local overrides (already gitignored via settings.local.json rule, belt-and-suspenders)
 .claude/settings.local.json
+.claude/worktrees/
