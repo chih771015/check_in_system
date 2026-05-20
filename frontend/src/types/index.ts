@@ -32,6 +32,13 @@ export interface SchedulePatient {
   noShowReason?: string;
 }
 
+export interface DiagnosisPhoto {
+  id: number;
+  schedulePatientId: number;
+  photoUrl: string;
+  uploadedAt: string;
+}
+
 export interface SchedulePatientPayload {
   patientId: number;
   startTime: string;

@@ -257,6 +257,32 @@
     "PATIENT_NOT_FOUND": "ไม่พบผู้ป่วย",
     "PATIENT_DUPLICATE": "มีผู้ป่วยที่ใช้ประเภทและหมายเลข ID เดียวกันอยู่แล้ว",
     "INVALID_PATIENT_ID": "ID ผู้ป่วยไม่ถูกต้อง",
-    "INVALID_PAGE": "หน้าไม่ถูกต้อง"
+    "INVALID_PAGE": "หน้าไม่ถูกต้อง",
+    "SCHEDULE_PATIENTS_REQUIRED": "กรุณาเพิ่มผู้ป่วยอย่างน้อย 1 คน",
+    "DUPLICATE_PATIENT_IN_SCHEDULE": "ผู้ป่วยนี้อยู่ในตารางแล้ว",
+    "PATIENT_TIME_OUT_OF_RANGE": "ช่วงเวลาของผู้ป่วยเกินช่วงตารางงาน",
+    "PATIENT_END_BEFORE_START": "เวลาสิ้นสุดของผู้ป่วยต้องอยู่หลังเวลาเริ่ม",
+    "SCHEDULE_PATIENT_NOT_FOUND": "ไม่พบรายการผู้ป่วยในตาราง",
+    "DIAGNOSIS_PHOTO_LIMIT": "ถึงขีดจำกัดภาพใบรับรองแล้ว (สูงสุด 3 ภาพต่อผู้ป่วย)",
+    "DIAGNOSIS_NOT_OWNED": "รายการผู้ป่วยนี้ไม่ใช่ของคุณ",
+    "NO_SHOW_REASON_REQUIRED": "กรุณากรอกเหตุผลที่ไม่มา",
+    "CHECKOUT_BLOCKED_BY_PENDING": "กรุณาดำเนินการกับผู้ป่วยทั้งหมด (อัปโหลดใบรับรองหรือทำเครื่องหมายไม่มา) ก่อนลงเวลาออก"
+  },
+  "diagnosis": {
+    "upload": "อัปโหลดใบรับรอง",
+    "uploading": "กำลังอัปโหลด...",
+    "selectPhotos": "เลือกภาพ (สูงสุด 3 ภาพ)",
+    "noShow": "ทำเครื่องหมายไม่มา",
+    "noShowReason": "เหตุผล",
+    "noShowReasonPlaceholder": "เหตุผลที่ผู้ป่วยไม่มา",
+    "submit": "ส่ง",
+    "uploaded": "อัปโหลดใบรับรองแล้ว",
+    "markedNoShow": "ทำเครื่องหมายว่าผู้ป่วยไม่มาแล้ว",
+    "tooManyFiles": "อัปโหลดได้สูงสุด 3 ภาพ",
+    "statusPending": "รอดำเนินการ",
+    "statusCompleted": "เสร็จสิ้น",
+    "statusNoShow": "ไม่มา",
+    "pendingPatients": "รอดำเนินการ: {{count}}",
+    "viewPhotos": "ดูภาพ"
   }
 }

@@ -257,6 +257,32 @@
     "PATIENT_NOT_FOUND": "Patient not found",
     "PATIENT_DUPLICATE": "A patient with the same ID type and number already exists",
     "INVALID_PATIENT_ID": "Invalid patient ID",
-    "INVALID_PAGE": "Invalid page"
+    "INVALID_PAGE": "Invalid page",
+    "SCHEDULE_PATIENTS_REQUIRED": "Please add at least one patient",
+    "DUPLICATE_PATIENT_IN_SCHEDULE": "This patient is already in the schedule",
+    "PATIENT_TIME_OUT_OF_RANGE": "Patient time slot is outside the schedule range",
+    "PATIENT_END_BEFORE_START": "Patient end time must be after start time",
+    "SCHEDULE_PATIENT_NOT_FOUND": "Schedule patient not found",
+    "DIAGNOSIS_PHOTO_LIMIT": "Diagnosis photo limit reached (max 3 per patient)",
+    "DIAGNOSIS_NOT_OWNED": "This patient slot does not belong to you",
+    "NO_SHOW_REASON_REQUIRED": "Please enter a reason for the no-show",
+    "CHECKOUT_BLOCKED_BY_PENDING": "Please process all patients (upload diagnosis or mark no-show) before checking out"
+  },
+  "diagnosis": {
+    "upload": "Upload Diagnosis",
+    "uploading": "Uploading...",
+    "selectPhotos": "Select photos (max 3)",
+    "noShow": "Mark No-Show",
+    "noShowReason": "Reason",
+    "noShowReasonPlaceholder": "Why didn't the patient show up?",
+    "submit": "Submit",
+    "uploaded": "Diagnosis uploaded",
+    "markedNoShow": "Patient marked as no-show",
+    "tooManyFiles": "You can only upload up to 3 photos",
+    "statusPending": "Pending",
+    "statusCompleted": "Completed",
+    "statusNoShow": "No Show",
+    "pendingPatients": "Pending: {{count}}",
+    "viewPhotos": "View Photos"
   }
 }

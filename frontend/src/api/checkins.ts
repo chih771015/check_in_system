@@ -61,6 +61,47 @@ export function exportCheckinGoogleSheet(params?: Record<string, string>) {
     .then((r) => r.data);
 }
 
+/**
+ * uploadDiagnosis appends 1..3 diagnosis photos to a SchedulePatient.
+ * After upload the slot's status flips to "completed".
+ */
+export function uploadDiagnosis(schedulePatientId: number, photos: File[]) {
+  const form = new FormData();
+  form.append('schedulePatientId', String(schedulePatientId));
+  photos.forEach((p) => form.append('photo', p));
+  return client
+    .post<{ message: string; photoUrls: string[] }>('/checkins/diagnosis', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+}
+
+/** markNoShow flips a SchedulePatient's status to no_show with a reason. */
+export function markNoShow(schedulePatientId: number, reason: string) {
+  return client
+    .post('/checkins/no-show', { schedulePatientId, reason })
+    .then((r) => r.data);
+}
+
+/** Admin surrogate: same as uploadDiagnosis but without ownership check. */
+export function adminUploadDiagnosis(schedulePatientId: number, photos: File[]) {
+  const form = new FormData();
+  form.append('schedulePatientId', String(schedulePatientId));
+  photos.forEach((p) => form.append('photo', p));
+  return client
+    .post<{ message: string }>('/admin/diagnosis', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+}
+
+/** Admin surrogate: same as markNoShow but without ownership check. */
+export function adminMarkNoShow(schedulePatientId: number, reason: string) {
+  return client
+    .post('/admin/no-show', { schedulePatientId, reason })
+    .then((r) => r.data);
+}
+
 export function exportCheckinExcel(params?: Record<string, string>) {
   return client
     .get('/admin/export/excel', {

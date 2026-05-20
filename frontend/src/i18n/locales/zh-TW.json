@@ -257,6 +257,32 @@
     "PATIENT_NOT_FOUND": "找不到病人",
     "PATIENT_DUPLICATE": "已存在相同 ID 類型與號碼的病人",
     "INVALID_PATIENT_ID": "無效的病人 ID",
-    "INVALID_PAGE": "無效的頁數"
+    "INVALID_PAGE": "無效的頁數",
+    "SCHEDULE_PATIENTS_REQUIRED": "請至少新增一位病人",
+    "DUPLICATE_PATIENT_IN_SCHEDULE": "此病人已在排班中",
+    "PATIENT_TIME_OUT_OF_RANGE": "病人時段超出排班時段範圍",
+    "PATIENT_END_BEFORE_START": "病人結束時間必須晚於開始時間",
+    "SCHEDULE_PATIENT_NOT_FOUND": "找不到病人排班項目",
+    "DIAGNOSIS_PHOTO_LIMIT": "已達診斷證明照片上限（每位病人最多 3 張）",
+    "DIAGNOSIS_NOT_OWNED": "此病人項目不屬於您",
+    "NO_SHOW_REASON_REQUIRED": "請填寫未到原因",
+    "CHECKOUT_BLOCKED_BY_PENDING": "請先處理完所有病人（上傳診斷證明或標記未到）才能離開打卡"
+  },
+  "diagnosis": {
+    "upload": "上傳診斷證明",
+    "uploading": "上傳中...",
+    "selectPhotos": "選擇照片（最多 3 張）",
+    "noShow": "標記未到",
+    "noShowReason": "原因",
+    "noShowReasonPlaceholder": "病人未到的原因",
+    "submit": "送出",
+    "uploaded": "診斷證明已上傳",
+    "markedNoShow": "已標記病人未到",
+    "tooManyFiles": "最多只能上傳 3 張照片",
+    "statusPending": "待處理",
+    "statusCompleted": "已完成",
+    "statusNoShow": "未到",
+    "pendingPatients": "待處理：{{count}}",
+    "viewPhotos": "查看照片"
   }
 }
