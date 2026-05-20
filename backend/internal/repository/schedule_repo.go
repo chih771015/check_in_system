@@ -18,16 +18,25 @@ func NewScheduleRepository(db *gorm.DB) *ScheduleRepository {
 	return &ScheduleRepository{db: db}
 }
 
+// DB exposes the underlying *gorm.DB so callers (e.g. tests, services that
+// need to start a transaction across repositories) can reuse the same handle.
+func (r *ScheduleRepository) DB() *gorm.DB {
+	return r.db
+}
+
 // WithCtx returns a copy whose *gorm.DB carries the request context so
 // the GORM OTel plugin nests SQL spans under the active HTTP span.
 func (r *ScheduleRepository) WithCtx(ctx context.Context) *ScheduleRepository {
 	return &ScheduleRepository{db: r.db.WithContext(ctx)}
 }
 
-// FindByID returns a schedule by ID with preloaded Translator.
+// FindByID returns a schedule by ID with Translator + Patients (incl. Patient identity) preloaded.
 func (r *ScheduleRepository) FindByID(id uint) (*model.Schedule, error) {
 	var schedule model.Schedule
-	if err := r.db.Preload("Translator").First(&schedule, id).Error; err != nil {
+	if err := r.db.
+		Preload("Translator").
+		Preload("Patients.Patient").
+		First(&schedule, id).Error; err != nil {
 		return nil, err
 	}
 	return &schedule, nil
@@ -36,7 +45,10 @@ func (r *ScheduleRepository) FindByID(id uint) (*model.Schedule, error) {
 // FindByTranslator returns schedules for a specific translator within a date range.
 func (r *ScheduleRepository) FindByTranslator(translatorID uint, dateFrom, dateTo string) ([]model.Schedule, error) {
 	var schedules []model.Schedule
-	query := r.db.Preload("Translator").Where("translator_id = ?", translatorID)
+	query := r.db.
+		Preload("Translator").
+		Preload("Patients.Patient").
+		Where("translator_id = ?", translatorID)
 
 	if dateFrom != "" {
 		query = query.Where("date >= ?", dateFrom)
@@ -51,10 +63,12 @@ func (r *ScheduleRepository) FindByTranslator(translatorID uint, dateFrom, dateT
 	return schedules, nil
 }
 
-// FindAll returns schedules with optional filters and preloaded Translator.
+// FindAll returns schedules with optional filters and Translator + Patients preloaded.
 func (r *ScheduleRepository) FindAll(translatorID uint, dateFrom, dateTo, location string) ([]model.Schedule, error) {
 	var schedules []model.Schedule
-	query := r.db.Preload("Translator")
+	query := r.db.
+		Preload("Translator").
+		Preload("Patients.Patient")
 
 	if translatorID > 0 {
 		query = query.Where("translator_id = ?", translatorID)

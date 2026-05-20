@@ -25,6 +25,12 @@ var (
 	ErrRecurrenceBeforeStart = errors.New("recurrenceUntil must be after or equal to date")
 	ErrInvalidRecurrence     = errors.New("invalid recurrenceRule")
 	ErrNoDatesGenerated      = errors.New("no dates generated for the given recurrence rule and range")
+
+	// Stage 3 multi-patient sentinels.
+	ErrSchedulePatientsRequired   = errors.New("schedule must contain at least one patient")
+	ErrDuplicatePatientInSchedule = errors.New("the same patient cannot appear twice in one schedule")
+	ErrPatientTimeOutOfRange      = errors.New("patient time slot is outside the schedule's overall start/end")
+	ErrPatientEndBeforeStart      = errors.New("patient end_time must be after start_time")
 )
 
 // ScheduleService handles schedule management business logic.
@@ -32,9 +38,14 @@ type ScheduleService struct {
 	scheduleRepo *repository.ScheduleRepository
 	checkinRepo  *repository.CheckinRepository
 	userRepo     *repository.UserRepository
+	// Stage 3 dependencies — optional so old tests that use the 3-arg
+	// constructor still work (they don't exercise multi-patient flows).
+	spRepo      *repository.SchedulePatientRepository
+	patientRepo *repository.PatientRepository
 }
 
-// NewScheduleService creates a new ScheduleService.
+// NewScheduleService creates a new ScheduleService with legacy 3-repo signature.
+// Multi-patient flows require WithPatientRepos to be called.
 func NewScheduleService(
 	scheduleRepo *repository.ScheduleRepository,
 	checkinRepo *repository.CheckinRepository,
@@ -45,6 +56,17 @@ func NewScheduleService(
 		checkinRepo:  checkinRepo,
 		userRepo:     userRepo,
 	}
+}
+
+// WithPatientRepos wires up the SchedulePatient + Patient repos required by
+// stage-3 multi-patient features. Returns the service for chaining.
+func (s *ScheduleService) WithPatientRepos(
+	spRepo *repository.SchedulePatientRepository,
+	patientRepo *repository.PatientRepository,
+) *ScheduleService {
+	s.spRepo = spRepo
+	s.patientRepo = patientRepo
+	return s
 }
 
 // List returns schedules with optional filters and checkin status.
@@ -66,8 +88,12 @@ func (s *ScheduleService) ListForTranslator(ctx context.Context, translatorID ui
 }
 
 // Create adds a new schedule entry (or multiple if RecurrenceRule is set).
+//
+// Stage 3 flow: when req.Patients is non-empty the service validates the
+// payload and creates schedule + schedule_patients rows in a single transaction.
+// Legacy single-patient path (PatientName only) is preserved for backward
+// compat with stage 1/2 callers and tests.
 func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequest) (*dto.ScheduleResponse, error) {
-	// Verify translator exists
 	user, err := s.userRepo.WithCtx(ctx).FindByID(req.TranslatorID)
 	if err != nil {
 		return nil, ErrTranslatorNotFound
@@ -85,6 +111,19 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 		return nil, ErrInvalidDateFormat
 	}
 
+	// Multi-patient mode: validate then create in a transaction.
+	if len(req.Patients) > 0 {
+		if err := s.validateSchedulePatients(ctx, req.StartTime, req.EndTime, req.Patients); err != nil {
+			return nil, err
+		}
+		return s.createWithPatients(ctx, req, date)
+	}
+
+	// Stage-1 backward compat: explicit empty Patients[] with no PatientName → error.
+	if req.Patients != nil && len(req.Patients) == 0 && req.PatientName == "" {
+		return nil, ErrSchedulePatientsRequired
+	}
+
 	schedule := &model.Schedule{
 		TranslatorID: req.TranslatorID,
 		Date:         date,
@@ -99,15 +138,84 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 	if err := schRepo.Create(schedule); err != nil {
 		return nil, err
 	}
-
-	// Reload with translator
 	schedule, err = schRepo.FindByID(schedule.ID)
 	if err != nil {
 		return nil, err
 	}
-
 	resp := s.toResponse(schedule, "none")
 	return &resp, nil
+}
+
+// createWithPatients persists a schedule together with its SchedulePatient
+// rows in one transaction. Validation must have already run.
+func (s *ScheduleService) createWithPatients(ctx context.Context, req dto.CreateScheduleRequest, date time.Time) (*dto.ScheduleResponse, error) {
+	schedule := &model.Schedule{
+		TranslatorID: req.TranslatorID,
+		Date:         date,
+		StartTime:    req.StartTime,
+		EndTime:      req.EndTime,
+		Location:     req.Location,
+		Note:         req.Note,
+	}
+
+	db := s.scheduleRepo.DB().WithContext(ctx)
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(schedule).Error; err != nil {
+			return err
+		}
+		rows := make([]*model.SchedulePatient, 0, len(req.Patients))
+		for i, p := range req.Patients {
+			rows = append(rows, &model.SchedulePatient{
+				ScheduleID: schedule.ID,
+				PatientID:  p.PatientID,
+				StartTime:  p.StartTime,
+				EndTime:    p.EndTime,
+				OrderIdx:   i,
+				Status:     model.SchedulePatientStatusPending,
+			})
+		}
+		return tx.Create(&rows).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	reloaded, err := s.scheduleRepo.WithCtx(ctx).FindByID(schedule.ID)
+	if err != nil {
+		return nil, err
+	}
+	resp := s.toResponse(reloaded, "none")
+	return &resp, nil
+}
+
+// validateSchedulePatients runs business validation on a Patients payload:
+//   - patient end > start
+//   - patient slot within overall schedule start/end
+//   - no duplicate patient IDs within one schedule
+//   - every patient ID resolves to an existing Patient row
+func (s *ScheduleService) validateSchedulePatients(ctx context.Context, overallStart, overallEnd string, patients []dto.SchedulePatientPayload) error {
+	if len(patients) == 0 {
+		return ErrSchedulePatientsRequired
+	}
+	seen := map[uint]bool{}
+	for _, p := range patients {
+		if p.EndTime <= p.StartTime {
+			return ErrPatientEndBeforeStart
+		}
+		if p.StartTime < overallStart || p.EndTime > overallEnd {
+			return ErrPatientTimeOutOfRange
+		}
+		if seen[p.PatientID] {
+			return ErrDuplicatePatientInSchedule
+		}
+		seen[p.PatientID] = true
+		if s.patientRepo != nil {
+			if _, err := s.patientRepo.WithCtx(ctx).FindByID(p.PatientID); err != nil {
+				return ErrPatientNotFound
+			}
+		}
+	}
+	return nil
 }
 
 // createRecurring creates multiple schedule records based on a recurrence rule.
@@ -297,13 +405,45 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 		schedule.Note = *req.Note
 	}
 
-	schRepo := s.scheduleRepo.WithCtx(ctx)
-	if err := schRepo.Update(schedule); err != nil {
-		return nil, err
+	// Stage 3: if Patients was supplied, validate then replace the whole list
+	// inside a transaction together with the schedule update.
+	if req.Patients != nil {
+		if err := s.validateSchedulePatients(ctx, schedule.StartTime, schedule.EndTime, *req.Patients); err != nil {
+			return nil, err
+		}
+		db := s.scheduleRepo.DB().WithContext(ctx)
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(schedule).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("schedule_id = ?", schedule.ID).Delete(&model.SchedulePatient{}).Error; err != nil {
+				return err
+			}
+			rows := make([]*model.SchedulePatient, 0, len(*req.Patients))
+			for i, p := range *req.Patients {
+				rows = append(rows, &model.SchedulePatient{
+					ScheduleID: schedule.ID,
+					PatientID:  p.PatientID,
+					StartTime:  p.StartTime,
+					EndTime:    p.EndTime,
+					OrderIdx:   i,
+					Status:     model.SchedulePatientStatusPending,
+				})
+			}
+			return tx.Create(&rows).Error
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		schRepo := s.scheduleRepo.WithCtx(ctx)
+		if err := schRepo.Update(schedule); err != nil {
+			return nil, err
+		}
 	}
 
 	// Reload
-	schedule, err = schRepo.FindByID(schedule.ID)
+	schedule, err = s.scheduleRepo.WithCtx(ctx).FindByID(schedule.ID)
 	if err != nil {
 		return nil, err
 	}

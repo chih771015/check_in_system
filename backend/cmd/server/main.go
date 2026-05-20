@@ -114,12 +114,14 @@ func main() {
 	exportScheduleRepo := repository.NewExportScheduleRepository(db)
 	auditRepo := repository.NewAuditLogRepository(db)
 	patientRepo := repository.NewPatientRepository(db)
+	schedulePatientRepo := repository.NewSchedulePatientRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
 	adminService := service.NewAdminService(userRepo)
 	translatorService := service.NewTranslatorService(userRepo)
-	scheduleService := service.NewScheduleService(scheduleRepo, checkinRepo, userRepo)
+	scheduleService := service.NewScheduleService(scheduleRepo, checkinRepo, userRepo).
+		WithPatientRepos(schedulePatientRepo, patientRepo)
 	geocodingService := service.NewGeocodingService()
 	checkinService := service.NewCheckinService(checkinRepo, scheduleRepo, userRepo, geocodingService)
 	mailService := service.NewMailService()
