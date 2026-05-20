@@ -170,7 +170,11 @@ func (h *ScheduleHandler) AdminImportSchedules(c *gin.Context) {
 		return
 	}
 
-	var rows []service.ScheduleImportRow
+	// Stage-3 flat format columns:
+	//   A=Code | B=TranslatorID | C=Date | D=OverallStart | E=OverallEnd |
+	//   F=Location | G=PatientID | H=PatientStart | I=PatientEnd | J=Note(optional)
+	var rows []service.ScheduleImportRowV2
+	parseFailed := []service.ScheduleImportRowV2{}
 	for i, r := range xrows {
 		if i == 0 {
 			continue
@@ -178,48 +182,63 @@ func (h *ScheduleHandler) AdminImportSchedules(c *gin.Context) {
 		if len(r) == 0 {
 			continue
 		}
-		row := service.ScheduleImportRow{RowNumber: i + 1}
+		row := service.ScheduleImportRowV2{RowNumber: i + 1}
 		get := func(idx int) string {
 			if idx < len(r) {
 				return strings.TrimSpace(r[idx])
 			}
 			return ""
 		}
-		tidStr := get(0)
-		if tidStr == "" {
-			row.Error = "translatorId is empty"
-			rows = append(rows, row)
-			continue
+		row.Code = get(0)
+		tidStr := get(1)
+		if tidStr != "" {
+			if tid, perr := strconv.ParseUint(tidStr, 10, 32); perr == nil {
+				row.TranslatorID = uint(tid)
+			} else {
+				row.Error = "translatorId must be numeric"
+				parseFailed = append(parseFailed, row)
+				continue
+			}
 		}
-		tid, perr := strconv.ParseUint(tidStr, 10, 32)
-		if perr != nil {
-			row.Error = "translatorId must be numeric"
-			rows = append(rows, row)
-			continue
+		row.Date = get(2)
+		row.OverallStart = get(3)
+		row.OverallEnd = get(4)
+		row.Location = get(5)
+		pidStr := get(6)
+		if pidStr != "" {
+			if pid, perr := strconv.ParseUint(pidStr, 10, 32); perr == nil {
+				row.PatientID = uint(pid)
+			} else {
+				row.Error = "patientId must be numeric"
+				parseFailed = append(parseFailed, row)
+				continue
+			}
 		}
-		row.TranslatorID = uint(tid)
-		row.Date = get(1)
-		row.StartTime = get(2)
-		row.EndTime = get(3)
-		row.Location = get(4)
-		row.PatientName = get(5)
-		row.Note = get(6)
-		if row.Date == "" || row.StartTime == "" || row.EndTime == "" || row.Location == "" || row.PatientName == "" {
+		row.PatientStart = get(7)
+		row.PatientEnd = get(8)
+		row.Note = get(9)
+		if row.Code == "" || row.TranslatorID == 0 || row.Date == "" ||
+			row.OverallStart == "" || row.OverallEnd == "" || row.Location == "" ||
+			row.PatientID == 0 || row.PatientStart == "" || row.PatientEnd == "" {
 			row.Error = "missing required field"
+			parseFailed = append(parseFailed, row)
+			continue
 		}
 		rows = append(rows, row)
 	}
 
 	ctx := c.Request.Context()
-	success, failed := h.scheduleService.BatchImportSchedules(ctx, rows)
+	result, _ := h.scheduleService.BatchImportSchedulesV2(ctx, rows)
+	result.Failed = append(parseFailed, result.Failed...)
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "import_schedules", "schedule", 0, "imported via excel")
+	h.auditService.Log(ctx, adminID, "import_schedules", "schedule", 0, "imported via excel (v2 multi-patient)")
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": success,
-		"failed":  failed,
-		"total":   len(rows),
+		"successSchedules": result.SuccessSchedules,
+		"successPatients":  result.SuccessPatients,
+		"failed":           result.Failed,
+		"total":            len(xrows) - 1,
 	})
 }
 

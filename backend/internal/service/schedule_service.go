@@ -646,3 +646,107 @@ func optionalString(s string) *string {
 	}
 	return &s
 }
+
+// ScheduleImportRowV2 is one row of the stage-3 flat Excel format.
+//
+//	A=Code | B=TranslatorID | C=Date | D=OverallStart | E=OverallEnd |
+//	F=Location | G=PatientID | H=PatientStart | I=PatientEnd | J=Note(optional)
+//
+// Rows sharing the same Code merge into one schedule with multiple patients.
+type ScheduleImportRowV2 struct {
+	RowNumber    int
+	Code         string
+	TranslatorID uint
+	Date         string
+	OverallStart string
+	OverallEnd   string
+	Location     string
+	PatientID    uint
+	PatientStart string
+	PatientEnd   string
+	Note         string
+	Error        string
+}
+
+// ScheduleImportResultV2 aggregates the outcome of BatchImportSchedulesV2.
+type ScheduleImportResultV2 struct {
+	SuccessSchedules int                   `json:"successSchedules"`
+	SuccessPatients  int                   `json:"successPatients"`
+	Failed           []ScheduleImportRowV2 `json:"failed"`
+}
+
+// BatchImportSchedulesV2 groups input rows by Code and creates one schedule
+// per code with all matching patients. Failed groups are surfaced in Failed;
+// other groups still succeed.
+func (s *ScheduleService) BatchImportSchedulesV2(ctx context.Context, rows []ScheduleImportRowV2) (*ScheduleImportResultV2, error) {
+	result := &ScheduleImportResultV2{}
+	if len(rows) == 0 {
+		return result, nil
+	}
+
+	// Group by code while preserving first-seen order.
+	groupOrder := []string{}
+	groups := map[string][]ScheduleImportRowV2{}
+	for _, r := range rows {
+		if _, ok := groups[r.Code]; !ok {
+			groupOrder = append(groupOrder, r.Code)
+		}
+		groups[r.Code] = append(groups[r.Code], r)
+	}
+
+	for _, code := range groupOrder {
+		group := groups[code]
+		if code == "" {
+			for _, r := range group {
+				r.Error = "schedule code is required"
+				result.Failed = append(result.Failed, r)
+			}
+			continue
+		}
+		s.importGroup(ctx, group, result)
+	}
+	return result, nil
+}
+
+func (s *ScheduleService) importGroup(ctx context.Context, group []ScheduleImportRowV2, result *ScheduleImportResultV2) {
+	// Verify meta consistency across rows of the same code.
+	head := group[0]
+	for _, r := range group[1:] {
+		if r.TranslatorID != head.TranslatorID || r.Date != head.Date ||
+			r.OverallStart != head.OverallStart || r.OverallEnd != head.OverallEnd ||
+			r.Location != head.Location {
+			r.Error = "conflicting schedule meta for code " + head.Code
+			result.Failed = append(result.Failed, r)
+			return
+		}
+	}
+
+	// Build CreateScheduleRequest and reuse Create() so all validation rules
+	// (time-in-range, duplicate patient, patient exists, translator exists,
+	// date format) stay in one place.
+	patients := make([]dto.SchedulePatientPayload, 0, len(group))
+	for _, r := range group {
+		patients = append(patients, dto.SchedulePatientPayload{
+			PatientID: r.PatientID,
+			StartTime: r.PatientStart,
+			EndTime:   r.PatientEnd,
+		})
+	}
+	req := dto.CreateScheduleRequest{
+		TranslatorID: head.TranslatorID,
+		Date:         head.Date,
+		StartTime:    head.OverallStart,
+		EndTime:      head.OverallEnd,
+		Location:     head.Location,
+		Patients:     patients,
+		Note:         head.Note,
+	}
+	if _, err := s.Create(ctx, req); err != nil {
+		failedRow := group[0]
+		failedRow.Error = err.Error()
+		result.Failed = append(result.Failed, failedRow)
+		return
+	}
+	result.SuccessSchedules++
+	result.SuccessPatients += len(group)
+}
