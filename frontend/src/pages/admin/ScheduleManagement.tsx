@@ -26,15 +26,32 @@ import {
   importSchedules,
 } from '../../api/schedules';
 import { getTranslators } from '../../api/translators';
+import SchedulePatientListEditor from '../../components/SchedulePatientListEditor';
+import type { SchedulePatientPayload, SchedulePatient } from '../../types';
 import * as XLSX from 'xlsx';
 
+// Stage-3 V2 flat template. Rows with the same Code merge into one schedule
+// with multiple patients.
 function downloadImportTemplate() {
-  const headers = ['TranslatorID', 'Date(YYYY-MM-DD)', 'StartTime(HH:mm)', 'EndTime(HH:mm)', 'Location', 'PatientName', 'Note(optional)'];
-  const example = [3, '2026-05-10', '09:00', '12:00', 'NTU Hospital', 'John Doe', ''];
-  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  const headers = [
+    'Code', 'TranslatorID', 'Date(YYYY-MM-DD)',
+    'OverallStart(HH:mm)', 'OverallEnd(HH:mm)',
+    'Location', 'PatientID',
+    'PatientStart(HH:mm)', 'PatientEnd(HH:mm)',
+    'Note(optional)',
+  ];
+  const examples = [
+    ['SCH-001', 3, '2026-05-10', '09:00', '12:00', 'NTU Hospital', 12, '09:00', '10:00', ''],
+    ['SCH-001', 3, '2026-05-10', '09:00', '12:00', 'NTU Hospital', 15, '10:00', '11:00', ''],
+    ['SCH-002', 5, '2026-05-10', '14:00', '17:00', 'VGH', 22, '14:00', '15:00', 'needs sign'],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
   ws['!cols'] = [
-    { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 16 },
-    { wch: 20 }, { wch: 12 }, { wch: 16 },
+    { wch: 10 }, { wch: 12 }, { wch: 18 },
+    { wch: 16 }, { wch: 16 },
+    { wch: 20 }, { wch: 10 },
+    { wch: 16 }, { wch: 16 },
+    { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Template');
@@ -53,6 +70,8 @@ const statusColorMap: Record<string, string> = {
 export default function ScheduleManagement() {
   const [data, setData] = useState<ScheduleItem[]>([]);
   const [translators, setTranslators] = useState<TranslatorListItem[]>([]);
+  const [createPatients, setCreatePatients] = useState<SchedulePatientPayload[]>([]);
+  const [editPatients, setEditPatients] = useState<SchedulePatientPayload[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -90,6 +109,12 @@ export default function ScheduleManagement() {
   }, [fetchData, fetchTranslators]);
 
   const handleCreate = async (values: Record<string, unknown>) => {
+    // Stage-3: require at least one patient with all fields filled.
+    const validPatients = createPatients.filter((p) => p.patientId && p.startTime && p.endTime);
+    if (validPatients.length === 0) {
+      message.error(t('schedules.patientRequired', { defaultValue: 'Please add at least one patient' }));
+      return;
+    }
     try {
       const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
@@ -97,7 +122,7 @@ export default function ScheduleManagement() {
         startTime: (values.startTime as { format: (f: string) => string }).format('HH:mm'),
         endTime: (values.endTime as { format: (f: string) => string }).format('HH:mm'),
         location: values.location as string,
-        patientName: values.patientName as string,
+        patients: validPatients,
         note: (values.note as string) || undefined,
       };
       if (values.recurrenceRule) {
@@ -108,6 +133,7 @@ export default function ScheduleManagement() {
       message.success(t('common.success'));
       setCreateOpen(false);
       createForm.resetFields();
+      setCreatePatients([]);
       void fetchData();
     } catch {
       message.error(t('common.failed'));
@@ -116,16 +142,17 @@ export default function ScheduleManagement() {
 
   const handleEdit = async (values: Record<string, unknown>) => {
     if (!editingRecord) return;
+    const validPatients = editPatients.filter((p) => p.patientId && p.startTime && p.endTime);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
         date: (values.date as { format: (f: string) => string }).format('YYYY-MM-DD'),
         startTime: (values.startTime as { format: (f: string) => string }).format('HH:mm'),
         endTime: (values.endTime as { format: (f: string) => string }).format('HH:mm'),
         location: values.location as string,
-        patientName: values.patientName as string,
         note: (values.note as string) || undefined,
       };
+      if (validPatients.length > 0) payload.patients = validPatients;
       await updateSchedule(editingRecord.id, payload);
       message.success(t('common.success'));
       setEditOpen(false);
@@ -178,9 +205,16 @@ export default function ScheduleManagement() {
     editForm.setFieldsValue({
       translatorId: record.translatorId,
       location: record.location,
-      patientName: record.patientName,
       note: record.note,
     });
+    // Preload the patient list editor from the existing schedule_patients rows.
+    setEditPatients(
+      (record.patients ?? []).map((sp) => ({
+        patientId: sp.patientId,
+        startTime: sp.startTime,
+        endTime: sp.endTime,
+      })),
+    );
     setEditOpen(true);
   };
 
@@ -231,7 +265,16 @@ export default function ScheduleManagement() {
     },
     { title: t('schedules.translator'), dataIndex: 'translatorName', key: 'translatorName' },
     { title: t('schedules.location'), dataIndex: 'location', key: 'location' },
-    { title: t('schedules.patientName'), dataIndex: 'patientName', key: 'patientName' },
+    {
+      title: t('schedules.patients'),
+      key: 'patients',
+      render: (_: unknown, r: ScheduleItem) => {
+        if (r.patients && r.patients.length > 0) {
+          return r.patients.map((p: SchedulePatient) => p.patientName).join(', ');
+        }
+        return r.patientName;
+      },
+    },
     {
       title: t('common.status'),
       dataIndex: 'checkinStatus',
@@ -276,9 +319,6 @@ export default function ScheduleManagement() {
         </Form.Item>
       </Space>
       <Form.Item name="location" label={t('schedules.location')} rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      <Form.Item name="patientName" label={t('schedules.patientName')} rules={[{ required: true }]}>
         <Input />
       </Form.Item>
       <Form.Item name="note" label={t('schedules.note')}>
@@ -394,6 +434,14 @@ export default function ScheduleManagement() {
       >
         <Form form={createForm} onFinish={handleCreate} layout="vertical">
           {scheduleFormFields}
+          <Form.Item label={t('schedules.patients')}>
+            <SchedulePatientListEditor
+              value={createPatients}
+              onChange={setCreatePatients}
+              overallStart={createForm.getFieldValue('startTime')?.format?.('HH:mm') ?? '09:00'}
+              overallEnd={createForm.getFieldValue('endTime')?.format?.('HH:mm') ?? '12:00'}
+            />
+          </Form.Item>
           {recurrenceFields}
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
@@ -406,6 +454,14 @@ export default function ScheduleManagement() {
       <Modal title={t('schedules.edit')} open={editOpen} onCancel={() => setEditOpen(false)} footer={null}>
         <Form form={editForm} onFinish={handleEdit} layout="vertical">
           {scheduleFormFields}
+          <Form.Item label={t('schedules.patients')}>
+            <SchedulePatientListEditor
+              value={editPatients}
+              onChange={setEditPatients}
+              overallStart={editForm.getFieldValue('startTime')?.format?.('HH:mm') ?? editingRecord?.startTime ?? '09:00'}
+              overallEnd={editForm.getFieldValue('endTime')?.format?.('HH:mm') ?? editingRecord?.endTime ?? '12:00'}
+            />
+          </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" block>
               {t('common.update')}

@@ -160,10 +160,21 @@ export default function MySchedules() {
                       <EnvironmentOutlined style={{ marginRight: 4 }} />
                       {s.location}
                     </div>
-                    <div>
-                      <UserOutlined style={{ marginRight: 4 }} />
-                      {s.patientName}
-                    </div>
+                    {s.patients && s.patients.length > 0 ? (
+                      <div>
+                        <UserOutlined style={{ marginRight: 4 }} />
+                        {s.patients.map((p) => (
+                          <div key={p.id} style={{ marginLeft: 18, fontSize: 13 }}>
+                            {p.patientName} ({p.startTime}-{p.endTime})
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>
+                        <UserOutlined style={{ marginRight: 4 }} />
+                        {s.patientName}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
