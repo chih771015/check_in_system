@@ -17,6 +17,27 @@ export interface TranslatorListItem {
   createdAt: string;
 }
 
+export type SchedulePatientStatus = 'pending' | 'completed' | 'no_show';
+
+export interface SchedulePatient {
+  id: number;
+  patientId: number;
+  patientName: string;
+  patientPhone: string;
+  idType: IDType;
+  idNumber: string;
+  startTime: string;
+  endTime: string;
+  status: SchedulePatientStatus;
+  noShowReason?: string;
+}
+
+export interface SchedulePatientPayload {
+  patientId: number;
+  startTime: string;
+  endTime: string;
+}
+
 export interface ScheduleItem {
   id: number;
   translatorId: number;
@@ -25,7 +46,9 @@ export interface ScheduleItem {
   startTime: string;
   endTime: string;
   location: string;
+  /** Legacy single-patient name (stage 1/2 data). Empty/absent for new schedules. */
   patientName: string;
+  patients: SchedulePatient[];
   note: string;
   checkinStatus: 'none' | 'arrived' | 'completed' | 'makeup';
   recurrenceGroupId?: string | null;

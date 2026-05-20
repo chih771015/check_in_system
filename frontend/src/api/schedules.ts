@@ -1,36 +1,41 @@
-import type { ScheduleItem } from '../types';
+import type { ScheduleItem, SchedulePatientPayload } from '../types';
 import client from './client';
 
 export function getAdminSchedules(params?: Record<string, string>) {
   return client.get<ScheduleItem[]>('/admin/schedules', { params }).then((r) => r.data);
 }
 
-export function createSchedule(data: {
+export interface CreateSchedulePayload {
   translatorId: number;
   date: string;
   startTime: string;
   endTime: string;
   location: string;
-  patientName: string;
+  /** New stage-3 multi-patient field. When provided takes precedence over patientName. */
+  patients?: SchedulePatientPayload[];
+  /** Legacy single-patient field. Kept for backward compat. */
+  patientName?: string;
   note?: string;
   recurrenceRule?: string;
   recurrenceUntil?: string;
-}) {
+}
+
+export function createSchedule(data: CreateSchedulePayload) {
   return client.post('/admin/schedules', data).then((r) => r.data);
 }
 
-export function updateSchedule(
-  id: number,
-  data: {
-    translatorId?: number;
-    date?: string;
-    startTime?: string;
-    endTime?: string;
-    location?: string;
-    patientName?: string;
-    note?: string;
-  },
-) {
+export interface UpdateSchedulePayload {
+  translatorId?: number;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  patients?: SchedulePatientPayload[];
+  patientName?: string;
+  note?: string;
+}
+
+export function updateSchedule(id: number, data: UpdateSchedulePayload) {
   return client.put(`/admin/schedules/${id}`, data).then((r) => r.data);
 }
 
@@ -42,13 +47,17 @@ export function deleteScheduleGroup(id: number) {
   return client.delete(`/admin/schedules/${id}/group`).then((r) => r.data);
 }
 
+export interface ImportFailedRow {
+  rowNumber: number;
+  code?: string;
+  error: string;
+}
+
 export interface ImportResult {
   total: number;
-  success: number;
-  failed: Array<{
-    rowNumber: number;
-    error: string;
-  }>;
+  successSchedules: number;
+  successPatients: number;
+  failed: ImportFailedRow[];
 }
 
 export function importSchedules(file: File) {
