@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Tag, Switch, Typography, Spin, Empty, App } from 'antd';
+import { Card, Button, Tag, Switch, Typography, Spin, Empty, App, Space, Tooltip } from 'antd';
 import {
   EnvironmentOutlined,
   ClockCircleOutlined,
@@ -8,8 +8,10 @@ import {
   CheckCircleFilled,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import type { ScheduleItem } from '../../types';
+import type { ScheduleItem, SchedulePatient } from '../../types';
 import { getMySchedules } from '../../api/schedules';
+import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
+import NoShowModal from '../../components/NoShowModal';
 
 const statusColorMap: Record<string, string> = {
   none: 'default',
@@ -25,10 +27,24 @@ const statusLabelKey: Record<string, string> = {
   makeup: 'checkins.isMakeup',
 };
 
+const spStatusColor: Record<string, string> = {
+  pending: 'orange',
+  completed: 'green',
+  no_show: 'red',
+};
+const spStatusKey: Record<string, string> = {
+  pending: 'diagnosis.statusPending',
+  completed: 'diagnosis.statusCompleted',
+  no_show: 'diagnosis.statusNoShow',
+};
+
 export default function MySchedules() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // Modal state — null means closed; non-null is the SchedulePatient.id.
+  const [diagFor, setDiagFor] = useState<number | null>(null);
+  const [noShowFor, setNoShowFor] = useState<number | null>(null);
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { t } = useTranslation();
@@ -62,6 +78,10 @@ export default function MySchedules() {
     return now > endAt;
   };
 
+  /** Number of patients still in pending status for this schedule. */
+  const pendingCount = (s: ScheduleItem) =>
+    (s.patients ?? []).filter((p) => p.status === 'pending').length;
+
   const renderActions = (schedule: ScheduleItem) => {
     const past = isPast(schedule);
 
@@ -76,11 +96,22 @@ export default function MySchedules() {
       );
     }
     if (schedule.checkinStatus === 'arrived' && !past) {
-      return (
-        <Button type="primary" onClick={() => navigate(`/checkin/${schedule.id}/leave`)}>
+      // Stage 4: gate the leave button until all patients are processed.
+      const pending = pendingCount(schedule);
+      const button = (
+        <Button
+          type="primary"
+          disabled={pending > 0}
+          onClick={() => navigate(`/checkin/${schedule.id}/leave`)}
+        >
           {t('checkin.checkinType.leave')}
         </Button>
       );
+      return pending > 0 ? (
+        <Tooltip title={t('diagnosis.pendingPatients', { count: pending })}>
+          <span>{button}</span>
+        </Tooltip>
+      ) : button;
     }
     if (schedule.checkinStatus === 'none' && past) {
       return (
@@ -104,6 +135,35 @@ export default function MySchedules() {
       );
     }
     return null;
+  };
+
+  /** Renders one patient row inside a schedule card. */
+  const renderPatient = (s: ScheduleItem, p: SchedulePatient) => {
+    // Per-patient actions are only relevant after translator has arrived
+    // but before they've left (i.e. checkinStatus === 'arrived').
+    const showActions = s.checkinStatus === 'arrived' && p.status === 'pending';
+    return (
+      <div key={p.id} style={{ marginLeft: 18, fontSize: 13, padding: '4px 0', borderBottom: '1px dashed #eee' }}>
+        <Space size="small" wrap>
+          <Typography.Text>{p.patientName}</Typography.Text>
+          <Typography.Text type="secondary">({p.startTime}-{p.endTime})</Typography.Text>
+          <Tag color={spStatusColor[p.status]}>{t(spStatusKey[p.status])}</Tag>
+          {showActions && (
+            <>
+              <Button size="small" type="primary" onClick={() => setDiagFor(p.id)}>
+                {t('diagnosis.upload')}
+              </Button>
+              <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
+                {t('diagnosis.noShow')}
+              </Button>
+            </>
+          )}
+          {p.status === 'no_show' && p.noShowReason && (
+            <Typography.Text type="secondary">— {p.noShowReason}</Typography.Text>
+          )}
+        </Space>
+      </div>
+    );
   };
 
   return (
@@ -163,11 +223,7 @@ export default function MySchedules() {
                     {s.patients && s.patients.length > 0 ? (
                       <div>
                         <UserOutlined style={{ marginRight: 4 }} />
-                        {s.patients.map((p) => (
-                          <div key={p.id} style={{ marginLeft: 18, fontSize: 13 }}>
-                            {p.patientName} ({p.startTime}-{p.endTime})
-                          </div>
-                        ))}
+                        {s.patients.map((p) => renderPatient(s, p))}
                       </div>
                     ) : (
                       <div>
@@ -184,6 +240,23 @@ export default function MySchedules() {
             </Card>
           ))}
         </div>
+      )}
+
+      {diagFor !== null && (
+        <DiagnosisUploadModal
+          open={diagFor !== null}
+          schedulePatientId={diagFor}
+          onClose={() => setDiagFor(null)}
+          onUploaded={fetchSchedules}
+        />
+      )}
+      {noShowFor !== null && (
+        <NoShowModal
+          open={noShowFor !== null}
+          schedulePatientId={noShowFor}
+          onClose={() => setNoShowFor(null)}
+          onDone={fetchSchedules}
+        />
       )}
     </div>
   );

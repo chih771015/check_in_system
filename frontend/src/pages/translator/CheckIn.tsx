@@ -23,12 +23,9 @@ export default function CheckInPage() {
   const [schedule, setSchedule] = useState<ScheduleItem | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string>('');
-  const [environment, setEnvironment] = useState<File | null>(null);
-  const [environmentPreview, setEnvironmentPreview] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   const selfieRef = useRef<HTMLInputElement>(null);
-  const envRef = useRef<HTMLInputElement>(null);
 
   const { state: geoState, latitude, longitude, address, request: requestGeo } = useGeolocation();
 
@@ -56,14 +53,12 @@ export default function CheckInPage() {
 
   const handleSubmit = async () => {
     if (!selfie) { message.warning(t('errors.SELFIE_REQUIRED')); return; }
-    if (!environment) { message.warning(t('errors.ENVIRONMENT_PHOTO_REQUIRED')); return; }
     if (latitude === null || longitude === null) { message.warning(t('checkin.geo.requesting')); return; }
 
     setSubmitting(true);
     try {
       const fd = new FormData();
       fd.append('selfie', selfie);
-      fd.append('environment', environment);
       fd.append('scheduleId', scheduleId!);
       fd.append('type', type!);
       fd.append('latitude', String(latitude));
@@ -72,8 +67,13 @@ export default function CheckInPage() {
       await checkin(fd);
       message.success(t('common.success'));
       navigate('/my-schedules');
-    } catch {
-      message.error(t('common.failed'));
+    } catch (err: unknown) {
+      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      if (code === 'CHECKOUT_BLOCKED_BY_PENDING') {
+        message.error(t('errors.CHECKOUT_BLOCKED_BY_PENDING'));
+      } else {
+        message.error(t('common.failed'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -101,25 +101,14 @@ export default function CheckInPage() {
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Typography.Text strong><CameraOutlined /> {t('checkin.takingSelfie')}</Typography.Text>
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
-              onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
-            {selfiePreview && (
-              <img src={selfiePreview} alt=""
-                style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
-            )}
-          </div>
-          <div>
-            <input ref={envRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-              onChange={(e) => handleFileChange(e, setEnvironment, setEnvironmentPreview)} />
-            <Button icon={<CameraOutlined />} onClick={() => envRef.current?.click()} block>{t('checkins.environment')}</Button>
-            {environmentPreview && (
-              <img src={environmentPreview} alt=""
-                style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
-            )}
-          </div>
+        <div style={{ marginTop: 12 }}>
+          <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+            onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
+          <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
+          {selfiePreview && (
+            <img src={selfiePreview} alt=""
+              style={{ width: '100%', maxHeight: 200, objectFit: 'cover', marginTop: 8, borderRadius: 8 }} />
+          )}
         </div>
       </Card>
 
