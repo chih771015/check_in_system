@@ -27,8 +27,17 @@ import {
 } from '../../api/schedules';
 import { getTranslators } from '../../api/translators';
 import SchedulePatientListEditor from '../../components/SchedulePatientListEditor';
+import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
+import NoShowModal from '../../components/NoShowModal';
+import { adminUploadDiagnosis, adminMarkNoShow } from '../../api/checkins';
 import type { SchedulePatientPayload, SchedulePatient } from '../../types';
 import * as XLSX from 'xlsx';
+
+const spStatusColor: Record<string, string> = {
+  pending: 'orange',
+  completed: 'green',
+  no_show: 'red',
+};
 
 // Stage-3 V2 flat template. Rows with the same Code merge into one schedule
 // with multiple patients.
@@ -72,6 +81,10 @@ export default function ScheduleManagement() {
   const [translators, setTranslators] = useState<TranslatorListItem[]>([]);
   const [createPatients, setCreatePatients] = useState<SchedulePatientPayload[]>([]);
   const [editPatients, setEditPatients] = useState<SchedulePatientPayload[]>([]);
+  // Admin surrogate: detail modal + diagnosis / no-show modal state
+  const [detailRecord, setDetailRecord] = useState<ScheduleItem | null>(null);
+  const [adminDiagFor, setAdminDiagFor] = useState<number | null>(null);
+  const [adminNoShowFor, setAdminNoShowFor] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -286,17 +299,28 @@ export default function ScheduleManagement() {
     {
       title: t('common.operation'),
       key: 'action',
-      render: (_: unknown, record: ScheduleItem) => (
-        <Space wrap>
-          <Button size="small" onClick={() => openEdit(record)}>{t('common.edit')}</Button>
-          <Button size="small" danger onClick={() => handleDelete(record)}>{t('common.delete')}</Button>
-          {record.recurrenceGroupId && (
-            <Button size="small" danger onClick={() => handleDeleteGroup(record)}>
-              {t('schedules.deleteGroup')}
+      render: (_: unknown, record: ScheduleItem) => {
+        const pending = (record.patients ?? []).filter((p) => p.status === 'pending').length;
+        return (
+          <Space wrap>
+            <Button size="small" onClick={() => setDetailRecord(record)}>
+              {t('common.detail')}
+              {pending > 0 && (
+                <Tag color="orange" style={{ marginLeft: 4 }}>
+                  {pending}
+                </Tag>
+              )}
             </Button>
-          )}
-        </Space>
-      ),
+            <Button size="small" onClick={() => openEdit(record)}>{t('common.edit')}</Button>
+            <Button size="small" danger onClick={() => handleDelete(record)}>{t('common.delete')}</Button>
+            {record.recurrenceGroupId && (
+              <Button size="small" danger onClick={() => handleDeleteGroup(record)}>
+                {t('schedules.deleteGroup')}
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -469,6 +493,108 @@ export default function ScheduleManagement() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Admin detail modal — shows patient slots with status and surrogate actions */}
+      <Modal
+        title={t('common.detail')}
+        open={!!detailRecord}
+        onCancel={() => setDetailRecord(null)}
+        footer={null}
+        width={680}
+      >
+        {detailRecord && (
+          <div>
+            <p>
+              <strong>{detailRecord.date}</strong> {detailRecord.startTime}-{detailRecord.endTime} @ {detailRecord.location}
+            </p>
+            <p>{t('schedules.translator')}：{detailRecord.translatorName}</p>
+            <Table
+              size="small"
+              dataSource={detailRecord.patients ?? []}
+              rowKey="id"
+              pagination={false}
+              columns={[
+                { title: t('common.name'), dataIndex: 'patientName', key: 'patientName' },
+                {
+                  title: t('schedules.startTime'),
+                  key: 'time',
+                  render: (_: unknown, r: SchedulePatient) => `${r.startTime}-${r.endTime}`,
+                },
+                {
+                  title: t('common.status'),
+                  dataIndex: 'status',
+                  key: 'status',
+                  render: (s: string) => (
+                    <Tag color={spStatusColor[s] ?? 'default'}>
+                      {t(`diagnosis.status${s.charAt(0).toUpperCase() + s.slice(1).replace('_show', 'NoShow')}`, {
+                        defaultValue: s,
+                      })}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: t('common.operation'),
+                  key: 'action',
+                  render: (_: unknown, r: SchedulePatient) => (
+                    <Space>
+                      {r.status === 'pending' && (
+                        <>
+                          <Button size="small" type="primary" onClick={() => setAdminDiagFor(r.id)}>
+                            {t('diagnosis.upload')}
+                          </Button>
+                          <Button size="small" danger onClick={() => setAdminNoShowFor(r.id)}>
+                            {t('diagnosis.noShow')}
+                          </Button>
+                        </>
+                      )}
+                      {r.status === 'no_show' && r.noShowReason && (
+                        <span style={{ color: '#999', fontSize: 12 }}>{r.noShowReason}</span>
+                      )}
+                    </Space>
+                  ),
+                },
+              ]}
+            />
+          </div>
+        )}
+      </Modal>
+
+      {/* Admin surrogate upload + no-show, reusing the same modals but injecting admin* API calls */}
+      {adminDiagFor !== null && (
+        <DiagnosisUploadModal
+          open={adminDiagFor !== null}
+          schedulePatientId={adminDiagFor}
+          upload={adminUploadDiagnosis}
+          onClose={() => setAdminDiagFor(null)}
+          onUploaded={() => {
+            void fetchData();
+            // Refresh the detail modal record if open
+            if (detailRecord) {
+              getAdminSchedules({}).then((all) => {
+                const updated = all.find((s) => s.id === detailRecord.id);
+                if (updated) setDetailRecord(updated);
+              });
+            }
+          }}
+        />
+      )}
+      {adminNoShowFor !== null && (
+        <NoShowModal
+          open={adminNoShowFor !== null}
+          schedulePatientId={adminNoShowFor}
+          markNoShow={adminMarkNoShow}
+          onClose={() => setAdminNoShowFor(null)}
+          onDone={() => {
+            void fetchData();
+            if (detailRecord) {
+              getAdminSchedules({}).then((all) => {
+                const updated = all.find((s) => s.id === detailRecord.id);
+                if (updated) setDetailRecord(updated);
+              });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
