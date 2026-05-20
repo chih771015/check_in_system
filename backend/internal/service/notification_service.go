@@ -107,8 +107,12 @@ func (n *NotificationService) SendScheduleReminders() {
 		if err != nil {
 			continue
 		}
+		patientName := ""
+		if s.PatientName != nil {
+			patientName = *s.PatientName
+		}
 		msg := fmt.Sprintf("【明日排程提醒】\n日期：%s\n時間：%s - %s\n地點：%s\n病患：%s",
-			tomorrow, s.StartTime, s.EndTime, s.Location, s.PatientName)
+			tomorrow, s.StartTime, s.EndTime, s.Location, patientName)
 
 		if user.LineUserID != "" {
 			if err := n.PushLine(ctx, user.LineUserID, msg); err != nil {

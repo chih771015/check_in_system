@@ -91,7 +91,7 @@ func (s *ScheduleService) Create(ctx context.Context, req dto.CreateScheduleRequ
 		StartTime:    req.StartTime,
 		EndTime:      req.EndTime,
 		Location:     req.Location,
-		PatientName:  req.PatientName,
+		PatientName:  optionalString(req.PatientName),
 		Note:         req.Note,
 	}
 
@@ -151,7 +151,7 @@ func (s *ScheduleService) createRecurring(ctx context.Context, req dto.CreateSch
 			StartTime:         req.StartTime,
 			EndTime:           req.EndTime,
 			Location:          req.Location,
-			PatientName:       req.PatientName,
+			PatientName:       optionalString(req.PatientName),
 			Note:              req.Note,
 			RecurrenceRule:    &rule,
 			RecurrenceGroupID: &groupID,
@@ -291,7 +291,7 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 		schedule.Location = *req.Location
 	}
 	if req.PatientName != nil {
-		schedule.PatientName = *req.PatientName
+		schedule.PatientName = req.PatientName
 	}
 	if req.Note != nil {
 		schedule.Note = *req.Note
@@ -396,6 +396,25 @@ func (s *ScheduleService) getCheckinStatus(ctx context.Context, scheduleID uint)
 }
 
 func (s *ScheduleService) toResponse(schedule *model.Schedule, checkinStatus string) dto.ScheduleResponse {
+	pn := ""
+	if schedule.PatientName != nil {
+		pn = *schedule.PatientName
+	}
+	patients := make([]dto.SchedulePatientResponse, 0, len(schedule.Patients))
+	for _, sp := range schedule.Patients {
+		patients = append(patients, dto.SchedulePatientResponse{
+			ID:           sp.ID,
+			PatientID:    sp.PatientID,
+			PatientName:  sp.Patient.Name,
+			PatientPhone: sp.Patient.Phone,
+			IDType:       sp.Patient.IDType,
+			IDNumber:     sp.Patient.IDNumber,
+			StartTime:    sp.StartTime,
+			EndTime:      sp.EndTime,
+			Status:       sp.Status,
+			NoShowReason: sp.NoShowReason,
+		})
+	}
 	return dto.ScheduleResponse{
 		ID:                schedule.ID,
 		TranslatorID:      schedule.TranslatorID,
@@ -404,10 +423,11 @@ func (s *ScheduleService) toResponse(schedule *model.Schedule, checkinStatus str
 		StartTime:         schedule.StartTime,
 		EndTime:           schedule.EndTime,
 		Location:          schedule.Location,
-		PatientName:       schedule.PatientName,
+		PatientName:       pn,
 		Note:              schedule.Note,
 		CheckinStatus:     checkinStatus,
 		RecurrenceGroupID: schedule.RecurrenceGroupID,
+		Patients:          patients,
 	}
 }
 
@@ -462,7 +482,7 @@ func (s *ScheduleService) BatchImportSchedules(ctx context.Context, rows []Sched
 			StartTime:    r.StartTime,
 			EndTime:      r.EndTime,
 			Location:     r.Location,
-			PatientName:  r.PatientName,
+			PatientName:  optionalString(r.PatientName),
 			Note:         r.Note,
 		}
 		if err := schRepo.Create(schedule); err != nil {
@@ -477,3 +497,12 @@ func (s *ScheduleService) BatchImportSchedules(ctx context.Context, rows []Sched
 
 // Unexported but used to check gorm import usage
 var _ = gorm.ErrRecordNotFound
+
+// optionalString returns nil if s is empty, otherwise a pointer to s.
+// Used when assigning to nullable string columns.
+func optionalString(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}

@@ -44,7 +44,7 @@ func newCheckinFixture(t *testing.T) *checkinFixture {
 		StartTime:    "09:00",
 		EndTime:      "23:59", // 涵蓋當天稍後時間，避免被自動標 makeup
 		Location:     "Hospital",
-		PatientName:  "Pat",
+		PatientName:  optionalString("Pat"),
 	}
 	require.NoError(t, schRepo.Create(sch))
 
@@ -188,7 +188,7 @@ func TestCheckinService_MyHistory_FiltersByTranslator(t *testing.T) {
 	other := &model.User{Email: "o@x.com", PasswordHash: "h", Name: "O", Role: "translator", Status: "active"}
 	require.NoError(t, fx.userRepo.Create(other))
 	otherSch := &model.Schedule{TranslatorID: other.ID, Date: time.Now().Truncate(24 * time.Hour),
-		StartTime: "09:00", EndTime: "23:59", Location: "L", PatientName: "P"}
+		StartTime: "09:00", EndTime: "23:59", Location: "L", PatientName: optionalString("P")}
 	require.NoError(t, fx.scheduleRepo.Create(otherSch))
 	_, err = fx.svc.Checkin(context.Background(), other.ID, otherSch.ID, "arrive",
 		1, 1, "x", "/u/s", "/u/e", false, "")

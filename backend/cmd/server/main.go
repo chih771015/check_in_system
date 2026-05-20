@@ -92,6 +92,8 @@ func main() {
 		&model.ExportSchedule{},
 		&model.AuditLog{},
 		&model.Patient{},
+		&model.SchedulePatient{},
+		&model.DiagnosisPhoto{},
 	); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}

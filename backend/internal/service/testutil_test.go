@@ -42,6 +42,8 @@ func newTestDB(t *testing.T) *gorm.DB {
 		&model.ExportSchedule{},
 		&model.AuditLog{},
 		&model.Patient{},
+		&model.SchedulePatient{},
+		&model.DiagnosisPhoto{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
