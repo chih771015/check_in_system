@@ -23,6 +23,12 @@ type AdminUpdateCheckinRequest struct {
 	MakeupReason *string    `json:"makeupReason"`
 }
 
+// MarkNoShowRequest is the payload to mark a SchedulePatient as no-show.
+type MarkNoShowRequest struct {
+	SchedulePatientID uint   `json:"schedulePatientId" binding:"required"`
+	Reason            string `json:"reason" binding:"required"`
+}
+
 // CheckinResponse is returned after a successful check-in.
 type CheckinResponse struct {
 	ID             uint      `json:"id"`

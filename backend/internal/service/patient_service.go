@@ -27,6 +27,9 @@ type PatientService struct {
 	// Stage 3: when set, ListForTranslator restricts results to patients
 	// the caller actually has in their schedules.
 	spRepo *repository.SchedulePatientRepository
+	// Stage 4: history aggregation deps.
+	scheduleRepo *repository.ScheduleRepository
+	photoRepo    *repository.DiagnosisPhotoRepository
 }
 
 // NewPatientService creates a new PatientService.
@@ -39,6 +42,19 @@ func NewPatientService(patientRepo *repository.PatientRepository) *PatientServic
 // chaining.
 func (s *PatientService) WithScopeRepo(spRepo *repository.SchedulePatientRepository) *PatientService {
 	s.spRepo = spRepo
+	return s
+}
+
+// WithHistoryRepos wires up Schedule + SchedulePatient + DiagnosisPhoto repos
+// so GetHistory can return real visit data.
+func (s *PatientService) WithHistoryRepos(
+	scheduleRepo *repository.ScheduleRepository,
+	spRepo *repository.SchedulePatientRepository,
+	photoRepo *repository.DiagnosisPhotoRepository,
+) *PatientService {
+	s.scheduleRepo = scheduleRepo
+	s.spRepo = spRepo
+	s.photoRepo = photoRepo
 	return s
 }
 
@@ -146,14 +162,25 @@ func (s *PatientService) ListForTranslator(ctx context.Context, translatorID uin
 }
 
 // GetHistory returns the visit history for a single patient.
-// TODO(stage 4): join Schedule + SchedulePatient + DiagnosisPhoto and build
-// real entries ordered by date DESC. For stage 2 the slice is intentionally
-// empty so the frontend can wire up the page without blocking on stage 4.
+// GetHistory returns a patient's visit history aggregated from
+// schedule_patients + schedules + diagnosis_photos, ordered by date DESC.
+//
+// Stage 4 implements the real aggregation; if history repos have not been
+// wired (legacy stage-2 caller) it falls back to an empty slice.
 func (s *PatientService) GetHistory(ctx context.Context, patientID uint) (*dto.PatientHistoryResponse, error) {
 	patient, err := s.FindByID(ctx, patientID)
 	if err != nil {
 		return nil, err
 	}
+
+	entries := []dto.PatientHistoryEntry{}
+	if s.scheduleRepo != nil && s.spRepo != nil && s.photoRepo != nil {
+		entries, err = s.buildHistoryEntries(ctx, patientID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &dto.PatientHistoryResponse{
 		Patient: dto.PatientResponse{
 			ID:        patient.ID,
@@ -164,6 +191,72 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint) (*dto.P
 			CreatedAt: patient.CreatedAt,
 			UpdatedAt: patient.UpdatedAt,
 		},
-		History: []dto.PatientHistoryEntry{},
+		History: entries,
 	}, nil
+}
+
+// buildHistoryEntries does the real DB walk for GetHistory.
+func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint) ([]dto.PatientHistoryEntry, error) {
+	db := s.scheduleRepo.DB().WithContext(ctx)
+	// Pull every schedule_patient row for this patient, sorted by schedule date desc.
+	type joined struct {
+		SPID         uint
+		ScheduleID   uint
+		Date         string
+		SPStart      string
+		SPEnd        string
+		Location     string
+		Status       string
+		NoShowReason string
+		TName        string
+	}
+	var rows []joined
+	err := db.Table("schedule_patients as sp").
+		Select(`sp.id as sp_id, sp.schedule_id, sp.start_time as sp_start, sp.end_time as sp_end,
+			sp.status, sp.no_show_reason,
+			schedules.date, schedules.location, users.name as t_name`).
+		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
+		Joins("JOIN users ON users.id = schedules.translator_id").
+		Where("sp.patient_id = ?", patientID).
+		Order("schedules.date DESC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]dto.PatientHistoryEntry, 0, len(rows))
+	for _, r := range rows {
+		photos, _ := s.photoRepo.WithCtx(ctx).FindBySchedulePatientID(r.SPID)
+		photoURLs := make([]string, 0, len(photos))
+		for _, p := range photos {
+			photoURLs = append(photoURLs, p.PhotoURL)
+		}
+		// sqlite returns date as RFC3339; postgres returns YYYY-MM-DD. Trim T... if present.
+		dateOnly := r.Date
+		if idx := indexT(dateOnly); idx > 0 {
+			dateOnly = dateOnly[:idx]
+		}
+		entries = append(entries, dto.PatientHistoryEntry{
+			ScheduleID:      r.ScheduleID,
+			Date:            dateOnly,
+			StartTime:       r.SPStart,
+			EndTime:         r.SPEnd,
+			Location:        r.Location,
+			TranslatorName:  r.TName,
+			Status:          r.Status,
+			NoShowReason:    r.NoShowReason,
+			DiagnosisPhotos: photoURLs,
+		})
+	}
+	return entries, nil
+}
+
+// indexT returns the index of 'T' in s or -1 if absent.
+func indexT(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == 'T' {
+			return i
+		}
+	}
+	return -1
 }

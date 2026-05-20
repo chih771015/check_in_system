@@ -115,6 +115,7 @@ func main() {
 	auditRepo := repository.NewAuditLogRepository(db)
 	patientRepo := repository.NewPatientRepository(db)
 	schedulePatientRepo := repository.NewSchedulePatientRepository(db)
+	diagnosisPhotoRepo := repository.NewDiagnosisPhotoRepository(db)
 
 	// Initialize services
 	authService := service.NewAuthService(userRepo)
@@ -123,13 +124,17 @@ func main() {
 	scheduleService := service.NewScheduleService(scheduleRepo, checkinRepo, userRepo).
 		WithPatientRepos(schedulePatientRepo, patientRepo)
 	geocodingService := service.NewGeocodingService()
-	checkinService := service.NewCheckinService(checkinRepo, scheduleRepo, userRepo, geocodingService)
+	checkinService := service.NewCheckinService(checkinRepo, scheduleRepo, userRepo, geocodingService).
+		WithSchedulePatientRepo(schedulePatientRepo)
 	mailService := service.NewMailService()
 	exportService := service.NewExportService(checkinService, exportScheduleRepo, mailService)
 	auditService := service.NewAuditService(auditRepo, userRepo)
 	notificationService := service.NewNotificationService(userRepo, scheduleRepo, mailService)
 	cleanupService := service.NewCleanupService()
-	patientService := service.NewPatientService(patientRepo).WithScopeRepo(schedulePatientRepo)
+	patientService := service.NewPatientService(patientRepo).
+		WithScopeRepo(schedulePatientRepo).
+		WithHistoryRepos(scheduleRepo, schedulePatientRepo, diagnosisPhotoRepo)
+	diagnosisService := service.NewDiagnosisService(schedulePatientRepo, diagnosisPhotoRepo, scheduleRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -140,6 +145,7 @@ func main() {
 	exportScheduleHandler := handler.NewExportScheduleHandler(exportScheduleRepo, exportService)
 	auditHandler := handler.NewAuditHandler(auditService)
 	patientHandler := handler.NewPatientHandler(patientService, auditService)
+	diagnosisHandler := handler.NewDiagnosisHandler(diagnosisService, auditService)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -229,6 +235,10 @@ func main() {
 			admin.PUT("/patients/:id", patientHandler.UpdatePatient)
 			admin.DELETE("/patients/:id", patientHandler.DeletePatient)
 			admin.GET("/patients/:id/history", patientHandler.GetPatientHistory)
+
+			// Stage 4 — admin surrogate uploads / mark no-show
+			admin.POST("/diagnosis", diagnosisHandler.AdminUploadDiagnosis)
+			admin.POST("/no-show", diagnosisHandler.AdminMarkNoShow)
 		}
 
 		// Translator routes
@@ -241,8 +251,11 @@ func main() {
 			translatorRoutes.GET("/checkins", checkinHandler.MyCheckins)
 			translatorRoutes.GET("/checkins/stats", checkinHandler.MyStats)
 
+			// Stage 4 — per-patient diagnosis upload and no-show marking.
+			translatorRoutes.POST("/checkins/diagnosis", diagnosisHandler.UploadDiagnosis)
+			translatorRoutes.POST("/checkins/no-show", diagnosisHandler.MarkNoShow)
+
 			// Patient list for translator (trimmed view).
-			// TODO(stage 3): restrict to patients in caller's schedules.
 			translatorRoutes.GET("/patients", patientHandler.ListPatientsForTranslator)
 		}
 	}

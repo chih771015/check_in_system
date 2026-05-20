@@ -84,6 +84,17 @@ const (
 	CodePatientDuplicate = "PATIENT_DUPLICATE"
 	CodeInvalidPatientID = "INVALID_PATIENT_ID"
 
+	// Stage 4 — Schedule patient / diagnosis
+	CodeSchedulePatientsRequired   = "SCHEDULE_PATIENTS_REQUIRED"
+	CodeDuplicatePatientInSchedule = "DUPLICATE_PATIENT_IN_SCHEDULE"
+	CodePatientTimeOutOfRange      = "PATIENT_TIME_OUT_OF_RANGE"
+	CodePatientEndBeforeStart      = "PATIENT_END_BEFORE_START"
+	CodeSchedulePatientNotFound    = "SCHEDULE_PATIENT_NOT_FOUND"
+	CodeDiagnosisPhotoLimit        = "DIAGNOSIS_PHOTO_LIMIT"
+	CodeDiagnosisNotOwned          = "DIAGNOSIS_NOT_OWNED"
+	CodeNoShowReasonRequired       = "NO_SHOW_REASON_REQUIRED"
+	CodeCheckoutBlockedByPending   = "CHECKOUT_BLOCKED_BY_PENDING"
+
 	// Audit
 	CodeInvalidPage = "INVALID_PAGE"
 )

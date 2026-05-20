@@ -15,13 +15,14 @@ import (
 
 // Sentinel errors returned by CheckinService.
 var (
-	ErrCheckinNotFound    = errors.New("checkin not found")
-	ErrScheduleNotOwned   = errors.New("schedule does not belong to this translator")
-	ErrDuplicateCheckin   = errors.New("duplicate checkin type")
-	ErrArriveBeforeLeave  = errors.New("must check in (arrive) before checking out (leave)")
-	ErrArriveVerifyFailed = errors.New("failed to verify arrival status")
-	ErrCheckinCreate      = errors.New("failed to create checkin record")
-	ErrNoFieldsToUpdate   = errors.New("no fields to update")
+	ErrCheckinNotFound          = errors.New("checkin not found")
+	ErrScheduleNotOwned         = errors.New("schedule does not belong to this translator")
+	ErrDuplicateCheckin         = errors.New("duplicate checkin type")
+	ErrArriveBeforeLeave        = errors.New("must check in (arrive) before checking out (leave)")
+	ErrArriveVerifyFailed       = errors.New("failed to verify arrival status")
+	ErrCheckinCreate            = errors.New("failed to create checkin record")
+	ErrNoFieldsToUpdate         = errors.New("no fields to update")
+	ErrCheckoutBlockedByPending = errors.New("cannot check out: some patients are still pending (must upload diagnosis or mark no_show)")
 )
 
 // CheckinService handles check-in business logic.
@@ -30,6 +31,10 @@ type CheckinService struct {
 	scheduleRepo *repository.ScheduleRepository
 	userRepo     *repository.UserRepository
 	geocoding    *GeocodingService
+	// Stage 4: when set, leave check-ins are blocked until every
+	// SchedulePatient is completed or no_show. Optional so old test fixtures
+	// (3-arg with nil) still work.
+	spRepo *repository.SchedulePatientRepository
 }
 
 // NewCheckinService creates a new CheckinService.
@@ -45,6 +50,13 @@ func NewCheckinService(
 		userRepo:     userRepo,
 		geocoding:    geocoding,
 	}
+}
+
+// WithSchedulePatientRepo wires the SchedulePatient repo so leave checkins
+// can verify every patient slot has been processed.
+func (s *CheckinService) WithSchedulePatientRepo(spRepo *repository.SchedulePatientRepository) *CheckinService {
+	s.spRepo = spRepo
+	return s
 }
 
 // Checkin processes a translator's check-in (arrive or leave).
@@ -87,6 +99,19 @@ func (s *CheckinService) Checkin(
 				return nil, ErrArriveBeforeLeave
 			}
 			return nil, ErrArriveVerifyFailed
+		}
+
+		// Stage 4: block leave when there are still pending patients.
+		// Skipped for makeup checkins (flexible per stage-3 decision B).
+		if !isMakeup && s.spRepo != nil {
+			sps, err := s.spRepo.WithCtx(ctx).FindByScheduleID(scheduleID)
+			if err == nil {
+				for _, sp := range sps {
+					if sp.Status == "pending" {
+						return nil, ErrCheckoutBlockedByPending
+					}
+				}
+			}
 		}
 	}
 

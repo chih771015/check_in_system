@@ -13,7 +13,9 @@ type Checkin struct {
 	Longitude      float64   `gorm:"type:decimal(10,7)" json:"longitude"`
 	Address        string    `gorm:"type:varchar(500)" json:"address"`
 	SelfieURL      string    `gorm:"type:varchar(500);not null" json:"selfie_url"`
-	EnvironmentURL string    `gorm:"type:varchar(500);not null" json:"environment_url"`
+	// EnvironmentURL is nullable since stage 4 — historical rows keep their
+	// value, new check-ins do not require an environment photo.
+	EnvironmentURL string    `gorm:"type:varchar(500)" json:"environment_url"`
 	IsMakeup       bool      `gorm:"default:false" json:"is_makeup"`
 	MakeupReason   string    `gorm:"type:text" json:"makeup_reason"`
 	CreatedAt      time.Time `json:"created_at"`

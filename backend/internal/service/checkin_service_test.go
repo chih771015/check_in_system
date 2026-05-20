@@ -86,6 +86,15 @@ func TestCheckinService_Checkin_ArriveSuccess(t *testing.T) {
 	assert.False(t, resp.IsMakeup)
 }
 
+// Stage 4: environment photo is no longer required — passing empty envURL should succeed.
+func TestCheckinService_Checkin_EmptyEnvURLAllowed(t *testing.T) {
+	fx := newCheckinFixture(t)
+	resp, err := fx.svc.Checkin(context.Background(), fx.translator.ID, fx.schedule.ID, "arrive",
+		25.0, 121.5, "Taipei", "/u/s.jpg", "", false, "")
+	require.NoError(t, err)
+	assert.Equal(t, "", resp.EnvironmentURL, "empty envURL should be accepted and persisted as empty")
+}
+
 func TestCheckinService_Checkin_DuplicateType(t *testing.T) {
 	fx := newCheckinFixture(t)
 	_, err := fx.svc.Checkin(context.Background(), fx.translator.ID, fx.schedule.ID, "arrive",

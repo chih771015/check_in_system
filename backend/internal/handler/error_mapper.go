@@ -104,6 +104,26 @@ func mapError(err error) (int, string) {
 	case errors.Is(err, service.ErrPatientNotFound):
 		return http.StatusNotFound, dto.CodePatientNotFound
 
+	// Stage 4 — Schedule patient / diagnosis
+	case errors.Is(err, service.ErrSchedulePatientsRequired):
+		return http.StatusBadRequest, dto.CodeSchedulePatientsRequired
+	case errors.Is(err, service.ErrDuplicatePatientInSchedule):
+		return http.StatusBadRequest, dto.CodeDuplicatePatientInSchedule
+	case errors.Is(err, service.ErrPatientTimeOutOfRange):
+		return http.StatusBadRequest, dto.CodePatientTimeOutOfRange
+	case errors.Is(err, service.ErrPatientEndBeforeStart):
+		return http.StatusBadRequest, dto.CodePatientEndBeforeStart
+	case errors.Is(err, service.ErrSchedulePatientNotFound):
+		return http.StatusNotFound, dto.CodeSchedulePatientNotFound
+	case errors.Is(err, service.ErrDiagnosisPhotoLimit):
+		return http.StatusBadRequest, dto.CodeDiagnosisPhotoLimit
+	case errors.Is(err, service.ErrDiagnosisNotOwned):
+		return http.StatusForbidden, dto.CodeDiagnosisNotOwned
+	case errors.Is(err, service.ErrNoShowReasonRequired):
+		return http.StatusBadRequest, dto.CodeNoShowReasonRequired
+	case errors.Is(err, service.ErrCheckoutBlockedByPending):
+		return http.StatusBadRequest, dto.CodeCheckoutBlockedByPending
+
 	default:
 		return http.StatusInternalServerError, dto.CodeInternal
 	}

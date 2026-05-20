@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -51,10 +52,11 @@ func (h *CheckinHandler) Checkin(c *gin.Context) {
 		return
 	}
 
-	envURL, err := saveUploadedFile(c, "environment")
-	if err != nil {
-		respondCode(c, http.StatusBadRequest, dto.CodeEnvironmentRequired, "Environment photo is required: "+err.Error())
-		return
+	// Stage 4: environment photo is optional. If supplied we still save it
+	// so we keep parity with historical data; otherwise envURL stays empty.
+	envURL := ""
+	if u, errEnv := saveUploadedFile(c, "environment"); errEnv == nil {
+		envURL = u
 	}
 
 	resp, err := h.checkinService.Checkin(
@@ -98,10 +100,11 @@ func (h *CheckinHandler) MakeupCheckin(c *gin.Context) {
 		return
 	}
 
-	envURL, err := saveUploadedFile(c, "environment")
-	if err != nil {
-		respondCode(c, http.StatusBadRequest, dto.CodeEnvironmentRequired, "Environment photo is required: "+err.Error())
-		return
+	// Stage 4: environment photo is optional. If supplied we still save it
+	// so we keep parity with historical data; otherwise envURL stays empty.
+	envURL := ""
+	if u, errEnv := saveUploadedFile(c, "environment"); errEnv == nil {
+		envURL = u
 	}
 
 	resp, err := h.checkinService.Checkin(
@@ -281,9 +284,15 @@ func saveUploadedFile(c *gin.Context, fieldName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("file field '%s' is required", fieldName)
 	}
+	return saveMultipartFile(c, file, fieldName)
+}
 
+// saveMultipartFile persists one *multipart.FileHeader to the upload dir and
+// returns the URL path. Used for both single-photo checkin uploads and the
+// stage-4 multi-photo diagnosis upload flow.
+func saveMultipartFile(c *gin.Context, file *multipart.FileHeader, prefix string) (string, error) {
 	ext := filepath.Ext(file.Filename)
-	filename := fmt.Sprintf("%s_%s_%d%s", fieldName, time.Now().Format("20060102_150405"), time.Now().UnixNano(), ext)
+	filename := fmt.Sprintf("%s_%s_%d%s", prefix, time.Now().Format("20060102_150405"), time.Now().UnixNano(), ext)
 
 	uploadDir := config.AppConfig.UploadDir
 	savePath := filepath.Join(uploadDir, filename)
