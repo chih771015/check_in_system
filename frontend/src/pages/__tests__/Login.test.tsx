@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { App as AntApp } from 'antd';
@@ -37,7 +37,13 @@ describe('LoginPage', () => {
     loginMock.mockReset();
     navigateMock.mockReset();
     localStorage.clear();
+    document.body.innerHTML = '';
     await i18n.changeLanguage('en');
+  });
+
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = '';
   });
 
   it('renders English placeholders by default', () => {
@@ -62,8 +68,8 @@ describe('LoginPage', () => {
     renderLogin();
 
     const user = userEvent.setup({ delay: null });
-    await user.type(screen.getByPlaceholderText('Email'), 'a@a.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'pass');
+    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'a@a.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass' } });
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
     await vi.waitFor(() => {
@@ -79,8 +85,8 @@ describe('LoginPage', () => {
     renderLogin();
 
     const user = userEvent.setup({ delay: null });
-    await user.type(screen.getByPlaceholderText('Email'), 'a@a.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'pass');
+    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'a@a.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass' } });
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
     await vi.waitFor(() => {
@@ -96,8 +102,8 @@ describe('LoginPage', () => {
     renderLogin();
 
     const user = userEvent.setup({ delay: null });
-    await user.type(screen.getByPlaceholderText('Email'), 't@t.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'pass');
+    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 't@t.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'pass' } });
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
     await vi.waitFor(() => {
@@ -110,8 +116,8 @@ describe('LoginPage', () => {
     renderLogin();
 
     const user = userEvent.setup({ delay: null });
-    await user.type(screen.getByPlaceholderText('Email'), 'a@a.com');
-    await user.type(screen.getByPlaceholderText('Password'), 'wrong');
+    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'a@a.com' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'wrong' } });
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
 
     // antd App.message renders a transient toast; query its content
