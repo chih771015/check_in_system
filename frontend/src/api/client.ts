@@ -27,7 +27,7 @@ export function unwrapResponse<T>(data: T): T {
     'data' in (data as object) &&
     Object.keys(data as object).length === 1
   ) {
-    return (data as { data: T }).data;
+    return (data as unknown as { data: T }).data;
   }
   return data;
 }

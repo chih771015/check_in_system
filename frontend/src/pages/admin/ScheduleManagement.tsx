@@ -142,7 +142,7 @@ export default function ScheduleManagement() {
         payload.recurrenceRule = values.recurrenceRule as string;
         payload.recurrenceUntil = (values.recurrenceUntil as { format: (f: string) => string }).format('YYYY-MM-DD');
       }
-      await createSchedule(payload as Parameters<typeof createSchedule>[0]);
+      await createSchedule(payload as unknown as Parameters<typeof createSchedule>[0]);
       message.success(t('common.success'));
       setCreateOpen(false);
       createForm.resetFields();
@@ -421,10 +421,12 @@ export default function ScheduleManagement() {
                 .then((res) => {
                   if (res.failed && res.failed.length > 0) {
                     message.warning(
-                      `${t('common.success')}: ${res.success}, ${t('common.failed')}: ${res.failed.length}`,
+                      `${t('common.success')}: ${res.successSchedules} (${res.successPatients} patients), ${t('common.failed')}: ${res.failed.length}`,
                     );
                   } else {
-                    message.success(`${t('common.success')}: ${res.success}`);
+                    message.success(
+                      `${t('common.success')}: ${res.successSchedules} (${res.successPatients} patients)`,
+                    );
                   }
                   void fetchData();
                 })

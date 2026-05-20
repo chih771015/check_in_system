@@ -155,6 +155,47 @@ func TestScheduleService_Update_ReplacesPatients(t *testing.T) {
 	assert.ElementsMatch(t, []string{"P2", "P3"}, names)
 }
 
+// Regression: deleting a schedule with attached schedule_patients used to
+// hit FK constraint "fk_schedules_patients". Cascade must remove SP rows too.
+func TestScheduleService_Delete_CascadesSchedulePatients(t *testing.T) {
+	fx := newScheduleMultiFixture(t)
+	p1 := fx.seedPatient(t, "P1", "PID1")
+
+	resp, err := fx.svc.Create(context.Background(), mkMultiCreateReq(fx.translator.ID, "2026-06-10",
+		[]dto.SchedulePatientPayload{
+			{PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00"},
+		}))
+	require.NoError(t, err)
+
+	// Should not fail with FK error.
+	require.NoError(t, fx.svc.Delete(context.Background(), resp.ID))
+
+	// schedule_patients rows for this schedule should be gone too.
+	left, _ := fx.spRepo.FindByScheduleID(resp.ID)
+	assert.Empty(t, left, "schedule_patients should be cascade-deleted")
+}
+
+func TestScheduleService_DeleteRecurrenceGroup_CascadesSchedulePatients(t *testing.T) {
+	fx := newScheduleMultiFixture(t)
+	p1 := fx.seedPatient(t, "P1", "PID1")
+
+	req := mkMultiCreateReq(fx.translator.ID, "2026-06-01",
+		[]dto.SchedulePatientPayload{{PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00"}})
+	req.RecurrenceRule = "daily"
+	req.RecurrenceUntil = "2026-06-03"
+	resp, err := fx.svc.Create(context.Background(), req)
+	require.NoError(t, err)
+
+	count, err := fx.svc.DeleteRecurrenceGroup(context.Background(), resp.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 3, count)
+
+	// All groups' schedule_patients should be gone.
+	list, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	require.NoError(t, err)
+	assert.Empty(t, list)
+}
+
 func TestScheduleService_BackwardCompat_PatientNameStillWorks(t *testing.T) {
 	fx := newScheduleMultiFixture(t)
 	// 沒給 Patients，但給了 PatientName → 應該照舊舉動

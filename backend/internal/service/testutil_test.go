@@ -35,6 +35,10 @@ func newTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	// Enable FK enforcement so cascade tests behave like postgres.
+	if err := db.Exec("PRAGMA foreign_keys = ON").Error; err != nil {
+		t.Fatalf("enable foreign_keys: %v", err)
+	}
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.Schedule{},

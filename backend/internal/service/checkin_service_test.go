@@ -37,12 +37,15 @@ func newCheckinFixture(t *testing.T) *checkinFixture {
 	}
 	require.NoError(t, userRepo.Create(tr))
 
-	// Schedule for "today" so checkin within window is on-time.
+	// Schedule for "today" (local midnight) so checkin within window is on-time.
+	// Using time.Now().Truncate is UTC-based and breaks across midnight local.
+	n := time.Now()
+	today := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.Local)
 	sch := &model.Schedule{
 		TranslatorID: tr.ID,
-		Date:         time.Now().Truncate(24 * time.Hour),
+		Date:         today,
 		StartTime:    "09:00",
-		EndTime:      "23:59", // 涵蓋當天稍後時間，避免被自動標 makeup
+		EndTime:      "23:59",
 		Location:     "Hospital",
 		PatientName:  optionalString("Pat"),
 	}
@@ -196,7 +199,9 @@ func TestCheckinService_MyHistory_FiltersByTranslator(t *testing.T) {
 	// 另一翻譯員 + 排班 + 打卡
 	other := &model.User{Email: "o@x.com", PasswordHash: "h", Name: "O", Role: "translator", Status: "active"}
 	require.NoError(t, fx.userRepo.Create(other))
-	otherSch := &model.Schedule{TranslatorID: other.ID, Date: time.Now().Truncate(24 * time.Hour),
+	nn := time.Now()
+	otherToday := time.Date(nn.Year(), nn.Month(), nn.Day(), 0, 0, 0, 0, time.Local)
+	otherSch := &model.Schedule{TranslatorID: other.ID, Date: otherToday,
 		StartTime: "09:00", EndTime: "23:59", Location: "L", PatientName: optionalString("P")}
 	require.NoError(t, fx.scheduleRepo.Create(otherSch))
 	_, err = fx.svc.Checkin(context.Background(), other.ID, otherSch.ID, "arrive",

@@ -464,6 +464,13 @@ func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
 	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
 		return err
 	}
+	// Stage 3+: cascade-delete schedule_patients before removing the schedule
+	// row, otherwise the FK fk_schedules_patients blocks the delete.
+	if s.spRepo != nil {
+		if err := s.spRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
+			return err
+		}
+	}
 	return repo.Delete(id)
 }
 
@@ -481,18 +488,29 @@ func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (i
 		if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
 			return 0, err
 		}
+		if s.spRepo != nil {
+			if err := s.spRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
+				return 0, err
+			}
+		}
 		if err := repo.Delete(id); err != nil {
 			return 0, err
 		}
 		return 1, nil
 	}
-	// Bulk group delete: collect schedule IDs first, then delete checkins, then schedules.
+	// Bulk group delete: collect schedule IDs first, then cascade checkins +
+	// schedule_patients, then schedules.
 	scheduleIDs, err := repo.IDsByRecurrenceGroup(*schedule.RecurrenceGroupID)
 	if err != nil {
 		return 0, err
 	}
 	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleIDs(scheduleIDs); err != nil {
 		return 0, err
+	}
+	if s.spRepo != nil {
+		if err := s.spRepo.WithCtx(ctx).DeleteByScheduleIDs(scheduleIDs); err != nil {
+			return 0, err
+		}
 	}
 	return repo.DeleteByRecurrenceGroup(*schedule.RecurrenceGroupID)
 }
