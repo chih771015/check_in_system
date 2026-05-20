@@ -24,11 +24,22 @@ var ErrPatientNotFound = errors.New("patient not found")
 // aggregation hook (stub in stage 2, real in stage 4).
 type PatientService struct {
 	patientRepo *repository.PatientRepository
+	// Stage 3: when set, ListForTranslator restricts results to patients
+	// the caller actually has in their schedules.
+	spRepo *repository.SchedulePatientRepository
 }
 
 // NewPatientService creates a new PatientService.
 func NewPatientService(patientRepo *repository.PatientRepository) *PatientService {
 	return &PatientService{patientRepo: patientRepo}
+}
+
+// WithScopeRepo wires up SchedulePatientRepository so ListForTranslator can
+// restrict results to the caller's own schedules. Returns the service for
+// chaining.
+func (s *PatientService) WithScopeRepo(spRepo *repository.SchedulePatientRepository) *PatientService {
+	s.spRepo = spRepo
+	return s
 }
 
 // normalizeIDNumber uppercases and trims the ID number so that lookups are
@@ -122,13 +133,16 @@ func (s *PatientService) List(ctx context.Context, q dto.PatientListQuery) ([]mo
 	return s.patientRepo.WithCtx(ctx).List(strings.TrimSpace(q.Search), q.Page, q.PageSize)
 }
 
-// ListForTranslator returns the patient list as seen by a translator.
-// TODO(stage 3): restrict to patients tied to schedules owned by translatorID.
-// For stage 2 we return the full list to unblock frontend work; the field
-// hiding happens in the handler (different response DTO).
+// ListForTranslator returns the patient list a translator may see — only
+// patients that appear in their own schedules (via schedule_patients).
+//
+// When WithScopeRepo has not been called the service falls back to listing
+// all patients (legacy stage-2 behaviour for tests that don't wire scope).
 func (s *PatientService) ListForTranslator(ctx context.Context, translatorID uint, q dto.PatientListQuery) ([]model.Patient, int64, error) {
-	_ = translatorID
-	return s.patientRepo.WithCtx(ctx).List(strings.TrimSpace(q.Search), q.Page, q.PageSize)
+	if s.spRepo == nil {
+		return s.patientRepo.WithCtx(ctx).List(strings.TrimSpace(q.Search), q.Page, q.PageSize)
+	}
+	return s.patientRepo.WithCtx(ctx).ListForTranslator(translatorID, strings.TrimSpace(q.Search), q.Page, q.PageSize)
 }
 
 // GetHistory returns the visit history for a single patient.

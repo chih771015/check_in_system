@@ -61,6 +61,47 @@ func (r *PatientRepository) FindByIDTypeAndNumber(idType, idNumber string) (*mod
 	return &patient, nil
 }
 
+// ListForTranslator returns the de-duplicated list of patients that appear in
+// any of the given translator's schedules. The search filter, when non-empty,
+// matches name / phone / id_number with LIKE (case-insensitive in postgres
+// via ILIKE; ASCII case-insensitive in sqlite's default LIKE).
+func (r *PatientRepository) ListForTranslator(translatorID uint, search string, page, pageSize int) ([]model.Patient, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	// Subquery: patient IDs that are linked to schedules owned by translatorID.
+	subq := r.db.Model(&model.SchedulePatient{}).
+		Select("schedule_patients.patient_id").
+		Joins("JOIN schedules ON schedules.id = schedule_patients.schedule_id").
+		Where("schedules.translator_id = ?", translatorID)
+
+	query := r.db.Model(&model.Patient{}).
+		Where("id IN (?)", subq)
+
+	if search != "" {
+		like := "%" + search + "%"
+		query = query.Where("name LIKE ? OR phone LIKE ? OR id_number LIKE ?", like, like, like)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var patients []model.Patient
+	if err := query.Order("name ASC").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&patients).Error; err != nil {
+		return nil, 0, err
+	}
+	return patients, total, nil
+}
+
 // List returns a page of patients filtered by `search` (matches name / phone /
 // id_number, case-insensitive) plus the total row count for pagination. If
 // pageSize is <= 0 it defaults to 20; page defaults to 1.

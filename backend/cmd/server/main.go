@@ -129,7 +129,7 @@ func main() {
 	auditService := service.NewAuditService(auditRepo, userRepo)
 	notificationService := service.NewNotificationService(userRepo, scheduleRepo, mailService)
 	cleanupService := service.NewCleanupService()
-	patientService := service.NewPatientService(patientRepo)
+	patientService := service.NewPatientService(patientRepo).WithScopeRepo(schedulePatientRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
