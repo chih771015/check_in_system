@@ -125,7 +125,19 @@
     "confirmDeleteGroup": "確定要刪除整組重複排班嗎？",
     "showHistory": "顯示歷史",
     "patient": "病人",
-    "patients": "病人"
+    "patients": "病人",
+    "recurrenceRule": "重複規則",
+    "recurrenceUntil": "重複至",
+    "recurrenceOptions": {
+      "none": "不重複",
+      "daily": "每日",
+      "weekly135": "每週一三五",
+      "weekly24": "每週二四",
+      "weekly12345": "每週一至五",
+      "monthly1": "每月 1 日",
+      "monthly15": "每月 15 日"
+    },
+    "patientRequired": "請至少新增一位病人"
   },
   "checkins": {
     "title": "打卡紀錄",

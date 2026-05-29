@@ -30,6 +30,7 @@ import SchedulePatientListEditor from '../../components/SchedulePatientListEdito
 import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
 import NoShowModal from '../../components/NoShowModal';
 import { adminUploadDiagnosis, adminMarkNoShow } from '../../api/checkins';
+import { validatePatientTimes } from '../../utils/schedulePatient';
 import type { SchedulePatientPayload, SchedulePatient } from '../../types';
 import * as XLSX from 'xlsx';
 
@@ -38,6 +39,15 @@ const spStatusColor: Record<string, string> = {
   completed: 'green',
   no_show: 'red',
 };
+
+/** Pull a translated message out of an axios error thrown by the API. */
+function extractApiError(err: unknown): string | undefined {
+  const e = err as {
+    translatedMessage?: string;
+    response?: { data?: { message?: string; code?: string } };
+  };
+  return e?.translatedMessage ?? e?.response?.data?.message;
+}
 
 // Stage-3 V2 flat template. Rows with the same Code merge into one schedule
 // with multiple patients.
@@ -95,6 +105,18 @@ export default function ScheduleManagement() {
   const { message, modal } = App.useApp();
   const { t } = useTranslation();
 
+  // Watch the overall start/end values so the patient list editor re-renders
+  // (and re-runs its clamp effect) when the admin changes the schedule range.
+  // getFieldValue alone wouldn't trigger a re-render outside Form.Item.
+  const createStart = Form.useWatch('startTime', createForm) as { format?: (f: string) => string } | undefined;
+  const createEnd = Form.useWatch('endTime', createForm) as { format?: (f: string) => string } | undefined;
+  const editStart = Form.useWatch('startTime', editForm) as { format?: (f: string) => string } | undefined;
+  const editEnd = Form.useWatch('endTime', editForm) as { format?: (f: string) => string } | undefined;
+  const createOverallStart = createStart?.format?.('HH:mm') ?? '09:00';
+  const createOverallEnd = createEnd?.format?.('HH:mm') ?? '12:00';
+  const editOverallStart = editStart?.format?.('HH:mm') ?? editingRecord?.startTime ?? '09:00';
+  const editOverallEnd = editEnd?.format?.('HH:mm') ?? editingRecord?.endTime ?? '12:00';
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -122,18 +144,24 @@ export default function ScheduleManagement() {
   }, [fetchData, fetchTranslators]);
 
   const handleCreate = async (values: Record<string, unknown>) => {
-    // Stage-3: require at least one patient with all fields filled.
-    const validPatients = createPatients.filter((p) => p.patientId && p.startTime && p.endTime);
-    if (validPatients.length === 0) {
-      message.error(t('schedules.patientRequired', { defaultValue: 'Please add at least one patient' }));
+    const overallStart = (values.startTime as { format: (f: string) => string }).format('HH:mm');
+    const overallEnd = (values.endTime as { format: (f: string) => string }).format('HH:mm');
+
+    // Client-side validation mirrors backend rules so the user gets feedback
+    // without round-tripping to the server.
+    const result = validatePatientTimes(overallStart, overallEnd, createPatients);
+    if (!result.ok) {
+      message.error(t(`errors.${result.code}`));
       return;
     }
+    const validPatients = createPatients.filter((p) => p.patientId && p.startTime && p.endTime);
+
     try {
       const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
         date: (values.date as { format: (f: string) => string }).format('YYYY-MM-DD'),
-        startTime: (values.startTime as { format: (f: string) => string }).format('HH:mm'),
-        endTime: (values.endTime as { format: (f: string) => string }).format('HH:mm'),
+        startTime: overallStart,
+        endTime: overallEnd,
         location: values.location as string,
         patients: validPatients,
         note: (values.note as string) || undefined,
@@ -148,20 +176,36 @@ export default function ScheduleManagement() {
       createForm.resetFields();
       setCreatePatients([]);
       void fetchData();
-    } catch {
-      message.error(t('common.failed'));
+    } catch (err: unknown) {
+      // Show the backend's translated message (set by axios interceptor) so
+      // the user sees a specific reason ("Patient time slot is outside the
+      // schedule range" etc.) instead of a generic "Failed".
+      message.error(extractApiError(err) || t('common.failed'));
     }
   };
 
   const handleEdit = async (values: Record<string, unknown>) => {
     if (!editingRecord) return;
+    const overallStart = (values.startTime as { format: (f: string) => string }).format('HH:mm');
+    const overallEnd = (values.endTime as { format: (f: string) => string }).format('HH:mm');
+
+    // Only validate if the admin actually edited the patients list. An update
+    // that doesn't touch patients should still go through.
+    if (editPatients.length > 0) {
+      const result = validatePatientTimes(overallStart, overallEnd, editPatients);
+      if (!result.ok) {
+        message.error(t(`errors.${result.code}`));
+        return;
+      }
+    }
     const validPatients = editPatients.filter((p) => p.patientId && p.startTime && p.endTime);
+
     try {
       const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
         date: (values.date as { format: (f: string) => string }).format('YYYY-MM-DD'),
-        startTime: (values.startTime as { format: (f: string) => string }).format('HH:mm'),
-        endTime: (values.endTime as { format: (f: string) => string }).format('HH:mm'),
+        startTime: overallStart,
+        endTime: overallEnd,
         location: values.location as string,
         note: (values.note as string) || undefined,
       };
@@ -170,8 +214,8 @@ export default function ScheduleManagement() {
       message.success(t('common.success'));
       setEditOpen(false);
       void fetchData();
-    } catch {
-      message.error(t('common.failed'));
+    } catch (err: unknown) {
+      message.error(extractApiError(err) || t('common.failed'));
     }
   };
 
@@ -353,16 +397,17 @@ export default function ScheduleManagement() {
 
   const recurrenceFields = (
     <>
-      <Form.Item name="recurrenceRule" label={t('schedules.showHistory')}>
+      <Form.Item name="recurrenceRule" label={t('schedules.recurrenceRule')}>
         <Select
           allowClear
+          placeholder={t('schedules.recurrenceOptions.none')}
           options={[
-            { value: 'daily', label: 'Daily' },
-            { value: 'weekly:1,3,5', label: 'Mon/Wed/Fri' },
-            { value: 'weekly:2,4', label: 'Tue/Thu' },
-            { value: 'weekly:1,2,3,4,5', label: 'Mon-Fri' },
-            { value: 'monthly:1', label: 'Monthly day 1' },
-            { value: 'monthly:15', label: 'Monthly day 15' },
+            { value: 'daily', label: t('schedules.recurrenceOptions.daily') },
+            { value: 'weekly:1,3,5', label: t('schedules.recurrenceOptions.weekly135') },
+            { value: 'weekly:2,4', label: t('schedules.recurrenceOptions.weekly24') },
+            { value: 'weekly:1,2,3,4,5', label: t('schedules.recurrenceOptions.weekly12345') },
+            { value: 'monthly:1', label: t('schedules.recurrenceOptions.monthly1') },
+            { value: 'monthly:15', label: t('schedules.recurrenceOptions.monthly15') },
           ]}
         />
       </Form.Item>
@@ -372,7 +417,7 @@ export default function ScheduleManagement() {
       >
         {({ getFieldValue }) =>
           getFieldValue('recurrenceRule') ? (
-            <Form.Item name="recurrenceUntil" label={t('schedules.endTime')} rules={[{ required: true }]}>
+            <Form.Item name="recurrenceUntil" label={t('schedules.recurrenceUntil')} rules={[{ required: true }]}>
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>
           ) : null
@@ -464,8 +509,8 @@ export default function ScheduleManagement() {
             <SchedulePatientListEditor
               value={createPatients}
               onChange={setCreatePatients}
-              overallStart={createForm.getFieldValue('startTime')?.format?.('HH:mm') ?? '09:00'}
-              overallEnd={createForm.getFieldValue('endTime')?.format?.('HH:mm') ?? '12:00'}
+              overallStart={createOverallStart}
+              overallEnd={createOverallEnd}
             />
           </Form.Item>
           {recurrenceFields}
@@ -484,8 +529,8 @@ export default function ScheduleManagement() {
             <SchedulePatientListEditor
               value={editPatients}
               onChange={setEditPatients}
-              overallStart={editForm.getFieldValue('startTime')?.format?.('HH:mm') ?? editingRecord?.startTime ?? '09:00'}
-              overallEnd={editForm.getFieldValue('endTime')?.format?.('HH:mm') ?? editingRecord?.endTime ?? '12:00'}
+              overallStart={editOverallStart}
+              overallEnd={editOverallEnd}
             />
           </Form.Item>
           <Form.Item>

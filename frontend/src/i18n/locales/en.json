@@ -125,7 +125,19 @@
     "confirmDeleteGroup": "Delete the entire recurrence group?",
     "showHistory": "Show History",
     "patient": "Patient",
-    "patients": "Patients"
+    "patients": "Patients",
+    "recurrenceRule": "Recurrence Rule",
+    "recurrenceUntil": "Recurrence Until",
+    "recurrenceOptions": {
+      "none": "No repeat",
+      "daily": "Daily",
+      "weekly135": "Mon / Wed / Fri",
+      "weekly24": "Tue / Thu",
+      "weekly12345": "Mon - Fri",
+      "monthly1": "Day 1 of each month",
+      "monthly15": "Day 15 of each month"
+    },
+    "patientRequired": "Please add at least one patient"
   },
   "checkins": {
     "title": "Check-in Records",

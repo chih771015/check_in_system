@@ -125,7 +125,19 @@
     "confirmDeleteGroup": "ต้องการลบตารางทั้งกลุ่มหรือไม่?",
     "showHistory": "แสดงประวัติ",
     "patient": "ผู้ป่วย",
-    "patients": "ผู้ป่วย"
+    "patients": "ผู้ป่วย",
+    "recurrenceRule": "กฎการเกิดซ้ำ",
+    "recurrenceUntil": "ทำซ้ำจนถึง",
+    "recurrenceOptions": {
+      "none": "ไม่ซ้ำ",
+      "daily": "ทุกวัน",
+      "weekly135": "จันทร์ / พุธ / ศุกร์",
+      "weekly24": "อังคาร / พฤหัส",
+      "weekly12345": "จันทร์ - ศุกร์",
+      "monthly1": "วันที่ 1 ของทุกเดือน",
+      "monthly15": "วันที่ 15 ของทุกเดือน"
+    },
+    "patientRequired": "กรุณาเพิ่มผู้ป่วยอย่างน้อย 1 คน"
   },
   "checkins": {
     "title": "บันทึกการลงเวลา",

@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { Button, Space, TimePicker, Card } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import PatientPicker from './PatientPicker';
 import type { SchedulePatientPayload } from '../types';
+import { clampPatientTimes } from '../utils/schedulePatient';
 
 interface SchedulePatientListEditorProps {
   /** Current list of patient slots. */
@@ -34,6 +36,18 @@ export default function SchedulePatientListEditor({
   disabled,
 }: SchedulePatientListEditorProps) {
   const { t } = useTranslation();
+
+  // When overall start/end changes, clamp existing rows so they stay inside
+  // the new range. clampPatientTimes returns the same array reference when
+  // nothing changed, so this effect is no-op for already-valid edits.
+  useEffect(() => {
+    const clamped = clampPatientTimes(overallStart, overallEnd, value);
+    if (clamped !== value) onChange(clamped);
+    // We intentionally exclude `value` / `onChange` from deps — we only want
+    // to react to overall range changes, not to typing inside the editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overallStart, overallEnd]);
+
   // Display value: empty list shown as one blank row so the UI is never empty.
   const rows: SchedulePatientPayload[] = value.length === 0
     ? [{ patientId: 0, startTime: overallStart, endTime: overallEnd }]
