@@ -25,8 +25,12 @@ export default function LoginPage() {
       } else {
         navigate('/my-schedules');
       }
-    } catch {
-      message.error(t('errors.INVALID_CREDENTIALS'));
+    } catch (err: unknown) {
+      // axios interceptor 已把錯誤碼翻譯放在 translatedMessage / response.data.message
+      const translated =
+        (err as { translatedMessage?: string })?.translatedMessage ??
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      message.error(translated || t('errors.INVALID_CREDENTIALS'));
     } finally {
       setLoading(false);
     }

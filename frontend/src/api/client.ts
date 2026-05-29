@@ -62,9 +62,19 @@ export function mapErrorResponse(
   }
 
   if (status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    redirect('/login');
+    // 401 from the login endpoint itself means "wrong credentials", not
+    // "session expired". Triggering a global redirect would reload /login,
+    // wipe form state and swallow the toast — leaving the user with an
+    // empty form and no feedback. Same logic for any case where the user
+    // is already on /login: never reload.
+    const requestURL = error.config?.url ?? '';
+    const isLoginRequest = requestURL.includes('/auth/login');
+    const alreadyOnLogin = currentPath() === '/login';
+    if (!isLoginRequest && !alreadyOnLogin) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      redirect('/login');
+    }
   } else if (status === 403 && code === 'PASSWORD_CHANGE_REQUIRED') {
     if (currentPath() !== '/change-password') {
       redirect('/change-password');

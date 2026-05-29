@@ -3,7 +3,12 @@ import type { AxiosError } from 'axios';
 import { mapErrorResponse, unwrapResponse } from '../client';
 import i18n from '../../i18n';
 
-function makeError(status: number, data?: { code?: string; message?: string }): AxiosError<{ code?: string; message?: string }> {
+function makeError(
+  status: number,
+  data?: { code?: string; message?: string },
+  requestUrl?: string,
+): AxiosError<{ code?: string; message?: string }> {
+  const config = { url: requestUrl } as unknown as never;
   return {
     isAxiosError: true,
     name: 'AxiosError',
@@ -13,9 +18,9 @@ function makeError(status: number, data?: { code?: string; message?: string }): 
       data: data ?? {},
       statusText: '',
       headers: {},
-      config: {} as never,
+      config,
     },
-    config: {} as never,
+    config,
     toJSON: () => ({}),
   } as AxiosError<{ code?: string; message?: string }>;
 }
@@ -87,6 +92,28 @@ describe('mapErrorResponse', () => {
     const redirect = vi.fn();
     const err = makeError(403, { code: 'PASSWORD_CHANGE_REQUIRED' });
     mapErrorResponse(err, redirect, () => '/change-password');
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it('does NOT redirect/clear on 401 when the request is the login endpoint', () => {
+    // Bug fix: 登入失敗本身是 401 但不該觸發 session 過期 redirect。
+    // 否則整頁會 reload，使用者完全看不到錯誤訊息。
+    localStorage.setItem('token', 'abc');
+    localStorage.setItem('user', '{}');
+    const redirect = vi.fn();
+
+    const err = makeError(401, { code: 'INVALID_CREDENTIALS' }, '/auth/login');
+    const mapped = mapErrorResponse(err, redirect, () => '/login');
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(localStorage.getItem('token')).toBe('abc'); // not cleared
+    expect(mapped.translatedMessage).toBe('Invalid email or password'); // still translated
+  });
+
+  it('does NOT redirect on 401 when already on /login (defensive)', () => {
+    const redirect = vi.fn();
+    const err = makeError(401, { code: 'INVALID_CREDENTIALS' }, '/admin/translators');
+    mapErrorResponse(err, redirect, () => '/login');
     expect(redirect).not.toHaveBeenCalled();
   });
 
