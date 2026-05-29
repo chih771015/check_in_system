@@ -118,6 +118,24 @@ func (h *DiagnosisHandler) AdminUploadDiagnosis(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis uploaded (admin)"})
 }
 
+// AdminListResults handles GET /api/admin/diagnosis-results
+//
+// Returns the paginated overview of all completed / no-show schedule patients
+// sorted by schedule date + slot start time, most recent first.
+func (h *DiagnosisHandler) AdminListResults(c *gin.Context) {
+	var q dto.DiagnosisResultsQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		respondBadRequest(c, err)
+		return
+	}
+	resp, err := h.diagService.ListResults(c.Request.Context(), q)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 // AdminMarkNoShow handles POST /api/admin/no-show (admin surrogate).
 func (h *DiagnosisHandler) AdminMarkNoShow(c *gin.Context) {
 	var req dto.MarkNoShowRequest

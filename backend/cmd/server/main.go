@@ -239,6 +239,9 @@ func main() {
 			// Stage 4 — admin surrogate uploads / mark no-show
 			admin.POST("/diagnosis", diagnosisHandler.AdminUploadDiagnosis)
 			admin.POST("/no-show", diagnosisHandler.AdminMarkNoShow)
+
+			// Diagnosis results overview (all completed / no_show rows).
+			admin.GET("/diagnosis-results", diagnosisHandler.AdminListResults)
 		}
 
 		// Translator routes
