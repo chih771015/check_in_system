@@ -84,13 +84,19 @@ export default function MyCheckinsPage() {
       </div>
 
       {stats && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.makeup')} value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.onTime')} value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} /></Card></Col>
-          <Col span={4}><Card><Statistic title={t('checkins.stats.late')} value={stats.lateCount} valueStyle={{ color: '#f5222d' }} /></Card></Col>
+        // gutter [horizontal, vertical] so cards on different rows don't touch.
+        // Responsive col span:
+        //   xs (< 576):  12 → 2 cards per row (3 rows total on a phone)
+        //   sm (≥ 576):   8 → 3 per row
+        //   md (≥ 768):   6 → 4 per row
+        //   lg (≥ 992):   4 → all 6 in one row (desktop original)
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.makeup')} value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.onTime')} value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.late')} value={stats.lateCount} valueStyle={{ color: '#f5222d' }} /></Card></Col>
         </Row>
       )}
 
@@ -99,6 +105,8 @@ export default function MyCheckinsPage() {
         loading={loading}
         columns={columns}
         dataSource={data}
+        // Allow horizontal scroll on narrow screens instead of squashing columns.
+        scroll={{ x: 700 }}
       />
     </div>
   );
