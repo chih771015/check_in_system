@@ -104,7 +104,6 @@
     "title": "病人管理",
     "add": "新增病人",
     "edit": "編輯病人",
-    "viewHistory": "查看歷史",
     "history": "看診歷史",
     "historyEmpty": "目前無看診紀錄。",
     "idType": "ID 類型",

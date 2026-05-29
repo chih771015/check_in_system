@@ -151,7 +151,7 @@ export default function PatientManagement() {
       render: (_: unknown, record: Patient) => (
         <Space>
           <Button size="small" onClick={() => navigate(`/admin/patients/${record.id}/history`)}>
-            {t('patients.viewHistory')}
+            {t('patients.history')}
           </Button>
           <Button size="small" onClick={() => openEdit(record)}>{t('common.edit')}</Button>
           <Button size="small" danger onClick={() => handleDelete(record)}>

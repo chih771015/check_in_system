@@ -5,6 +5,7 @@ import {
   Card,
   Descriptions,
   Empty,
+  Image,
   Skeleton,
   Space,
   Tag,
@@ -63,15 +64,21 @@ export default function PatientHistory() {
             </>
           )}
           {entry.diagnosisPhotos && entry.diagnosisPhotos.length > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {entry.diagnosisPhotos.map((url) => (
-                <img
-                  key={url}
-                  src={url}
-                  alt=""
-                  style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 4, border: '1px solid #eee' }}
-                />
-              ))}
+            <div style={{ marginTop: 8 }}>
+              {/* Image.PreviewGroup gives click-to-enlarge + arrow navigation. */}
+              <Image.PreviewGroup>
+                <Space wrap>
+                  {entry.diagnosisPhotos.map((url) => (
+                    <Image
+                      key={url}
+                      src={url}
+                      width={96}
+                      height={96}
+                      style={{ objectFit: 'cover', borderRadius: 4, border: '1px solid #eee' }}
+                    />
+                  ))}
+                </Space>
+              </Image.PreviewGroup>
             </div>
           )}
         </div>

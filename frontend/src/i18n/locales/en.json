@@ -104,7 +104,6 @@
     "title": "Patient Management",
     "add": "Add Patient",
     "edit": "Edit Patient",
-    "viewHistory": "View History",
     "history": "Visit History",
     "historyEmpty": "No visit records yet.",
     "idType": "ID Type",
