@@ -141,6 +141,24 @@ func (s *DiagnosisService) assertOwnedSchedulePatient(ctx context.Context, trans
 	return sp, nil
 }
 
+// GetPhotos returns the diagnosis photo URLs attached to a SchedulePatient,
+// ordered by upload time. Used by the admin schedule detail modal to surface
+// each completed patient's certificate files.
+func (s *DiagnosisService) GetPhotos(ctx context.Context, spID uint) ([]string, error) {
+	if _, err := s.spRepo.WithCtx(ctx).FindByID(spID); err != nil {
+		return nil, ErrSchedulePatientNotFound
+	}
+	photos, err := s.photoRepo.WithCtx(ctx).FindBySchedulePatientID(spID)
+	if err != nil {
+		return nil, err
+	}
+	urls := make([]string, 0, len(photos))
+	for _, p := range photos {
+		urls = append(urls, p.PhotoURL)
+	}
+	return urls, nil
+}
+
 // ListResults returns the paginated overview of all "terminal" SchedulePatient
 // rows (status = completed or no_show) — admins use this to see every visit
 // outcome sorted by schedule date and patient slot, most recent first.

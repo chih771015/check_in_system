@@ -148,12 +148,6 @@ export default function DiagnosisResultsPage() {
       },
     },
     {
-      title: t('schedules.note'),
-      dataIndex: 'note',
-      key: 'note',
-      ellipsis: true,
-    },
-    {
       title: t('diagnosisResults.updated'),
       dataIndex: 'updatedAt',
       key: 'updatedAt',

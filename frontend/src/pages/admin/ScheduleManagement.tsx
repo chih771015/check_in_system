@@ -11,6 +11,7 @@ import {
   Tag,
   Space,
   App,
+  Typography,
 } from 'antd';
 import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
@@ -30,9 +31,11 @@ import SchedulePatientListEditor from '../../components/SchedulePatientListEdito
 import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
 import NoShowModal from '../../components/NoShowModal';
 import { adminUploadDiagnosis, adminMarkNoShow } from '../../api/checkins';
+import { getSchedulePatientPhotos } from '../../api/diagnosisResults';
 import { validatePatientTimes } from '../../utils/schedulePatient';
 import { extractApiError } from '../../utils/apiError';
 import type { SchedulePatientPayload, SchedulePatient } from '../../types';
+import { Image } from 'antd';
 import * as XLSX from 'xlsx';
 
 const spStatusColor: Record<string, string> = {
@@ -87,6 +90,10 @@ export default function ScheduleManagement() {
   const [detailRecord, setDetailRecord] = useState<ScheduleItem | null>(null);
   const [adminDiagFor, setAdminDiagFor] = useState<number | null>(null);
   const [adminNoShowFor, setAdminNoShowFor] = useState<number | null>(null);
+  // Photo preview modal — lazy-loaded list of URLs for one SchedulePatient.
+  const [photosFor, setPhotosFor] = useState<SchedulePatient | null>(null);
+  const [photosUrls, setPhotosUrls] = useState<string[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -134,6 +141,21 @@ export default function ScheduleManagement() {
     void fetchData();
     void fetchTranslators();
   }, [fetchData, fetchTranslators]);
+
+  /** Open the photo preview modal for one completed SchedulePatient. */
+  const openPhotos = async (sp: SchedulePatient) => {
+    setPhotosFor(sp);
+    setPhotosLoading(true);
+    try {
+      const urls = await getSchedulePatientPhotos(sp.id);
+      setPhotosUrls(urls);
+    } catch (err) {
+      message.error(extractApiError(err) || t('common.failed'));
+      setPhotosUrls([]);
+    } finally {
+      setPhotosLoading(false);
+    }
+  };
 
   const handleCreate = async (values: Record<string, unknown>) => {
     const overallStart = (values.startTime as { format: (f: string) => string }).format('HH:mm');
@@ -553,16 +575,28 @@ export default function ScheduleManagement() {
               rowKey="id"
               pagination={false}
               columns={[
-                { title: t('common.name'), dataIndex: 'patientName', key: 'patientName' },
+                {
+                  title: t('common.name'),
+                  key: 'patient',
+                  render: (_: unknown, r: SchedulePatient) => (
+                    <div>
+                      <div><strong>{r.patientName}</strong></div>
+                      <div style={{ color: '#666', fontSize: 12 }}>📞 {r.patientPhone}</div>
+                      <div style={{ color: '#666', fontSize: 12 }}>{r.idType.toUpperCase()}: {r.idNumber}</div>
+                    </div>
+                  ),
+                },
                 {
                   title: t('schedules.startTime'),
                   key: 'time',
+                  width: 100,
                   render: (_: unknown, r: SchedulePatient) => `${r.startTime}-${r.endTime}`,
                 },
                 {
                   title: t('common.status'),
                   dataIndex: 'status',
                   key: 'status',
+                  width: 110,
                   render: (s: string) => (
                     <Tag color={spStatusColor[s] ?? 'default'}>
                       {t(`diagnosis.status${s.charAt(0).toUpperCase() + s.slice(1).replace('_show', 'NoShow')}`, {
@@ -572,28 +606,87 @@ export default function ScheduleManagement() {
                   ),
                 },
                 {
+                  // Status-dependent content: completed → view photos button,
+                  // no_show → reason text (was previously hidden inside the
+                  // ambiguous "Operation" column).
+                  title: t('diagnosisResults.photosTitle'),
+                  key: 'result',
+                  width: 200,
+                  render: (_: unknown, r: SchedulePatient) => {
+                    if (r.status === 'completed') {
+                      return (
+                        <Button size="small" onClick={() => openPhotos(r)}>
+                          {t('diagnosis.viewPhotos', { defaultValue: 'View photos' })}
+                        </Button>
+                      );
+                    }
+                    if (r.status === 'no_show') {
+                      return (
+                        <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                          {r.noShowReason}
+                        </Typography.Text>
+                      );
+                    }
+                    return <span style={{ color: '#ccc' }}>—</span>;
+                  },
+                },
+                {
                   title: t('common.operation'),
                   key: 'action',
-                  render: (_: unknown, r: SchedulePatient) => (
-                    <Space>
-                      {r.status === 'pending' && (
-                        <>
-                          <Button size="small" type="primary" onClick={() => setAdminDiagFor(r.id)}>
-                            {t('diagnosis.upload')}
-                          </Button>
-                          <Button size="small" danger onClick={() => setAdminNoShowFor(r.id)}>
-                            {t('diagnosis.noShow')}
-                          </Button>
-                        </>
-                      )}
-                      {r.status === 'no_show' && r.noShowReason && (
-                        <span style={{ color: '#999', fontSize: 12 }}>{r.noShowReason}</span>
-                      )}
-                    </Space>
-                  ),
+                  width: 180,
+                  render: (_: unknown, r: SchedulePatient) => {
+                    // pending / no_show are still actionable; completed is final.
+                    if (r.status === 'completed') return <span style={{ color: '#ccc' }}>—</span>;
+                    return (
+                      <Space>
+                        <Button size="small" type="primary" onClick={() => setAdminDiagFor(r.id)}>
+                          {t('diagnosis.upload')}
+                        </Button>
+                        <Button size="small" danger onClick={() => setAdminNoShowFor(r.id)}>
+                          {t('diagnosis.noShow')}
+                        </Button>
+                      </Space>
+                    );
+                  },
                 },
               ]}
             />
+          </div>
+        )}
+      </Modal>
+
+      {/* Diagnosis photo preview modal — clicked from a "completed" row */}
+      <Modal
+        title={t('diagnosisResults.photosTitle')}
+        open={!!photosFor}
+        onCancel={() => { setPhotosFor(null); setPhotosUrls([]); }}
+        footer={null}
+        width={720}
+        destroyOnClose
+      >
+        {photosFor && (
+          <div>
+            <div style={{ marginBottom: 12, color: '#666' }}>
+              {photosFor.patientName} ・ {photosFor.startTime}-{photosFor.endTime}
+            </div>
+            {photosLoading ? (
+              <div>{t('common.loading')}</div>
+            ) : photosUrls.length === 0 ? (
+              <div style={{ color: '#999' }}>{t('diagnosisResults.noResult')}</div>
+            ) : (
+              <Image.PreviewGroup>
+                <Space wrap>
+                  {photosUrls.map((url) => (
+                    <Image
+                      key={url}
+                      src={url}
+                      width={180}
+                      style={{ borderRadius: 6 }}
+                    />
+                  ))}
+                </Space>
+              </Image.PreviewGroup>
+            )}
           </div>
         )}
       </Modal>

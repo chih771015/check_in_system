@@ -242,6 +242,9 @@ func main() {
 
 			// Diagnosis results overview (all completed / no_show rows).
 			admin.GET("/diagnosis-results", diagnosisHandler.AdminListResults)
+
+			// Per-SchedulePatient photos (used by schedule detail modal).
+			admin.GET("/schedule-patients/:id/photos", diagnosisHandler.AdminGetSchedulePatientPhotos)
 		}
 
 		// Translator routes

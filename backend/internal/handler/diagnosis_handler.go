@@ -118,6 +118,22 @@ func (h *DiagnosisHandler) AdminUploadDiagnosis(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis uploaded (admin)"})
 }
 
+// AdminGetSchedulePatientPhotos handles GET /api/admin/schedule-patients/:id/photos
+// — returns the photo URLs attached to one SchedulePatient slot.
+func (h *DiagnosisHandler) AdminGetSchedulePatientPhotos(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeSchedulePatientNotFound, "Invalid schedulePatientId")
+		return
+	}
+	urls, err := h.diagService.GetPhotos(c.Request.Context(), uint(id))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"photos": urls})
+}
+
 // AdminListResults handles GET /api/admin/diagnosis-results
 //
 // Returns the paginated overview of all completed / no-show schedule patients

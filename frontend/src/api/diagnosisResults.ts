@@ -16,3 +16,10 @@ export function getDiagnosisResults(q: DiagnosisResultsQuery) {
     .get<DiagnosisResultsResponse>('/admin/diagnosis-results', { params: q })
     .then((r) => r.data);
 }
+
+/** Fetch the diagnosis photo URLs for a single SchedulePatient slot. */
+export function getSchedulePatientPhotos(schedulePatientId: number) {
+  return client
+    .get<{ photos: string[] }>(`/admin/schedule-patients/${schedulePatientId}/photos`)
+    .then((r) => r.data.photos);
+}
