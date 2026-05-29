@@ -103,7 +103,8 @@ export default function MakeupCheckInPage() {
       <Card size="small" style={{ marginBottom: 16 }}>
         <Typography.Text strong><CameraOutlined /> {t('checkin.takingSelfie')}</Typography.Text>
         <div style={{ marginTop: 12 }}>
-          <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+          {/* No `capture` — let user choose camera or gallery. */}
+          <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
           <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
           {selfiePreview && (

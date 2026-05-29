@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Button, Input, App, Space } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { markNoShow as defaultMarkNoShow } from '../api/checkins';
+import { extractApiError } from '../utils/apiError';
 
 interface NoShowModalProps {
   open: boolean;
@@ -40,8 +41,7 @@ export default function NoShowModal({
       onDone();
       onClose();
     } catch (err: unknown) {
-      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
-      void message.error(code ? t(`errors.${code}`) : t('common.failed'));
+      void message.error(extractApiError(err) || t('common.failed'));
     } finally {
       setSubmitting(false);
     }

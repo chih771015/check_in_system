@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Card, Typography, Spin, App } from 'antd';
+import { Alert, Button, Card, Typography, Spin, App, Tag } from 'antd';
 import {
   CameraOutlined,
   EnvironmentOutlined,
@@ -13,6 +13,18 @@ import type { ScheduleItem } from '../../types';
 import { getMySchedules } from '../../api/schedules';
 import { checkin } from '../../api/checkins';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import { extractApiError } from '../../utils/apiError';
+
+const spStatusColor: Record<string, string> = {
+  pending: 'orange',
+  completed: 'green',
+  no_show: 'red',
+};
+const spStatusKey: Record<string, string> = {
+  pending: 'diagnosis.statusPending',
+  completed: 'diagnosis.statusCompleted',
+  no_show: 'diagnosis.statusNoShow',
+};
 
 export default function CheckInPage() {
   const { scheduleId, type } = useParams<{ scheduleId: string; type: string }>();
@@ -68,12 +80,7 @@ export default function CheckInPage() {
       message.success(t('common.success'));
       navigate('/my-schedules');
     } catch (err: unknown) {
-      const code = (err as { response?: { data?: { code?: string } } })?.response?.data?.code;
-      if (code === 'CHECKOUT_BLOCKED_BY_PENDING') {
-        message.error(t('errors.CHECKOUT_BLOCKED_BY_PENDING'));
-      } else {
-        message.error(t('common.failed'));
-      }
+      message.error(extractApiError(err) || t('common.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -95,14 +102,48 @@ export default function CheckInPage() {
           <div>{t('schedules.date')}: {schedule.date}</div>
           <div>{t('schedules.startTime')}: {schedule.startTime} - {schedule.endTime}</div>
           <div>{t('schedules.location')}: {schedule.location}</div>
-          <div>{t('schedules.patientName')}: {schedule.patientName}</div>
         </div>
+
+        {schedule.patients && schedule.patients.length > 0 ? (
+          <div style={{ marginTop: 12 }}>
+            <Typography.Text strong style={{ fontSize: 13 }}>{t('schedules.patients')}</Typography.Text>
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {schedule.patients.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    padding: 8,
+                    border: '1px solid #f0f0f0',
+                    borderRadius: 6,
+                    fontSize: 13,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <Typography.Text strong>{p.patientName}</Typography.Text>
+                    <Tag color={spStatusColor[p.status]}>{t(spStatusKey[p.status])}</Tag>
+                  </div>
+                  <div style={{ color: '#666' }}>
+                    📞 {p.patientPhone} ・ {p.idType.toUpperCase()}: {p.idNumber}
+                  </div>
+                  <div style={{ color: '#999', fontSize: 12 }}>
+                    {p.startTime} - {p.endTime}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : schedule.patientName ? (
+          <div style={{ marginTop: 8, color: '#666' }}>
+            {t('schedules.patientName')}: {schedule.patientName}
+          </div>
+        ) : null}
       </Card>
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Typography.Text strong><CameraOutlined /> {t('checkin.takingSelfie')}</Typography.Text>
         <div style={{ marginTop: 12 }}>
-          <input ref={selfieRef} type="file" accept="image/*" capture="user" style={{ display: 'none' }}
+          {/* No `capture` attribute — browser shows picker so translator can pick camera or gallery. */}
+          <input ref={selfieRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={(e) => handleFileChange(e, setSelfie, setSelfiePreview)} />
           <Button icon={<CameraOutlined />} onClick={() => selfieRef.current?.click()} block>{t('checkins.selfie')}</Button>
           {selfiePreview && (

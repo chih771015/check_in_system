@@ -31,6 +31,7 @@ import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
 import NoShowModal from '../../components/NoShowModal';
 import { adminUploadDiagnosis, adminMarkNoShow } from '../../api/checkins';
 import { validatePatientTimes } from '../../utils/schedulePatient';
+import { extractApiError } from '../../utils/apiError';
 import type { SchedulePatientPayload, SchedulePatient } from '../../types';
 import * as XLSX from 'xlsx';
 
@@ -39,15 +40,6 @@ const spStatusColor: Record<string, string> = {
   completed: 'green',
   no_show: 'red',
 };
-
-/** Pull a translated message out of an axios error thrown by the API. */
-function extractApiError(err: unknown): string | undefined {
-  const e = err as {
-    translatedMessage?: string;
-    response?: { data?: { message?: string; code?: string } };
-  };
-  return e?.translatedMessage ?? e?.response?.data?.message;
-}
 
 // Stage-3 V2 flat template. Rows with the same Code merge into one schedule
 // with multiple patients.

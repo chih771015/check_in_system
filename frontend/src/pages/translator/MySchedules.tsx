@@ -139,29 +139,48 @@ export default function MySchedules() {
 
   /** Renders one patient row inside a schedule card. */
   const renderPatient = (s: ScheduleItem, p: SchedulePatient) => {
-    // Per-patient actions are only relevant after translator has arrived
-    // but before they've left (i.e. checkinStatus === 'arrived').
-    const showActions = s.checkinStatus === 'arrived' && p.status === 'pending';
+    // Per-patient actions are relevant after translator has arrived AND the
+    // slot hasn't been finalised as `completed`. We deliberately allow
+    // actions on `no_show` so a translator can revise their decision (upload
+    // a photo flips status straight to completed; clicking no-show again
+    // lets them tweak the reason) — anything except completed is recoverable
+    // until the leave checkin is recorded.
+    const showActions = s.checkinStatus === 'arrived' && p.status !== 'completed';
     return (
-      <div key={p.id} style={{ marginLeft: 18, fontSize: 13, padding: '4px 0', borderBottom: '1px dashed #eee' }}>
-        <Space size="small" wrap>
-          <Typography.Text>{p.patientName}</Typography.Text>
-          <Typography.Text type="secondary">({p.startTime}-{p.endTime})</Typography.Text>
+      <div
+        key={p.id}
+        style={{
+          marginLeft: 18,
+          fontSize: 13,
+          padding: '8px 0',
+          borderBottom: '1px dashed #eee',
+        }}
+      >
+        <Space size="small" wrap style={{ width: '100%' }}>
+          <Typography.Text strong>{p.patientName}</Typography.Text>
           <Tag color={spStatusColor[p.status]}>{t(spStatusKey[p.status])}</Tag>
-          {showActions && (
-            <>
-              <Button size="small" type="primary" onClick={() => setDiagFor(p.id)}>
-                {t('diagnosis.upload')}
-              </Button>
-              <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
-                {t('diagnosis.noShow')}
-              </Button>
-            </>
-          )}
-          {p.status === 'no_show' && p.noShowReason && (
-            <Typography.Text type="secondary">— {p.noShowReason}</Typography.Text>
-          )}
         </Space>
+        <div style={{ color: '#666', marginTop: 2 }}>
+          📞 {p.patientPhone} ・ {p.idType.toUpperCase()}: {p.idNumber}
+        </div>
+        <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+          {p.startTime} - {p.endTime}
+        </div>
+        {p.status === 'no_show' && p.noShowReason && (
+          <div style={{ color: '#cf1322', fontSize: 12, marginTop: 2 }}>
+            — {p.noShowReason}
+          </div>
+        )}
+        {showActions && (
+          <Space size="small" style={{ marginTop: 6 }} wrap>
+            <Button size="small" type="primary" onClick={() => setDiagFor(p.id)}>
+              {t('diagnosis.upload')}
+            </Button>
+            <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
+              {t('diagnosis.noShow')}
+            </Button>
+          </Space>
+        )}
       </div>
     );
   };
