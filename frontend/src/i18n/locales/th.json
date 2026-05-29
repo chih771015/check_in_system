@@ -49,11 +49,24 @@
     "schedules": "จัดการตารางงาน",
     "patients": "จัดการผู้ป่วย",
     "checkins": "บันทึกการลงเวลา",
+    "diagnosisResults": "ภาพรวมผลการวินิจฉัย",
     "exportSettings": "ตั้งค่าการส่งออก",
     "auditLogs": "บันทึกการดำเนินการ",
     "admins": "จัดการผู้ดูแล",
     "mySchedules": "ตารางงานของฉัน",
     "myCheckins": "การลงเวลาของฉัน"
+  },
+  "diagnosisResults": {
+    "title": "ภาพรวมผลการวินิจฉัย",
+    "filterStatus": "กรองตามสถานะ",
+    "filterTranslator": "กรองตามล่าม",
+    "searchPatient": "ค้นหาชื่อผู้ป่วย",
+    "noResult": "ยังไม่มีผลลัพธ์",
+    "viewPhotos": "{{count}} รูป",
+    "photosTitle": "ใบรับรองการวินิจฉัย",
+    "schedule": "ตาราง",
+    "patientInfo": "ผู้ป่วย",
+    "updated": "อัปเดตเมื่อ"
   },
   "login": {
     "title": "เข้าสู่ระบบ",

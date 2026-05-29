@@ -49,11 +49,24 @@
     "schedules": "Schedules",
     "patients": "Patients",
     "checkins": "Check-in Records",
+    "diagnosisResults": "Diagnosis Results",
     "exportSettings": "Export Settings",
     "auditLogs": "Audit Logs",
     "admins": "Admin Accounts",
     "mySchedules": "My Schedules",
     "myCheckins": "My Check-ins"
+  },
+  "diagnosisResults": {
+    "title": "Diagnosis Results",
+    "filterStatus": "Filter by status",
+    "filterTranslator": "Filter by translator",
+    "searchPatient": "Search patient name",
+    "noResult": "No results yet",
+    "viewPhotos": "{{count}} photo(s)",
+    "photosTitle": "Diagnosis Photos",
+    "schedule": "Schedule",
+    "patientInfo": "Patient",
+    "updated": "Updated"
   },
   "login": {
     "title": "Sign In",

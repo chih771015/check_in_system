@@ -39,6 +39,35 @@ export interface DiagnosisPhoto {
   uploadedAt: string;
 }
 
+/** Row in the admin "diagnosis results overview" table. */
+export interface DiagnosisResult {
+  schedulePatientId: number;
+  scheduleId: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  note: string;
+  translatorId: number;
+  translatorName: string;
+  patientId: number;
+  patientName: string;
+  patientPhone: string;
+  idType: IDType;
+  idNumber: string;
+  status: 'completed' | 'no_show';
+  noShowReason?: string;
+  diagnosisPhotos: string[];
+  updatedAt: string;
+}
+
+export interface DiagnosisResultsResponse {
+  data: DiagnosisResult[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface SchedulePatientPayload {
   patientId: number;
   startTime: string;

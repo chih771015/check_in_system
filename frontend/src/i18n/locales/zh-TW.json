@@ -49,11 +49,24 @@
     "schedules": "排班管理",
     "patients": "病人管理",
     "checkins": "打卡紀錄",
+    "diagnosisResults": "診斷結果總覽",
     "exportSettings": "定期匯出設定",
     "auditLogs": "操作紀錄",
     "admins": "帳號管理",
     "mySchedules": "我的排班",
     "myCheckins": "我的打卡紀錄"
+  },
+  "diagnosisResults": {
+    "title": "診斷結果總覽",
+    "filterStatus": "依狀態篩選",
+    "filterTranslator": "依翻譯員篩選",
+    "searchPatient": "搜尋病人姓名",
+    "noResult": "目前無結果",
+    "viewPhotos": "{{count}} 張",
+    "photosTitle": "診斷證明",
+    "schedule": "排班",
+    "patientInfo": "病人",
+    "updated": "更新於"
   },
   "login": {
     "title": "登入",

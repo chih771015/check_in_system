@@ -14,6 +14,7 @@ import PatientManagement from './pages/admin/PatientManagement';
 import PatientHistory from './pages/admin/PatientHistory';
 import ScheduleManagement from './pages/admin/ScheduleManagement';
 import CheckinRecords from './pages/admin/CheckinRecords';
+import DiagnosisResultsPage from './pages/admin/DiagnosisResults';
 import ExportSettings from './pages/admin/ExportSettings';
 import AuditLogs from './pages/admin/AuditLogs';
 import MySchedules from './pages/translator/MySchedules';
@@ -82,6 +83,14 @@ function AppRoutes() {
           element={
             <RequireAdmin>
               <CheckinRecords />
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/admin/diagnosis-results"
+          element={
+            <RequireAdmin>
+              <DiagnosisResultsPage />
             </RequireAdmin>
           }
         />

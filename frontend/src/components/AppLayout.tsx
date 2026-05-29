@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Typography, theme, Modal, Form, Input, App, Select } from 'antd';
+import { Layout, Menu, Button, Typography, theme, Modal, Form, Input, App, Select, Grid } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { setLanguage, SUPPORTED_LANGUAGES } from '../i18n';
 import {
@@ -17,6 +17,7 @@ import {
   LockOutlined,
   UserSwitchOutlined,
   IdcardOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 import { changePassword } from '../api/auth';
@@ -34,6 +35,10 @@ export default function AppLayout() {
   const { token: themeToken } = theme.useToken();
   const { message } = App.useApp();
   const { t, i18n } = useTranslation();
+  // Below `lg` (992px) we treat the sider as a drawer-style overlay and
+  // auto-collapse after navigation so users on phones don't have to tap
+  // the hamburger to dismiss it every time.
+  const screens = Grid.useBreakpoint();
 
   const handleChangePW = async (values: {
     oldPassword: string;
@@ -68,6 +73,7 @@ export default function AppLayout() {
     { key: '/admin/schedules', icon: <ScheduleOutlined />, label: t('nav.schedules') },
     { key: '/admin/patients', icon: <IdcardOutlined />, label: t('nav.patients') },
     { key: '/admin/checkins', icon: <CheckSquareOutlined />, label: t('nav.checkins') },
+    { key: '/admin/diagnosis-results', icon: <ProfileOutlined />, label: t('nav.diagnosisResults') },
     { key: '/admin/export-settings', icon: <SettingOutlined />, label: t('nav.exportSettings') },
     { key: '/admin/audit-logs', icon: <FileSearchOutlined />, label: t('nav.auditLogs') },
     { key: '/admin/admins', icon: <UserSwitchOutlined />, label: t('nav.admins') },
@@ -111,7 +117,11 @@ export default function AppLayout() {
           mode="inline"
           selectedKeys={[location.pathname]}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={({ key }) => {
+            navigate(key);
+            // Mobile / tablet (< lg): collapse the sider after picking a route.
+            if (!screens.lg) setCollapsed(true);
+          }}
         />
       </Sider>
       <Layout>
