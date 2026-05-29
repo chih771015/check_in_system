@@ -320,7 +320,7 @@ export default function CheckinRecords() {
                 <div>
                   <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{t('checkins.selfie')}</div>
                   <Image
-                    src={`http://localhost:8080${detailRecord.selfieUrl}`}
+                    src={detailRecord.selfieUrl}
                     width={200}
                     style={{ borderRadius: 8 }}
                     fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -330,7 +330,7 @@ export default function CheckinRecords() {
                   <div>
                     <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{t('checkins.environment')}</div>
                     <Image
-                      src={`http://localhost:8080${detailRecord.environmentUrl}`}
+                      src={detailRecord.environmentUrl}
                       width={200}
                       style={{ borderRadius: 8 }}
                       fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="

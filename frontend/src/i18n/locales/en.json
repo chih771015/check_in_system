@@ -93,7 +93,7 @@
     "edit": "Edit Patient",
     "viewHistory": "View History",
     "history": "Visit History",
-    "historyEmpty": "No visit records yet. This feature will be available in a future release.",
+    "historyEmpty": "No visit records yet.",
     "idType": "ID Type",
     "idNumber": "ID Number",
     "idTypes": {

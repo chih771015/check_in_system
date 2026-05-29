@@ -93,7 +93,7 @@
     "edit": "編輯病人",
     "viewHistory": "查看歷史",
     "history": "看診歷史",
-    "historyEmpty": "目前無看診紀錄，此功能將於後續版本上線。",
+    "historyEmpty": "目前無看診紀錄。",
     "idType": "ID 類型",
     "idNumber": "ID 號碼",
     "idTypes": {
