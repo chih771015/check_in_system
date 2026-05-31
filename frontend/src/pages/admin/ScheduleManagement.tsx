@@ -94,6 +94,10 @@ export default function ScheduleManagement() {
   const [photosFor, setPhotosFor] = useState<SchedulePatient | null>(null);
   const [photosUrls, setPhotosUrls] = useState<string[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  // Submit guards (stop double-clicks while in-flight)
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -158,11 +162,15 @@ export default function ScheduleManagement() {
   };
 
   const handleCreate = async (values: Record<string, unknown>) => {
+    // Re-entrancy guard — Form.onFinish can re-fire if user double-taps the
+    // submit button before the first request settles, which would create two
+    // schedules. setCreateSubmitting + Button loading is the primary defence
+    // but we also bail here just in case.
+    if (createSubmitting) return;
+
     const overallStart = (values.startTime as { format: (f: string) => string }).format('HH:mm');
     const overallEnd = (values.endTime as { format: (f: string) => string }).format('HH:mm');
 
-    // Client-side validation mirrors backend rules so the user gets feedback
-    // without round-tripping to the server.
     const result = validatePatientTimes(overallStart, overallEnd, createPatients);
     if (!result.ok) {
       message.error(t(`errors.${result.code}`));
@@ -170,6 +178,7 @@ export default function ScheduleManagement() {
     }
     const validPatients = createPatients.filter((p) => p.patientId && p.startTime && p.endTime);
 
+    setCreateSubmitting(true);
     try {
       const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
@@ -191,20 +200,19 @@ export default function ScheduleManagement() {
       setCreatePatients([]);
       void fetchData();
     } catch (err: unknown) {
-      // Show the backend's translated message (set by axios interceptor) so
-      // the user sees a specific reason ("Patient time slot is outside the
-      // schedule range" etc.) instead of a generic "Failed".
       message.error(extractApiError(err) || t('common.failed'));
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
   const handleEdit = async (values: Record<string, unknown>) => {
     if (!editingRecord) return;
+    if (editSubmitting) return; // re-entrancy guard, see handleCreate
+
     const overallStart = (values.startTime as { format: (f: string) => string }).format('HH:mm');
     const overallEnd = (values.endTime as { format: (f: string) => string }).format('HH:mm');
 
-    // Only validate if the admin actually edited the patients list. An update
-    // that doesn't touch patients should still go through.
     if (editPatients.length > 0) {
       const result = validatePatientTimes(overallStart, overallEnd, editPatients);
       if (!result.ok) {
@@ -214,6 +222,7 @@ export default function ScheduleManagement() {
     }
     const validPatients = editPatients.filter((p) => p.patientId && p.startTime && p.endTime);
 
+    setEditSubmitting(true);
     try {
       const payload: Record<string, unknown> = {
         translatorId: values.translatorId as number,
@@ -230,6 +239,8 @@ export default function ScheduleManagement() {
       void fetchData();
     } catch (err: unknown) {
       message.error(extractApiError(err) || t('common.failed'));
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -475,7 +486,12 @@ export default function ScheduleManagement() {
           {...({
             accept: '.xlsx,.xls',
             showUploadList: false,
+            // Ignore the file pick if a previous import is still running.
+            // Otherwise rapid double-clicks would fire two POST /import calls
+            // and create duplicate schedules.
             beforeUpload: (file: File) => {
+              if (importing) return false;
+              setImporting(true);
               importSchedules(file)
                 .then((res) => {
                   if (res.failed && res.failed.length > 0) {
@@ -489,12 +505,13 @@ export default function ScheduleManagement() {
                   }
                   void fetchData();
                 })
-                .catch(() => message.error(t('common.failed')));
+                .catch((err) => message.error(extractApiError(err) || t('common.failed')))
+                .finally(() => setImporting(false));
               return false;
             },
           } as UploadProps)}
         >
-          <Button icon={<UploadOutlined />}>{t('schedules.import')}</Button>
+          <Button icon={<UploadOutlined />} loading={importing} disabled={importing}>{t('schedules.import')}</Button>
         </Upload>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
           {t('schedules.add')}
@@ -529,7 +546,7 @@ export default function ScheduleManagement() {
           </Form.Item>
           {recurrenceFields}
           <Form.Item>
-            <Button type="primary" htmlType="submit" block>
+            <Button type="primary" htmlType="submit" block loading={createSubmitting} disabled={createSubmitting}>
               {t('common.create')}
             </Button>
           </Form.Item>
@@ -548,7 +565,7 @@ export default function ScheduleManagement() {
             />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit" block>
+            <Button type="primary" htmlType="submit" block loading={editSubmitting} disabled={editSubmitting}>
               {t('common.update')}
             </Button>
           </Form.Item>

@@ -23,6 +23,10 @@ export default function TranslatorManagement() {
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const [resetForm] = Form.useForm();
+  // Re-entrancy guards across all three modals
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
   const { message, modal } = App.useApp();
   const { t } = useTranslation();
 
@@ -48,6 +52,8 @@ export default function TranslatorManagement() {
     phone: string;
     password: string;
   }) => {
+    if (createSubmitting) return;
+    setCreateSubmitting(true);
     try {
       await createTranslator(values);
       message.success(t('common.success'));
@@ -56,11 +62,15 @@ export default function TranslatorManagement() {
       void fetchData();
     } catch {
       message.error(t('common.failed'));
+    } finally {
+      setCreateSubmitting(false);
     }
   };
 
   const handleEdit = async (values: { name: string; phone: string; status: string }) => {
     if (!editingRecord) return;
+    if (editSubmitting) return;
+    setEditSubmitting(true);
     try {
       await updateTranslator(editingRecord.id, values);
       message.success(t('common.success'));
@@ -68,6 +78,8 @@ export default function TranslatorManagement() {
       void fetchData();
     } catch {
       message.error(t('common.failed'));
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -103,16 +115,20 @@ export default function TranslatorManagement() {
 
   const handleReset = async (values: { newPassword: string; confirmPassword: string }) => {
     if (!resetTarget) return;
+    if (resetSubmitting) return;
     if (values.newPassword !== values.confirmPassword) {
       message.error(t('changePassword.mismatch'));
       return;
     }
+    setResetSubmitting(true);
     try {
       await resetTranslatorPassword(resetTarget.id, values.newPassword);
       message.success(t('common.success'));
       setResetOpen(false);
     } catch {
       message.error(t('common.failed'));
+    } finally {
+      setResetSubmitting(false);
     }
   };
 
@@ -212,7 +228,7 @@ export default function TranslatorManagement() {
             <Input.Password />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit" block>
+            <Button type="primary" htmlType="submit" block loading={createSubmitting} disabled={createSubmitting}>
               {t('common.create')}
             </Button>
           </Form.Item>
@@ -236,7 +252,7 @@ export default function TranslatorManagement() {
             />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit" block>
+            <Button type="primary" htmlType="submit" block loading={editSubmitting} disabled={editSubmitting}>
               {t('common.update')}
             </Button>
           </Form.Item>
@@ -265,7 +281,7 @@ export default function TranslatorManagement() {
             <Input.Password />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0 }}>
-            <Button type="primary" htmlType="submit" block>
+            <Button type="primary" htmlType="submit" block loading={resetSubmitting} disabled={resetSubmitting}>
               {t('translators.resetPassword')}
             </Button>
           </Form.Item>

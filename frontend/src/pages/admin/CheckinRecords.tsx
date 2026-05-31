@@ -25,6 +25,7 @@ import {
   deleteCheckin,
 } from '../../api/checkins';
 import { getTranslators } from '../../api/translators';
+import { extractApiError } from '../../utils/apiError';
 
 const { RangePicker } = DatePicker;
 
@@ -42,6 +43,7 @@ export default function CheckinRecords() {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [detailRecord, setDetailRecord] = useState<CheckinItem | null>(null);
   const [editRecord, setEditRecord] = useState<CheckinItem | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [editForm] = Form.useForm();
   const { message, modal } = App.useApp();
   const { t } = useTranslation();
@@ -90,6 +92,8 @@ export default function CheckinRecords() {
     makeupReason: string;
   }) => {
     if (!editRecord) return;
+    if (editSubmitting) return; // re-entrancy guard
+    setEditSubmitting(true);
     try {
       await updateCheckin(editRecord.id, {
         checkinTime: values.checkinTime ? new Date(values.checkinTime).toISOString() : undefined,
@@ -99,8 +103,10 @@ export default function CheckinRecords() {
       message.success(t('common.success'));
       setEditRecord(null);
       void fetchData();
-    } catch {
-      message.error(t('common.failed'));
+    } catch (err) {
+      message.error(extractApiError(err) || t('common.failed'));
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -363,7 +369,7 @@ export default function CheckinRecords() {
               </Form.Item>
             )}
             <Form.Item>
-              <Button type="primary" htmlType="submit" block>{t('common.update')}</Button>
+              <Button type="primary" htmlType="submit" block loading={editSubmitting} disabled={editSubmitting}>{t('common.update')}</Button>
             </Form.Item>
           </Form>
         )}

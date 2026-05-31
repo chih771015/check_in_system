@@ -34,8 +34,11 @@ export default function DiagnosisUploadModal({
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []);
     if (list.length > MAX_PHOTOS) {
-      void message.error(t('diagnosis.tooManyFiles'));
-      setFiles([]);
+      // Auto-cap: keep the first 3, silently drop the rest. Warn so the user
+      // knows their later picks were ignored rather than letting them think
+      // everything was uploaded.
+      void message.warning(t('diagnosis.tooManyFiles'));
+      setFiles(list.slice(0, MAX_PHOTOS));
       return;
     }
     setFiles(list);

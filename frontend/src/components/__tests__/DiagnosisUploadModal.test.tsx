@@ -45,16 +45,23 @@ describe('DiagnosisUploadModal', () => {
     expect(submit).toBeDisabled();
   });
 
-  it('rejects more than 3 files', async () => {
-    setup();
+  it('caps selection at 3 files and warns the user (does not block submit)', async () => {
+    const { onUploaded } = setup();
     const user = userEvent.setup({ delay: null });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await user.upload(input, [makeFile('a.jpg'), makeFile('b.jpg'), makeFile('c.jpg'), makeFile('d.jpg')]);
 
-    // antd App.message renders toast
+    // antd App.message renders a warning toast
     expect(await screen.findByText(/up to 3|最多.*3|สูงสุด 3/)).toBeInTheDocument();
+    // Submit should be enabled — we kept the first 3 instead of clearing.
     const submit = screen.getByRole('button', { name: /Submit|送出|ส่ง/ });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeEnabled();
+
+    await user.click(submit);
+    await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledOnce());
+    const filesArg = uploadMock.mock.calls[0][1] as File[];
+    expect(filesArg).toHaveLength(3);
+    await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 
   it('enables submit and calls upload when 1-3 files chosen', async () => {
