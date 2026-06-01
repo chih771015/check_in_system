@@ -116,6 +116,12 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 
 	// Users: 1 admin (mustChangePW=false so login lands straight on dashboard),
 	// 1 active translator, 1 disabled translator.
+	//
+	// MustChangePW is the bool zero value (false) for all three. GORM by
+	// default skips zero-value fields on Create and the model has
+	// `gorm:"default:true"` on this column, so without Select("*") all
+	// three would end up with must_change_pw=true and login would redirect
+	// to /change-password. Select("*") forces GORM to send every column.
 	users := []model.User{
 		{
 			Email: E2EAdminEmail, PasswordHash: hashStr, Name: "E2E Admin",
@@ -130,7 +136,7 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 			Phone: "0900-000-002", Role: "translator", Status: "disabled", MustChangePW: false,
 		},
 	}
-	if err := db.Create(&users).Error; err != nil {
+	if err := db.Select("*").Create(&users).Error; err != nil {
 		return err
 	}
 
