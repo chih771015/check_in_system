@@ -44,7 +44,8 @@ test.describe('translator management', () => {
     // Confirm dialog is .ant-modal-confirm; the .last() guards against any
     // stale confirm wrapper in the DOM.
     const confirm = page.locator('.ant-modal-confirm').last();
-    await confirm.getByRole('button', { name: /^(OK|確認|Disable|停用)$/i }).click();
+    // okText is t('common.confirm') → "Confirm" / "確認".
+    await confirm.getByRole('button', { name: /^(Confirm|OK|確認|Disable|停用)$/i }).click();
 
     // After disable the row keeps the name but switches its status tag.
     await expect(row).toContainText(/Disabled|停用|ปิด/i);

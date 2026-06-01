@@ -24,7 +24,10 @@ test.describe('schedule CRUD', () => {
     // is what page.getByRole('button', { name: 'Delete' }).last() would
     // otherwise pick up, getting intercepted by the modal overlay).
     const confirm = page.locator('.ant-modal-confirm').last();
-    await confirm.getByRole('button', { name: /^(OK|Delete|確認|刪除)$/i }).click();
+    // Button text is "Confirm" in en, "確認" in zh-TW (frontend uses
+    // okText: t('common.confirm')). The narrower "Delete" / "刪除" also
+    // matches in case a future refactor switches to common.delete.
+    await confirm.getByRole('button', { name: /^(Confirm|OK|Delete|確認|刪除)$/i }).click();
 
     await expect(page.locator('table')).not.toContainText('E2E Clinic, Bangkok');
   });
