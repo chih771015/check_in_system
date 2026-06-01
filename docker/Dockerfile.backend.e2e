@@ -1,0 +1,27 @@
+# Backend image built with the `e2e` build tag, which enables the
+# /api/test/reset endpoint defined in internal/handler/test_reset_handler.go.
+# Used by docker-compose.e2e.yml; production images use Dockerfile.backend.
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# -tags e2e is the *only* difference from the production Dockerfile. Without
+# this flag the reset endpoint code is not compiled into the binary at all.
+RUN CGO_ENABLED=0 GOOS=linux go build -tags e2e -o /app/server ./cmd/server
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /app/server .
+
+EXPOSE 8080
+
+CMD ["./server"]

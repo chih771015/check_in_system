@@ -1,0 +1,82 @@
+# docker-compose.e2e.yml — isolated stack for Playwright E2E runs.
+#
+# Differences from docker-compose.yml:
+#   - Backend built with Dockerfile.backend.e2e (-tags e2e)
+#   - ENABLE_TEST_RESET=true (gates the /api/test/reset endpoint)
+#   - Independent postgres volume (postgres_e2e_data) and independent
+#     uploads volume so dev data is never touched
+#   - No jaeger (E2E doesn't need tracing)
+#   - Different host ports so dev + e2e can run side-by-side
+#       postgres : 55432  (dev: 5432)
+#       backend  :  8081  (dev: 8080)
+#       frontend :  3001  (dev: 3000)
+#
+# Usage:
+#   docker-compose -f docker/docker-compose.e2e.yml -p thai-e2e up -d --build
+#   curl -X POST http://localhost:8081/api/test/reset
+#   cd e2e && npm test
+#   docker-compose -f docker/docker-compose.e2e.yml -p thai-e2e down -v
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: translator_checkin
+    volumes:
+      - postgres_e2e_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d translator_checkin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend.e2e
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # DB connection
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: translator_checkin
+      # Required app config
+      JWT_SECRET: e2e-jwt-secret-do-not-use-in-prod
+      ADMIN_DEFAULT_PASSWORD: Test1234!
+      UPLOAD_DIR: /app/uploads
+      PORT: "8080"
+      # E2E reset gate. Both must be true for the route to register.
+      ENABLE_TEST_RESET: "true"
+      GIN_MODE: debug
+      # Disable tracing — we don't run jaeger in this stack
+      OTEL_TRACES_EXPORTER: none
+      DEPLOY_ENV: e2e
+    volumes:
+      - uploads_e2e:/app/uploads
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    ports:
+      - "3001:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  postgres_e2e_data:
+  uploads_e2e:
