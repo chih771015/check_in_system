@@ -43,10 +43,12 @@ export default defineConfig({
     {
       name: 'chromium-desktop',
       use: { ...devices['Desktop Chrome'] },
+      // responsive.spec.ts asserts mobile-only behaviours (drawer collapse).
+      // It cannot pass on a desktop viewport — skip it here.
+      testIgnore: /responsive\.spec\.ts/,
     },
     {
       name: 'mobile-chrome',
-      // Only the responsive spec runs here — declared via testMatch in the spec.
       use: { ...devices['Pixel 7'] },
       testMatch: /responsive\.spec\.ts/,
     },
