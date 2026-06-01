@@ -157,18 +157,19 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 		return err
 	}
 
-	// One historical schedule on yesterday's date for Alice, with two
-	// patients: the first completed (and has a fake photo URL), the second
-	// still pending. This gives diagnosis-results / patient-history pages
-	// something to render without each test having to set it up.
-	yesterday := time.Now().AddDate(0, 0, -1)
+	// One schedule on today's date for Alice, with two patients: the first
+	// completed (and has a fake photo URL), the second still pending. Today
+	// (not yesterday) so MySchedules shows it by default — without a
+	// "Show History" toggle. Both diagnosis-results (default 7d) and
+	// patient-history (no date filter) still pick it up.
+	today := time.Now()
 	sched := model.Schedule{
 		TranslatorID: users[1].ID, // alice
-		Date:         yesterday,
+		Date:         today,
 		StartTime:    "09:00",
 		EndTime:      "12:00",
 		Location:     "E2E Clinic, Bangkok",
-		Note:         "Seeded historical schedule",
+		Note:         "Seeded today's schedule",
 	}
 	if err := db.Create(&sched).Error; err != nil {
 		return err
@@ -196,7 +197,7 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 	photo := model.DiagnosisPhoto{
 		SchedulePatientID: sps[0].ID,
 		PhotoURL:          filepath.Join("/uploads", "e2e-seed.jpg"),
-		UploadedAt:        yesterday,
+		UploadedAt:        today,
 	}
 	if err := db.Create(&photo).Error; err != nil {
 		return err

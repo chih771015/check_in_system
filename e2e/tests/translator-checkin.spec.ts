@@ -3,13 +3,12 @@ import { resetDB } from '../support/seed';
 import { loginAsTranslator } from '../support/auth';
 
 /**
- * Translator-side day flow. The seeded historical schedule lives on
- * yesterday, so we can't actually check in on it (backend rejects past
- * dates). These tests cover the UI surface that doesn't require a
- * present-day schedule.
+ * Translator-side day flow. Seed has a "today" schedule for Alice with
+ * 2 patients (1 completed + photo, 1 pending).
  *
- * For a full arrive→leave flow we'd need a "create schedule for today as
- * admin then switch user" sequence, deferred to a later iteration.
+ * Full arrive→leave checkin is gated on geolocation + camera permissions
+ * which Playwright can grant but we'd also need a file fixture for the
+ * selfie. Deferred — for now we just confirm the data wires through.
  */
 
 test.describe('translator pages', () => {
@@ -20,18 +19,19 @@ test.describe('translator pages', () => {
   test('translator sees their schedule list', async ({ page }) => {
     await loginAsTranslator(page);
     await page.goto('/my-schedules');
-    // Seeded schedule on yesterday should appear somewhere on the page.
+    // Today's seeded schedule shows up without toggling "Show History".
     await expect(page.locator('body')).toContainText('E2E Clinic, Bangkok');
   });
 
-  test('translator sees the checkin page', async ({ page }) => {
+  test('my-checkins page renders', async ({ page }) => {
     await loginAsTranslator(page);
-    await page.goto('/checkin');
-    await expect(page.locator('body')).toContainText(/Checkin|打卡|เช็คอิน/i);
+    await page.goto('/my-checkins');
+    // Page heading / nav matches one of the locale strings.
+    await expect(page.locator('body')).toContainText(/My Check[- ]?ins|打卡紀錄|เช็คอิน/i);
   });
 
   test.skip('translator can perform arrive checkin on today\'s schedule', async ({ page: _ }) => {
-    // TODO: needs an admin-created "today" schedule seed. Either extend the
-    // reset endpoint or add a second seed flavour for "today's flow".
+    // TODO: needs geolocation context + selfie file fixture. The action
+    // button on /my-schedules navigates to /checkin/:scheduleId/:type.
   });
 });

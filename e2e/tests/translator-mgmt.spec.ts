@@ -20,11 +20,19 @@ test.describe('translator management', () => {
     const name = `New Translator ${runID}`;
 
     await page.getByRole('button', { name: /Add Translator|新增翻譯員|เพิ่ม/i }).click();
-    await page.getByRole('textbox', { name: /Name|姓名|ชื่อ/i }).fill(name);
-    await page.getByRole('textbox', { name: /Email|信箱|อีเมล/i }).fill(email);
-    await page.getByRole('textbox', { name: /Phone|電話|โทร/i }).fill('0911-test');
-    await page.getByPlaceholder(/Password|密碼|รหัสผ่าน/i).fill('Test1234!');
-    await page.getByRole('button', { name: /^(Create|新增|建立|สร้าง)$/i }).click();
+
+    // The create modal has no placeholders — labels are rendered by antd
+    // Form.Item. Scope all field lookups inside the modal to avoid hitting
+    // table filter inputs in the background page.
+    const modal = page.locator('.ant-modal').last();
+    await modal.getByLabel(/Name|姓名|ชื่อ/i).fill(name);
+    await modal.getByLabel(/Email|信箱|電子郵件|อีเมล/i).fill(email);
+    await modal.getByLabel(/Phone|電話|โทร/i).fill('0911-test');
+    // Input.Password's underlying input doesn't have role=textbox and no
+    // placeholder — getByLabel works because antd wires the label.
+    await modal.getByLabel(/Password|密碼|รหัสผ่าน/i).fill('Test1234!');
+
+    await modal.getByRole('button', { name: /^(Create|新增|建立|สร้าง)$/i }).click();
 
     await expect(page.locator('table')).toContainText(name);
   });
@@ -32,9 +40,13 @@ test.describe('translator management', () => {
   test('admin can disable an active translator', async ({ page }) => {
     const row = page.locator('tr', { hasText: SEED.translatorActive.name });
     await row.getByRole('button', { name: /Disable|停用|ปิด/i }).click();
-    // modal.confirm
-    await page.getByRole('button', { name: /^(OK|確認|Disable|停用)$/i }).last().click();
-    // Active tag becomes disabled
+
+    // Confirm dialog is .ant-modal-confirm; the .last() guards against any
+    // stale confirm wrapper in the DOM.
+    const confirm = page.locator('.ant-modal-confirm').last();
+    await confirm.getByRole('button', { name: /^(OK|確認|Disable|停用)$/i }).click();
+
+    // After disable the row keeps the name but switches its status tag.
     await expect(row).toContainText(/Disabled|停用|ปิด/i);
   });
 });
