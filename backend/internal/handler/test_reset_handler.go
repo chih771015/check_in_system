@@ -117,26 +117,32 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 	// Users: 1 admin (mustChangePW=false so login lands straight on dashboard),
 	// 1 active translator, 1 disabled translator.
 	//
-	// MustChangePW is the bool zero value (false) for all three. GORM by
-	// default skips zero-value fields on Create and the model has
-	// `gorm:"default:true"` on this column, so without Select("*") all
-	// three would end up with must_change_pw=true and login would redirect
-	// to /change-password. Select("*") forces GORM to send every column.
+	// We deliberately Create with the struct (which leaves MustChangePW as
+	// the bool zero value, so GORM substitutes the column default `true`),
+	// then immediately UPDATE it to false. We tried `db.Select("*").Create`
+	// first but GORM's Select("*") doesn't reliably propagate through batch
+	// inserts when a column has a `default` tag — the safest workaround is
+	// an explicit UPDATE.
 	users := []model.User{
 		{
 			Email: E2EAdminEmail, PasswordHash: hashStr, Name: "E2E Admin",
-			Role: "admin", Status: "active", MustChangePW: false,
+			Role: "admin", Status: "active",
 		},
 		{
 			Email: E2ETranslatorActive, PasswordHash: hashStr, Name: "Alice (active)",
-			Phone: "0900-000-001", Role: "translator", Status: "active", MustChangePW: false,
+			Phone: "0900-000-001", Role: "translator", Status: "active",
 		},
 		{
 			Email: E2ETranslatorDisabled, PasswordHash: hashStr, Name: "Bob (disabled)",
-			Phone: "0900-000-002", Role: "translator", Status: "disabled", MustChangePW: false,
+			Phone: "0900-000-002", Role: "translator", Status: "disabled",
 		},
 	}
-	if err := db.Select("*").Create(&users).Error; err != nil {
+	if err := db.Create(&users).Error; err != nil {
+		return err
+	}
+	// Force must_change_pw=false on all seeded users. GORM v2 forbids
+	// updates without a WHERE clause, so the `1 = 1` is intentional.
+	if err := db.Exec("UPDATE users SET must_change_pw = false").Error; err != nil {
 		return err
 	}
 
