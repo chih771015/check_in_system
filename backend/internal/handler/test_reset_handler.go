@@ -87,11 +87,22 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 		}
 	}
 
-	// Wipe upload directory so old test photos don't leak between runs.
+	// Wipe upload directory CONTENTS so old test photos don't leak between
+	// runs. We deliberately do NOT remove the directory itself — in docker
+	// it is a volume mountpoint, and unlinking a mountpoint fails with
+	// EBUSY ("device or resource busy"). Removing the children is enough.
 	if uploadDir != "" {
-		if err := os.RemoveAll(uploadDir); err != nil {
+		entries, err := os.ReadDir(uploadDir)
+		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
+		for _, e := range entries {
+			if err := os.RemoveAll(filepath.Join(uploadDir, e.Name())); err != nil {
+				return err
+			}
+		}
+		// Make sure it exists in case the directory itself was never created
+		// (e.g. fresh container where UPLOAD_DIR points somewhere new).
 		if err := os.MkdirAll(uploadDir, 0755); err != nil {
 			return err
 		}

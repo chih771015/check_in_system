@@ -17,8 +17,6 @@
 #   cd e2e && npm test
 #   docker-compose -f docker/docker-compose.e2e.yml -p thai-e2e down -v
 
-version: "3.8"
-
 services:
   postgres:
     image: postgres:16-alpine

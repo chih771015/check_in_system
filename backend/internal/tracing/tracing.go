@@ -38,7 +38,17 @@ type Shutdown func(context.Context) error
 // If the collector is unreachable, Init still succeeds and logs a warning;
 // the exporter will buffer and keep retrying in the background. We never want
 // a missing tracing backend to crash the API.
+//
+// Tracing can also be disabled outright by setting OTEL_TRACES_EXPORTER=none,
+// which is what the E2E docker-compose stack does (no jaeger in that env).
+// In that case Init returns a no-op Shutdown — no exporter is created, no
+// background retries spam the logs.
 func Init(ctx context.Context) (Shutdown, error) {
+	if os.Getenv("OTEL_TRACES_EXPORTER") == "none" {
+		log.Println("[tracing] OTEL_TRACES_EXPORTER=none, tracing disabled")
+		return func(context.Context) error { return nil }, nil
+	}
+
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "jaeger:4317"
