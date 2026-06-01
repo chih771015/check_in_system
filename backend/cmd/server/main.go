@@ -247,6 +247,12 @@ func main() {
 			admin.GET("/schedule-patients/:id/photos", diagnosisHandler.AdminGetSchedulePatientPhotos)
 		}
 
+		// E2E reset endpoint. Registered only when the binary is built with
+		// `-tags e2e` AND the ENABLE_TEST_RESET env flag is "true". In all
+		// other builds the call below is a no-op stub (see
+		// internal/handler/test_reset_stub.go).
+		handler.RegisterTestResetRoutes(r, db, cfg.UploadDir)
+
 		// Translator routes
 		translatorRoutes := api.Group("")
 		translatorRoutes.Use(middleware.JWTAuth(), middleware.RequirePasswordChanged(), middleware.RoleRequired("translator"))
