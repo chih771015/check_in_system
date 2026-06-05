@@ -36,7 +36,7 @@ export default function MapLink({ latitude, longitude, address, showAddress = tr
         <span>{address || coordsText || '—'}</span>
       )}
       {hasCoords && (
-        <Tooltip title={`${coordsText}　點擊開啟地圖`}>
+        <Tooltip title={`${coordsText} 點擊開啟地圖`}>
           <EnvironmentOutlined
             onClick={openMap}
             style={{ color: '#1677ff', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}

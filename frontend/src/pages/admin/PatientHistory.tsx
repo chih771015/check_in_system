@@ -34,6 +34,8 @@ export default function PatientHistory() {
 
   useEffect(() => {
     if (!id) return;
+    // Reset the spinner when the :id param changes so a re-fetch shows loading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional re-fetch reset
     setLoading(true);
     getPatientHistory(Number(id))
       .then((r) => setResp(r))

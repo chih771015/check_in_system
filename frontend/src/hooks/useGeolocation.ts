@@ -44,7 +44,12 @@ export interface GeolocationResult {
  *   2. 若瀏覽器不支援 Permissions API → 進入 idle，讓使用者手動按
  */
 export function useGeolocation(): GeolocationResult {
-  const [state, setState] = useState<GeoState>('idle');
+  // Lazy-init so the "device can't locate" verdict is decided up front rather
+  // than via a synchronous setState inside the mount effect (which the React
+  // hooks lint rule flags as a cascading-render risk).
+  const [state, setState] = useState<GeoState>(() =>
+    typeof navigator !== 'undefined' && navigator.geolocation ? 'idle' : 'unavailable',
+  );
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [address, setAddress] = useState('');
@@ -82,10 +87,8 @@ export function useGeolocation(): GeolocationResult {
   }, []);
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setState('unavailable');
-      return;
-    }
+    // state is already 'unavailable' from the lazy initializer in this case.
+    if (!navigator.geolocation) return;
     // 若瀏覽器不支援 Permissions API，讓使用者自行點按鈕
     if (!navigator.permissions) return;
 

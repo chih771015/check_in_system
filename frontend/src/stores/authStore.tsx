@@ -66,6 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// useAuth intentionally lives beside its provider; splitting it into its own
+// file would churn imports across the whole app for no runtime benefit.
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with provider
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
