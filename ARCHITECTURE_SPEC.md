@@ -193,3 +193,9 @@ E2E 專用 reset 端點僅在 `-tags e2e` 且 `ENABLE_TEST_RESET=true` 時註冊
 - [components](frontend/src/components/COMPONENTS_SPEC.md)
 - [hooks/useGeolocation ★](frontend/src/hooks/HOOKS_SPEC.md)
 - [i18n](frontend/src/i18n/I18N_SPEC.md)
+
+**Infra / 測試 / 部署**
+- [docker（compose stacks / Dockerfile / nginx）](docker/DOCKER_SPEC.md)
+- [e2e（Playwright）](e2e/E2E_SPEC.md)
+- [測試策略與使用說明](TESTING_SPEC.md)
+- [部署規格與使用說明](DEPLOYMENT_SPEC.md)
