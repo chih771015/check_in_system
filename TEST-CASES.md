@@ -22,6 +22,13 @@
 11. [TC-SEC：安全性測試](#11-tc-sec安全性測試)
 12. [TC-E2E：端對端流程](#12-tc-e2e端對端流程)
 13. [TC-UI：前端 UI 測試](#13-tc-ui前端-ui-測試)
+14. [TC-ADM：管理員帳號管理](#14-tc-adm管理員帳號管理)
+15. [TC-PT：病人管理](#15-tc-pt病人管理)
+16. [TC-SCP：多病人排班](#16-tc-scp多病人排班)
+17. [TC-DX：診斷證明 / 未到 / 結果總覽](#17-tc-dx診斷證明--未到--結果總覽)
+
+> 註：14~17 章與 TC-CK-009/021~024 為 stage 3/4 功能（管理員帳號、病人正規化、
+> 多病人排班、診斷證明）後補；原始版本（2026-04-19）涵蓋 1~13 章。
 
 ---
 
@@ -725,15 +732,13 @@ TRANS_TOKEN = （登入後取得）
 | **測試步驟** | 1. multipart 中只有 environment，無 selfie |
 | **預期結果** | HTTP 400，錯誤訊息包含 "Selfie photo is required" |
 
-### TC-CK-009：缺少 environment 照片
+### ~~TC-CK-009：缺少 environment 照片~~ ✏️ 已廢除
 
 | 項目 | 內容 |
 |------|------|
 | **ID** | TC-CK-009 |
-| **名稱** | 不上傳 environment 照片 |
-| **前置條件** | 無 |
-| **測試步驟** | 1. multipart 中只有 selfie，無 environment |
-| **預期結果** | HTTP 400，錯誤訊息包含 "Environment photo is required" |
+| **名稱** | ~~不上傳 environment 照片~~ **stage 4 移除環境照需求，此案例不再適用** |
+| **狀態** | ❌ 廢除 — environment 照片改為非必填，後端不再回 `ENVIRONMENT_PHOTO_REQUIRED`。打卡只需 selfie（見 TC-CK-008）。服務證據改由逐病人診斷證明承擔（見 TC-DX）。 |
 
 ### TC-CK-010：反向地理編碼
 
@@ -846,6 +851,46 @@ TRANS_TOKEN = （登入後取得）
 | **前置條件** | 排班 SCH_Y |
 | **測試步驟** | 1. 補打卡 arrive（isMakeup=true）<br>2. 正常打卡 leave（isMakeup=false）<br>3. 查排班列表 |
 | **預期結果** | checkinStatus="makeup"（makeup 優先級最高） |
+
+### TC-CK-021：離開打卡被 pending 病人擋下 ✏️
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-CK-021 |
+| **名稱** | 仍有 pending 病人時打離開卡被擋 |
+| **前置條件** | 排班含多病人，至少一位 status=pending（未上傳診斷也未標未到），已 arrive |
+| **測試步驟** | 1. POST /api/checkins type=leave（非 makeup） |
+| **預期結果** | HTTP 400，`CHECKOUT_BLOCKED_BY_PENDING`（對應 `diagnosis_service_test.go::TestCheckinService_Leave_BlockedByPendingPatients`） |
+
+### TC-CK-022：所有病人處理完才可離開 ✏️
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-CK-022 |
+| **名稱** | 全部病人 completed/no_show 後放行離開 |
+| **前置條件** | 排班所有 SchedulePatient 皆 completed 或 no_show，已 arrive |
+| **測試步驟** | 1. POST /api/checkins type=leave |
+| **預期結果** | HTTP 201，離開成功（`TestCheckinService_Leave_PassesWhenAllPatientsProcessed`） |
+
+### TC-CK-023：makeup 離開略過 pending gate ✏️
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-CK-023 |
+| **名稱** | 補登模式離開不受 pending 病人限制 |
+| **前置條件** | 排班仍有 pending 病人，已 arrive |
+| **測試步驟** | 1. POST /api/checkins/makeup type=leave（isMakeup=true） |
+| **預期結果** | HTTP 201，放行（`TestCheckinService_Leave_MakeupBypassesGate`） |
+
+### TC-CK-024：超時打卡自動標記 makeup ✏️
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-CK-024 |
+| **名稱** | 打卡時間晚於排班 endTime 自動補登 |
+| **前置條件** | 現在時間已過排班 endTime，呼叫端未帶 isMakeup |
+| **測試步驟** | 1. POST /api/checkins（一般打卡） |
+| **預期結果** | HTTP 201，回傳 isMakeup=true，makeupReason 為系統自動補登字串 |
 
 ---
 
@@ -1419,6 +1464,382 @@ TRANS_TOKEN = （登入後取得）
 | 010-2 | translator 側邊選單 | translator 登入 | 顯示：我的排班、打卡、個人紀錄 |
 | 010-3 | 路由保護 | translator 直接輸入 /admin/... URL | 跳轉或 403 |
 
+> ✏️ stage 3/4 新增前端元件（對應測試見 `frontend/src/components/__tests__/`）：
+> - **PatientPicker**：掛載抓清單、選取 onChange、搜尋 debounce、value 後設顯示名。
+> - **SchedulePatientListEditor**：空值一列、依 value 渲染、Add/Delete 列；
+>   util `clampPatientTimes` / `validatePatientTimes`（夾時段、偵測 end≤start/超範圍/重複病人/缺 id）。
+> - **DiagnosisUploadModal**：未選檔禁用送出、超過 3 張截斷提示、選 1~3 張可送出。
+> - **NoShowModal**：原因空白禁用、填原因可送出。
+> - **管理員帳號管理頁 / 診斷結果總覽頁**：列表/新增/刪除、篩選分頁、手機 sidebar 自動收起。
+
+---
+
+## 14. TC-ADM：管理員帳號管理
+
+> 對應：`backend/internal/service/admin_service_test.go`、`/api/admin/admins`。
+
+### TC-ADM-001：列出 admin 帳號
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-001 |
+| **名稱** | GET /api/admin/admins 回所有 admin |
+| **前置條件** | 至少 2 個 admin |
+| **測試步驟** | 1. admin token 呼叫 GET /api/admin/admins |
+| **預期結果** | 200，只回 role=admin，含 id/email/name/status/createdAt，不含 passwordHash |
+
+### TC-ADM-002：建立 admin 強制改密碼
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-002 |
+| **名稱** | 新建 admin mustChangePW=true |
+| **前置條件** | email 未被使用 |
+| **測試步驟** | 1. POST /api/admin/admins {email,password,name}<br>2. 用新帳號登入 |
+| **預期結果** | 建立成功 role="admin" status="active"；登入回 mustChangePW=true；密碼以 bcrypt 雜湊儲存 |
+
+### TC-ADM-003：建立 admin — email 重複
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-003 |
+| **名稱** | email 已存在拒絕 |
+| **前置條件** | 既有帳號 email=admin@admin.com |
+| **測試步驟** | 1. POST /api/admin/admins 用相同 email |
+| **預期結果** | 409，`EMAIL_TAKEN` |
+
+### TC-ADM-004：刪除 admin — 不可刪自己
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-004 |
+| **名稱** | requesterID == targetID 被擋 |
+| **前置條件** | admin 已登入 |
+| **測試步驟** | 1. DELETE /api/admin/admins/{自己的 id} |
+| **預期結果** | 400，`CANNOT_DELETE_SELF` |
+
+### TC-ADM-005：刪除 admin — 目標非 admin
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-005 |
+| **名稱** | 目標 role=translator 被擋 |
+| **前置條件** | 存在一個 translator |
+| **測試步驟** | 1. DELETE /api/admin/admins/{translator id} |
+| **預期結果** | 400，`NOT_AN_ADMIN` |
+
+### TC-ADM-006：刪除 admin — 目標不存在 / 成功
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-ADM-006 |
+| **名稱** | 不存在 ID 回 404；存在的他人 admin 刪除成功 |
+| **測試步驟** | 1. DELETE 不存在 id → 404 `ADMIN_NOT_FOUND`<br>2. DELETE 其他 admin id → 成功 |
+| **預期結果** | 如上；非法 id 格式回 400 `INVALID_ADMIN_ID` |
+
+---
+
+## 15. TC-PT：病人管理
+
+> 對應：`patient_service_test.go`、`patient_history_test.go`、`patient_translator_scope_test.go`。
+> 唯一鍵 `(idType, idNumber)`；idNumber 儲存自動大寫+trim。
+
+### TC-PT-001：建立病人 — idNumber 正規化
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-001 |
+| **名稱** | idNumber 自動轉大寫 + trim |
+| **測試步驟** | 1. POST /api/admin/patients idNumber=" ab123 " |
+| **預期結果** | 成功，儲存值為 "AB123"（name/phone 亦 trim） |
+
+### TC-PT-002：建立病人 — 重複組合拒絕
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-002 |
+| **名稱** | (idType, idNumber) 重複 |
+| **前置條件** | 已存在 passport/AB123 |
+| **測試步驟** | 1. 再建一筆 passport/ab123（大小寫不分） |
+| **預期結果** | 409，`PATIENT_DUPLICATE` |
+
+### TC-PT-003：不同 idType 同號碼允許
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-003 |
+| **名稱** | idType 不同視為不同病人 |
+| **測試步驟** | 1. 建 passport/AB123<br>2. 建 hn/AB123 |
+| **預期結果** | 兩筆皆成功 |
+
+### TC-PT-004：更新病人 — 自我排除
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-004 |
+| **名稱** | no-op 更新不誤判重複 |
+| **測試步驟** | 1. PUT 同一病人，idNumber 不變 |
+| **預期結果** | 成功（不回 PATIENT_DUPLICATE） |
+
+### TC-PT-005：更新病人 — 撞到他人
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-005 |
+| **名稱** | 改成別人占用的組合 |
+| **前置條件** | 存在病人 A 與 B |
+| **測試步驟** | 1. 把 B 的 (idType,idNumber) 改成與 A 相同 |
+| **預期結果** | 409，`PATIENT_DUPLICATE` |
+
+### TC-PT-006：更新 / 刪除不存在
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-006 |
+| **名稱** | 不存在的病人 ID |
+| **測試步驟** | 1. PUT / DELETE /api/admin/patients/99999 |
+| **預期結果** | 404，`PATIENT_NOT_FOUND` |
+
+### TC-PT-007：列表搜尋 + 分頁
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-007 |
+| **名稱** | search 命中 name/phone/idNumber + 分頁 |
+| **測試步驟** | 1. GET /api/admin/patients?search=...&page=1&pageSize=10 |
+| **預期結果** | 200，回 data + total，只含符合者 |
+
+### TC-PT-008：病人歷史聚合
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-008 |
+| **名稱** | 跨多排班彙整就診紀錄 |
+| **前置條件** | 病人出現在多筆不同日期排班，部分有診斷照片 |
+| **測試步驟** | 1. GET /api/admin/patients/:id/history |
+| **預期結果** | 200，回 patient + history[]，依日期 DESC；每筆含 date/時段/location/翻譯員/status/noShowReason/diagnosisPhotos |
+
+### TC-PT-009：病人歷史 — 無紀錄 / 不存在
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-009 |
+| **名稱** | 無排班回空陣列；不存在病人 404 |
+| **測試步驟** | 1. 無排班病人 → history=[]（200）<br>2. 不存在 id → 404 `PATIENT_NOT_FOUND` |
+| **預期結果** | 如上 |
+
+### TC-PT-010：翻譯員端 scope 限縮
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-010 |
+| **名稱** | GET /api/patients 只看自己排班內病人 |
+| **前置條件** | 翻譯員 T1 排班內含病人 P1；P2 只在他人排班 |
+| **測試步驟** | 1. T1 呼叫 GET /api/patients |
+| **預期結果** | 只回 P1，不含 P2；T1 無排班時回空清單 |
+
+---
+
+## 16. TC-SCP：多病人排班
+
+> 對應：`schedule_service_multipatient_test.go`、`schedule_excel_test.go`、`schedule_patient_repo_test.go`。
+> 一筆 schedule 掛 1..N 個 SchedulePatient，整份清單在單一 transaction 內建立/替換。
+
+### TC-SCP-001：建立帶多病人成功
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-001 |
+| **名稱** | 多病人排班建立 |
+| **前置條件** | 病人 P1/P2 存在 |
+| **測試步驟** | 1. POST /api/admin/schedules，patients=[{P1,時段},{P2,時段}] |
+| **預期結果** | 成功，建立 1 筆 schedule + 2 個 SchedulePatient（order 依序） |
+
+### TC-SCP-002：空病人清單拒絕
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-002 |
+| **名稱** | patients 為空 |
+| **測試步驟** | 1. POST 排班 patients=[] |
+| **預期結果** | 400，`SCHEDULE_PATIENTS_REQUIRED` |
+
+### TC-SCP-003：重複病人拒絕
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-003 |
+| **名稱** | 同排班重複同一病人 |
+| **測試步驟** | 1. POST patients 含兩筆相同 patientId |
+| **預期結果** | 400，`DUPLICATE_PATIENT_IN_SCHEDULE` |
+
+### TC-SCP-004：病人時段超出整體時段
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-004 |
+| **名稱** | SchedulePatient 時段 ⊄ Schedule 時段 |
+| **前置條件** | 整體 09:00-12:00 |
+| **測試步驟** | 1. 某病人 08:30-10:00 |
+| **預期結果** | 400，`PATIENT_TIME_OUT_OF_RANGE` |
+
+### TC-SCP-005：病人 end ≤ start
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-005 |
+| **名稱** | 病人結束時間不晚於開始 |
+| **測試步驟** | 1. 某病人 start=10:00 end=10:00 |
+| **預期結果** | 400，`PATIENT_END_BEFORE_START` |
+
+### TC-SCP-006：patientId 不存在
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-006 |
+| **名稱** | 引用不存在病人 |
+| **測試步驟** | 1. POST patients 含不存在 patientId |
+| **預期結果** | 400，`PATIENT_NOT_FOUND` |
+
+### TC-SCP-007：更新整份替換病人清單
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-007 |
+| **名稱** | PUT 排班替換 SchedulePatient |
+| **前置條件** | 排班原有 P1/P2 |
+| **測試步驟** | 1. PUT patients=[P3] |
+| **預期結果** | 舊 SchedulePatient 移除、寫入 P3；沿用 TC-SCP-002~006 驗證 |
+
+### TC-SCP-008：刪除級聯 schedule_patients
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-008 |
+| **名稱** | 刪排班連帶刪病人關聯（含整組） |
+| **測試步驟** | 1. DELETE /api/admin/schedules/:id<br>2. DELETE /api/admin/schedules/:id/group |
+| **預期結果** | 對應 schedule_patients（及 checkins）一併刪除，無 FK 殘留 |
+
+### TC-SCP-009：向後相容 legacy patientName
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-009 |
+| **名稱** | 仍可用 free-text patientName 建立 |
+| **測試步驟** | 1. POST 排班只帶 patientName（不帶 patients） |
+| **預期結果** | 成功（走 legacy 路徑，不建 SchedulePatient） |
+
+### TC-SCP-010：Excel V2 扁平匯入
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-SCP-010 |
+| **名稱** | 相同 Code 合併為多病人排班 + 逐群組驗證 |
+| **前置條件** | 欄位 Code\|TranslatorID\|Date\|OverallStart\|OverallEnd\|Location\|PatientID\|PatientStart\|PatientEnd\|Note |
+| **測試步驟** | 1. 同 Code 多列<br>2. 某 Code meta 衝突<br>3. 某 Code 內含非法病人<br>4. 空 Code<br>5. 未上傳檔案 |
+| **預期結果** | 1. 合併 1 筆 schedule + N 病人<br>2. 該 Code 群組失敗<br>3. 只跳過壞群組、其他成功<br>4. 拒絕<br>5. 400 `FILE_REQUIRED`；成功者確實寫入 DB，回成功/失敗明細 |
+
+---
+
+## 17. TC-DX：診斷證明 / 未到 / 結果總覽
+
+> 對應：`diagnosis_service_test.go`、`diagnosis_results_test.go`、`diagnosis_photos_get_test.go`。
+> 逐 SchedulePatient 操作，照片上限 3 張。翻譯員須擁有該排班；管理員代理無 ownership 限制。
+
+### TC-DX-001：翻譯員上傳診斷成功
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-001 |
+| **名稱** | 上傳 1~3 張 → completed |
+| **前置條件** | SchedulePatient 屬於該翻譯員，status=pending |
+| **測試步驟** | 1. POST /api/checkins/diagnosis（multipart，含 1~3 張照片） |
+| **預期結果** | 成功，status→completed，照片落地 |
+
+### TC-DX-002：照片超過上限
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-002 |
+| **名稱** | 既有 + 新增 > 3 張 |
+| **前置條件** | 已有 2 張 |
+| **測試步驟** | 1. 再上傳 2 張（共 4） |
+| **預期結果** | 400，`DIAGNOSIS_PHOTO_LIMIT` |
+
+### TC-DX-003：操作非自己排班的病人
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-003 |
+| **名稱** | ownership 驗證 |
+| **前置條件** | SchedulePatient 屬於別的翻譯員 |
+| **測試步驟** | 1. POST /api/checkins/diagnosis 指向他人 sp |
+| **預期結果** | 403，`DIAGNOSIS_NOT_OWNED` |
+
+### TC-DX-004：SchedulePatient 不存在
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-004 |
+| **名稱** | 引用不存在 sp |
+| **測試步驟** | 1. POST 診斷/未到指向不存在 spID |
+| **預期結果** | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
+
+### TC-DX-005：標記未到成功
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-005 |
+| **名稱** | 帶 reason → no_show |
+| **測試步驟** | 1. POST /api/checkins/no-show {spID, reason} |
+| **預期結果** | 成功，status→no_show，存 reason |
+
+### TC-DX-006：未到未帶 reason
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-006 |
+| **名稱** | reason 為空 |
+| **測試步驟** | 1. POST /api/checkins/no-show 不帶 reason |
+| **預期結果** | 400，`NO_SHOW_REASON_REQUIRED` |
+
+### TC-DX-007：管理員代理操作
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-007 |
+| **名稱** | admin 代上傳 / 代標未到（無 ownership 限制） |
+| **測試步驟** | 1. POST /api/admin/diagnosis<br>2. POST /api/admin/no-show（需 reason） |
+| **預期結果** | 皆成功；缺 reason 回 `NO_SHOW_REASON_REQUIRED`；不存在 sp 回 `SCHEDULE_PATIENT_NOT_FOUND` |
+
+### TC-DX-008：診斷結果總覽 — 排除 pending + 排序
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-008 |
+| **名稱** | 只列 terminal、依日期/時段/ id DESC |
+| **前置條件** | 混合 pending/completed/no_show |
+| **測試步驟** | 1. GET /api/admin/diagnosis-results |
+| **預期結果** | pending 不出現；排序 date DESC → startTime DESC → id DESC |
+
+### TC-DX-009：診斷結果總覽 — 篩選 + 分頁
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-009 |
+| **名稱** | status / translator / 日期 / patientName + 分頁 |
+| **測試步驟** | 1. 各 query 參數組合<br>2. page/pageSize（預設 20） |
+| **預期結果** | 各篩選正確；分頁切片 + total 正確；每筆含病人欄位 + 診斷照片（batch load 無 N+1）+ updatedAt |
+
+### TC-DX-010：單一病人照片
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-010 |
+| **名稱** | GET /api/admin/schedule-patients/:id/photos |
+| **測試步驟** | 1. 有照片<br>2. 無照片<br>3. sp 不存在 |
+| **預期結果** | 1. 回 URL 陣列（依上傳時間）<br>2. 回空陣列<br>3. 404 `SCHEDULE_PATIENT_NOT_FOUND` |
+
 ---
 
 ## 附錄 A：測試案例統計
@@ -1428,7 +1849,7 @@ TRANS_TOKEN = （登入後取得）
 | TC-AUTH：認證模組 | 18 |
 | TC-TM：翻譯員管理 | 15 |
 | TC-SCH：排班管理 | 24 |
-| TC-CK：打卡功能 | 20 |
+| TC-CK：打卡功能 | 24（含 4 項 checkout gate / 超時補登；TC-CK-009 廢除）|
 | TC-EXP：匯出功能 | 10 |
 | TC-AUD：稽核紀錄 | 5 |
 | TC-MW：中介層與權限 | 6 |
@@ -1436,8 +1857,12 @@ TRANS_TOKEN = （登入後取得）
 | TC-CRON：排程任務 | 5 |
 | TC-SEC：安全性 | 6 |
 | TC-E2E：端對端流程 | 7 |
-| TC-UI：前端 UI | 10 大項 (40+ 子項) |
-| **合計** | **~170 案例** |
+| TC-UI：前端 UI | 10 大項 (40+ 子項) + 5 新元件 |
+| TC-ADM：管理員帳號管理 | 6 |
+| TC-PT：病人管理 | 10 |
+| TC-SCP：多病人排班 | 10 |
+| TC-DX：診斷證明 / 未到 / 結果 | 10 |
+| **合計** | **~210 案例** |
 
 ## 附錄 B：優先級分級
 
@@ -1446,17 +1871,24 @@ TRANS_TOKEN = （登入後取得）
 - TC-AUTH-001~018（全部認證測試）
 - TC-MW-001~006（全部中介層權限）
 - TC-SEC-001~006（全部安全性測試）
-- TC-CK-001~009（打卡核心流程 + 照片上傳）
-- TC-CK-019（打卡狀態邏輯）
+- TC-CK-001~008（打卡核心流程 + selfie 上傳；TC-CK-009 已廢除）
+- TC-CK-019~023（打卡狀態邏輯 + checkout gate）
+- TC-DX-001~007（診斷證明 / 未到 — 服務證據與離開 gate 連動）
+- TC-SCP-001~008（多病人排班建立 / 驗證 / 級聯）
+- TC-ADM-004~005（不可刪自己 / 非 admin 防護）
 - TC-E2E-001（新人入職完整流程）
 
 ### 🟡 P1 — 重要功能
 
 - TC-TM-003~015（翻譯員 CRUD + 重設密碼）
 - TC-SCH-004~020（排班建立/刪除/匯入）
-- TC-CK-012~018（補打卡/統計/管理員編輯刪除）
+- TC-CK-012~018, 024（補打卡/統計/管理員編輯刪除/超時自動補登）
 - TC-EXP-001~010（匯出全部）
 - TC-AUD-001~005（稽核紀錄）
+- TC-ADM-001~003, 006（管理員帳號 CRUD）
+- TC-PT-001~010（病人 CRUD + 歷史 + scope）
+- TC-SCP-009~010（向後相容 + Excel V2 匯入）
+- TC-DX-008~010（診斷結果總覽 + 單一病人照片）
 - TC-E2E-002~007（其他端對端流程）
 
 ### 🟢 P2 — 一般

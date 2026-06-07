@@ -16,6 +16,13 @@
 8. [OpenTelemetry / Jaeger 追蹤](#8-opentelemetry--jaeger-追蹤)
 9. [Cron 排程任務](#9-cron-排程任務)
 10. [前端 UI 測試](#10-前端-ui-測試)
+11. [管理員帳號管理 (Admin Accounts)](#11-管理員帳號管理-admin-accounts)
+12. [病人管理 (Patient Management)](#12-病人管理-patient-management)
+13. [多病人排班 (Multi-Patient Schedule)](#13-多病人排班-multi-patient-schedule)
+14. [診斷證明 / 未到 / 結果總覽 (Diagnosis / No-show / Results)](#14-診斷證明--未到--結果總覽-diagnosis--no-show--results)
+
+> 註：本文件原版（2026-04-19）涵蓋 1~10 章。第 11~14 章與第 4 章的 ✏️ 標記列為
+> stage 3/4（管理員帳號、病人正規化、多病人排班、診斷證明）後補。
 
 ---
 
@@ -286,17 +293,21 @@
 | 4.1.5 | 重複離開打卡 | 400，"already checked in with type: leave" |
 | 4.1.6 | 排班不存在 | 400，"schedule not found" |
 | 4.1.7 | 排班不屬於該翻譯員 | 400，"schedule does not belong to this translator" |
-| 4.1.8 | 缺少 selfie 照片 | 400 |
-| 4.1.9 | 缺少 environment 照片 | 400 |
+| 4.1.8 | 缺少 selfie 照片 | 400，`SELFIE_REQUIRED` |
+| ~~4.1.9~~ | ~~缺少 environment 照片~~ ✏️ **已廢除** — stage 4 移除環境照需求，environment 照不再必填 | （不再驗證；保留欄位向後相容）|
 | 4.1.10 | 帶 GPS 座標（lat/lng）| 201，座標被儲存 |
 | 4.1.11 | 不帶 GPS 座標 | 201，lat/lng 為 0 |
 | 4.1.12 | 不帶 address 但帶 GPS | 201，自動反向地理編碼填入 address |
 | 4.1.13 | 反向地理編碼失敗 | 201，address 為空（不阻擋打卡）|
 | 4.1.14 | 回傳的 selfieUrl 路徑格式正確 | /uploads/selfie_yyyymmdd_... |
-| 4.1.15 | 回傳的 environmentUrl 路徑格式正確 | /uploads/environment_yyyymmdd_... |
+| ~~4.1.15~~ | ~~回傳的 environmentUrl 路徑格式正確~~ ✏️ **已廢除**（環境照移除） | — |
 | 4.1.16 | checkinTime 為伺服器時間 | 接近 time.Now() |
 | 4.1.17 | isMakeup 預設為 false | false |
 | 4.1.18 | admin 角色呼叫 | 403，權限不足 |
+| 4.1.19 | ✏️ 打卡時間已超過排班 endTime 且未標 makeup | 201，後端自動標 isMakeup=true 並填系統補登原因 |
+| 4.1.20 | ✏️ 離開打卡但仍有 pending 病人（尚未上傳診斷/未到） | 400，`CHECKOUT_BLOCKED_BY_PENDING` |
+| 4.1.21 | ✏️ 離開打卡且所有病人皆 completed/no_show | 201，放行 |
+| 4.1.22 | ✏️ makeup 離開打卡可略過 pending gate | 201，補登模式不擋 pending |
 
 ### 4.2 補打卡 `POST /api/checkins/makeup`
 
@@ -693,6 +704,246 @@
 | 10.10.2 | translator 角色顯示翻譯員選單 | 我的排班、打卡、個人紀錄 |
 | 10.10.3 | 路由保護（translator 存取 /admin/*）| 跳轉或顯示 403 |
 
+### 10.11 病人選擇器 PatientPicker ✏️（新元件）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 10.11.1 | 掛載時抓病人清單 | 呼叫 API 並列出選項 |
+| 10.11.2 | 選取病人觸發 onChange | 回傳 patientId |
+| 10.11.3 | 搜尋輸入 debounce 後重新查詢 | 只送一次查詢 |
+| 10.11.4 | value 在掛載後設定時顯示病人名 | 正確顯示 |
+
+### 10.12 多病人清單編輯器 SchedulePatientListEditor ✏️（新元件）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 10.12.1 | 初始空值顯示一列空白 | 1 列 |
+| 10.12.2 | 依 value 渲染既有列 | 列數正確 |
+| 10.12.3 | 點 Add 新增一列 | 列數 +1 |
+| 10.12.4 | 點 Delete 移除一列 | 列數 -1 |
+| 10.12.5 | clampPatientTimes 將病人時段夾到整體時段內 | util 單元測試 |
+| 10.12.6 | validatePatientTimes 偵測 end≤start / 超出範圍 / 重複病人 / 缺 patientId | 回對應錯誤碼 |
+
+### 10.13 診斷上傳 / 未到 Modal ✏️（新元件）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 10.13.1 | DiagnosisUploadModal 未選檔時送出禁用 | 按鈕 disabled |
+| 10.13.2 | 選檔超過 3 張自動截斷並提示（不擋送出） | 最多 3 張 |
+| 10.13.3 | 選 1~3 張可送出並呼叫 upload | 觸發上傳 |
+| 10.13.4 | NoShowModal 原因空白時送出禁用 | 按鈕 disabled |
+| 10.13.5 | NoShowModal 填原因後可送出並呼叫 markNoShow | 觸發 |
+
+### 10.14 管理員 / 診斷結果頁 ✏️
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 10.14.1 | 管理員帳號管理頁列表 / 新增 / 刪除 | UI 操作正確 |
+| 10.14.2 | 診斷結果總覽頁篩選 + 分頁 | 呼叫對應 API |
+| 10.14.3 | 手機側邊選單點選後自動收起 | sidebar 收合 |
+
+---
+
+## 11. 管理員帳號管理 (Admin Accounts)
+
+> stage：`AdminService` + `GET/POST/DELETE /api/admin/admins`。新增 admin 強制 `mustChangePW=true`。
+> 對應測試：`backend/internal/service/admin_service_test.go`。
+
+### 11.1 列表 `GET /api/admin/admins`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 11.1.1 | 取得所有 admin 帳號 | 200，只回 role=admin，含 id/email/name/status/createdAt |
+| 11.1.2 | 回傳不含 passwordHash | 任何欄位皆無密碼雜湊 |
+| 11.1.3 | translator 角色呼叫 | 403 |
+
+### 11.2 建立 admin `POST /api/admin/admins`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 11.2.1 | 正常建立 | 成功，role="admin"、status="active" |
+| 11.2.2 | 新建帳號 mustChangePW=true | 建立後該帳號首次登入須改密碼 |
+| 11.2.3 | email 已存在 | 409，`EMAIL_TAKEN` |
+| 11.2.4 | 密碼以 bcrypt 雜湊儲存 | DB 內非明文 |
+| 11.2.5 | 缺少必填欄位（email/password/name）| 400，binding 驗證錯誤 |
+
+### 11.3 刪除 admin `DELETE /api/admin/admins/:id`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 11.3.1 | 刪除其他 admin | 成功 |
+| 11.3.2 | 刪除自己的帳號 | 400，`CANNOT_DELETE_SELF` |
+| 11.3.3 | 目標 ID 不存在 | 404，`ADMIN_NOT_FOUND` |
+| 11.3.4 | 目標是 translator（非 admin） | 400，`NOT_AN_ADMIN` |
+| 11.3.5 | 無效 ID 格式 | 400，`INVALID_ADMIN_ID` |
+
+---
+
+## 12. 病人管理 (Patient Management)
+
+> stage 2/4：`patients` 表正規化，`(idType, idNumber)` 唯一。idNumber 儲存自動轉大寫+trim。
+> 對應測試：`patient_service_test.go`、`patient_history_test.go`、`patient_translator_scope_test.go`、
+> `repository/schedule_patient_repo_test.go`。
+
+### 12.1 建立病人 `POST /api/admin/patients`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.1.1 | 正常建立 | 成功，回傳病人含 id |
+| 12.1.2 | idNumber 自動正規化（小寫+空白→大寫trim） | 儲存值為大寫且去前後空白 |
+| 12.1.3 | (idType, idNumber) 重複 | 409，`PATIENT_DUPLICATE` |
+| 12.1.4 | 同 idNumber 但不同 idType | 成功（唯一鍵是組合） |
+| 12.1.5 | name/phone 前後空白 | 自動 trim |
+| 12.1.6 | 缺少必填欄位 | 400，binding 驗證錯誤 |
+| 12.1.7 | idType 非法值（非 passport/hn/unid） | 400 |
+
+### 12.2 更新病人 `PUT /api/admin/patients/:id`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.2.1 | 正常更新 | 成功 |
+| 12.2.2 | 不改 idNumber 的 no-op 更新（自我排除） | 成功，不誤判重複 |
+| 12.2.3 | 改成已被別人占用的 (idType, idNumber) | 409，`PATIENT_DUPLICATE` |
+| 12.2.4 | 不存在的 ID | 404，`PATIENT_NOT_FOUND` |
+
+### 12.3 刪除病人 `DELETE /api/admin/patients/:id`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.3.1 | 刪除存在的病人 | 成功 |
+| 12.3.2 | 不存在的 ID | 404，`PATIENT_NOT_FOUND` |
+
+### 12.4 列表 / 搜尋 `GET /api/admin/patients`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.4.1 | 無篩選列表 + 分頁 | 200，回 data + total |
+| 12.4.2 | search 命中 name / phone / idNumber | 只回符合者 |
+| 12.4.3 | page/pageSize 分頁 | 正確切片與 total |
+
+### 12.5 病人歷史 `GET /api/admin/patients/:id/history`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.5.1 | 跨多筆排班彙整就診紀錄，依日期 DESC | 回傳 patient + history[] |
+| 12.5.2 | 每筆含 date/時段/location/翻譯員/status/noShowReason/診斷照片 | 欄位齊全 |
+| 12.5.3 | 病人無任何排班 | history 為空陣列（仍 200） |
+| 12.5.4 | 不存在的病人 ID | 404，`PATIENT_NOT_FOUND` |
+
+### 12.6 翻譯員端病人清單 `GET /api/patients`（scope 限縮）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.6.1 | 只回自己排班內出現過的病人 | 不含其他翻譯員的病人 |
+| 12.6.2 | 自己沒有任何排班 | 回空清單 |
+| 12.6.3 | search + 分頁在 scope 內生效 | 正確 |
+
+---
+
+## 13. 多病人排班 (Multi-Patient Schedule)
+
+> stage 3：一筆 schedule 掛 1..N 個 SchedulePatient，每位病人有自己 start/end/status。
+> 對應測試：`schedule_service_multipatient_test.go`、`schedule_excel_test.go`、`schedule_patient_repo_test.go`。
+
+### 13.1 建立多病人排班 `POST /api/admin/schedules`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 13.1.1 | 帶 1 位病人成功 | 成功，建立對應 SchedulePatient |
+| 13.1.2 | 帶多位病人成功 | 全數寫入，order 依序 |
+| 13.1.3 | patients 空清單 | 400，`SCHEDULE_PATIENTS_REQUIRED` |
+| 13.1.4 | 同一排班重複同一病人 | 400，`DUPLICATE_PATIENT_IN_SCHEDULE` |
+| 13.1.5 | 病人時段超出整體時段 | 400，`PATIENT_TIME_OUT_OF_RANGE` |
+| 13.1.6 | 病人 end <= start | 400，`PATIENT_END_BEFORE_START` |
+| 13.1.7 | patientId 不存在 | 400，`PATIENT_NOT_FOUND` |
+| 13.1.8 | 建立在單一 transaction 內（中途失敗全回滾） | 失敗時不留半筆資料 |
+| 13.1.9 | 向後相容：仍可用 legacy patientName | 成功（不走 SchedulePatient 路徑） |
+
+### 13.2 更新多病人排班 `PUT /api/admin/schedules/:id`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 13.2.1 | 更新時整份替換病人清單 | 舊 SchedulePatient 清掉、寫入新清單 |
+| 13.2.2 | 替換清單沿用相同驗證規則 | 同 13.1.3~13.1.7 |
+
+### 13.3 刪除連帶級聯 `DELETE /api/admin/schedules/:id` / `/group`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 13.3.1 | 刪單筆排班連帶刪 schedule_patients | 無 FK 殘留 |
+| 13.3.2 | 刪整組重複排班連帶刪各場 schedule_patients | 全組清乾淨 |
+| 13.3.3 | 刪排班連帶刪關聯 checkins | 滿足 FK |
+
+### 13.4 Excel V2 扁平匯入 `POST /api/admin/schedules/import`
+
+> 欄位 `Code|TranslatorID|Date|OverallStart|OverallEnd|Location|PatientID|PatientStart|PatientEnd|Note`，相同 Code 合併成一筆多病人排班。
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 13.4.1 | 相同 Code 多列合併為一筆多病人排班 | 1 筆 schedule + N 個 SchedulePatient |
+| 13.4.2 | 同 Code 內 meta（Date/時段/Location）衝突 | 該 Code 群組失敗 |
+| 13.4.3 | 某群組內病人非法只跳過該群組 | 其他群組仍成功 |
+| 13.4.4 | Code 空白 | 該列/群組拒絕 |
+| 13.4.5 | 成功匯入確實寫入 DB | schedule + schedule_patients 落地 |
+| 13.4.6 | 回傳成功/失敗明細 | 逐群組結果可辨識 |
+| 13.4.7 | 未上傳檔案 | 400，`FILE_REQUIRED` |
+
+---
+
+## 14. 診斷證明 / 未到 / 結果總覽 (Diagnosis / No-show / Results)
+
+> stage 4：打卡只是到場，逐病人的診斷證明才是服務證據。最多 3 張照片。
+> 對應測試：`diagnosis_service_test.go`、`diagnosis_results_test.go`、`diagnosis_photos_get_test.go`。
+
+### 14.1 翻譯員上傳診斷證明 `POST /api/checkins/diagnosis`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.1.1 | 上傳 1~3 張照片成功 | 該 SchedulePatient status→completed |
+| 14.1.2 | 既有 + 新增超過 3 張 | 400，`DIAGNOSIS_PHOTO_LIMIT` |
+| 14.1.3 | 操作不屬於自己排班的病人 | 403，`DIAGNOSIS_NOT_OWNED` |
+| 14.1.4 | SchedulePatient 不存在 | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
+| 14.1.5 | 上傳後可由離開 gate 放行 | 配合 4.1.20~4.1.21 |
+
+### 14.2 翻譯員標記未到 `POST /api/checkins/no-show`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.2.1 | 帶 reason 標記未到成功 | status→no_show，存 reason |
+| 14.2.2 | 未帶 reason | 400，`NO_SHOW_REASON_REQUIRED` |
+| 14.2.3 | 操作不屬於自己排班的病人 | 403，`DIAGNOSIS_NOT_OWNED` |
+
+### 14.3 管理員代理操作 `POST /api/admin/diagnosis` / `/api/admin/no-show`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.3.1 | 管理員代上傳診斷（無 ownership 限制） | 成功，status→completed |
+| 14.3.2 | 管理員代標未到 | 成功，status→no_show |
+| 14.3.3 | 管理員代標未到未帶 reason | 400，`NO_SHOW_REASON_REQUIRED` |
+| 14.3.4 | 對不存在的 SchedulePatient | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
+
+### 14.4 診斷結果總覽 `GET /api/admin/diagnosis-results`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.4.1 | 只列 terminal（completed/no_show），排除 pending | pending 不出現 |
+| 14.4.2 | 依日期 DESC、再 startTime DESC、再 id DESC 排序 | 順序正確 |
+| 14.4.3 | status 篩選 | 只回該狀態 |
+| 14.4.4 | translatorId 篩選 | 只回該翻譯員 |
+| 14.4.5 | 日期區間 dateFrom/dateTo 篩選 | 範圍內 |
+| 14.4.6 | patientName 模糊搜尋 | LIKE 命中 |
+| 14.4.7 | 分頁 page/pageSize（預設 20） | 正確切片 + total |
+| 14.4.8 | 每筆含病人欄位 + 診斷照片（batch load 無 N+1） | 欄位齊全 |
+| 14.4.9 | 每筆含 updatedAt | 有值 |
+
+### 14.5 單一病人照片 `GET /api/admin/schedule-patients/:id/photos`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.5.1 | 回傳該 SchedulePatient 的照片 URL（依上傳時間） | 陣列正確 |
+| 14.5.2 | 尚無上傳 | 回空陣列 |
+| 14.5.3 | SchedulePatient 不存在 | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
+
 ---
 
 ## 附錄 A：測試統計
@@ -702,14 +953,18 @@
 | 認證模組 | 31 |
 | 翻譯員管理 | 33 |
 | 排班管理 | 49 |
-| 打卡功能 | 49 |
+| 打卡功能 | 53 |
 | 匯出功能 | 22 |
 | 稽核紀錄 | 26 |
 | 中介層與安全性 | 21 |
 | 追蹤 (Jaeger) | 13 |
 | Cron 排程 | 12 |
-| 前端 UI | 37 |
-| **合計** | **293** |
+| 前端 UI | 55 |
+| 管理員帳號管理 | 13 |
+| 病人管理 | 23 |
+| 多病人排班 | 21 |
+| 診斷證明 / 未到 / 結果 | 24 |
+| **合計** | **396** |
 
 ---
 
