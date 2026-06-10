@@ -1,0 +1,112 @@
+# =====================================================================
+# 翻譯員打卡系統 — 正式環境（Production）Docker Compose
+# ---------------------------------------------------------------------
+# 與開發用的 docker-compose.yml 的差別：
+#   * 不對外公開資料庫 / 後端 / Jaeger 的裸 port（只走內部網路）
+#   * 前端只綁定到 127.0.0.1（由 Cloudflare Tunnel 或主機反代轉發出去）
+#   * 所有服務 restart: unless-stopped（機器重開後自動拉起）
+#   * 資料庫密碼、JWT 等敏感值全部來自 backend/.env.production
+#   * 多一個（選用）cloudflared 服務，把系統安全地公開到網際網路
+#
+# 啟動方式請用 scripts/deploy-prod.sh，不要直接手打 docker compose，
+# 因為腳本會幫你做設定驗證、密鑰產生與健康檢查。
+# =====================================================================
+
+services:
+  # -------------------------------------------------------------------
+  # PostgreSQL 資料庫（資料存在具名 volume，down 不會刪、down -v 才會刪）
+  # 不開放對外 port —— 只有同一個 compose 網路裡的 backend 連得到。
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未設定，請先填 backend/.env.production}
+      POSTGRES_DB: ${DB_NAME:-translator_checkin}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-translator_checkin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # -------------------------------------------------------------------
+  # Jaeger（分散式追蹤）。UI 只綁在 127.0.0.1，需要從遠端看時走 SSH 通道：
+  #     ssh -L 16686:127.0.0.1:16686 你的server
+  #   然後在自己電腦瀏覽器開 http://localhost:16686
+  # OTLP 收集埠（4317）不對外公開，只給內部的 backend 用。
+  # -------------------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686" # Jaeger UI（僅本機可見）
+
+  # -------------------------------------------------------------------
+  # 後端（Go）。不對外公開 8080 —— 只有前端 nginx 透過內部網路反代到它。
+  # 所有環境變數來自 backend/.env.production。
+  # -------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+    env_file:
+      - ../backend/.env.production
+    environment:
+      # 這兩個是部署時的固定值，明確寫出來避免被 .env 內的開發值蓋掉
+      DB_HOST: postgres
+      DEPLOY_ENV: production
+    volumes:
+      # 上傳的打卡 / 診斷照片，綁到主機資料夾方便備份（直接複製這個資料夾即可）
+      - ../backend/uploads:/app/uploads
+      # Google Service Account 憑證（選填）——
+      # 要用 Google Sheets 匯出時，把 JSON 放到 backend/google-credentials.json
+      # 後，取消下一行的註解：
+      # - ../backend/google-credentials.json:/app/google-credentials.json:ro
+
+  # -------------------------------------------------------------------
+  # 前端（React 靜態檔，由 nginx 提供 + 反代 /api 到後端）。
+  # 只綁在 127.0.0.1:3000 —— 不直接暴露到公開網路；
+  # 對外公開由下面的 cloudflared（或你自架的反向代理）負責。
+  # -------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+
+  # -------------------------------------------------------------------
+  # Cloudflare Tunnel（選用）——把系統安全地公開到網際網路。
+  # 只有在部署時加上 --profile tunnel（deploy-prod.sh --tunnel）才會啟動，
+  # 且需要在 backend/.env.production 填好 TUNNEL_TOKEN。
+  # 它會連到 Cloudflare，再把流量轉給內部的 frontend:80，
+  # 所以「不需要」在防火牆/路由器開任何對外 port。
+  # -------------------------------------------------------------------
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: ["tunnel"]
+    # token 是否有值由 scripts/deploy-prod.sh 在啟動前驗證（這裡用 :- 避免
+    # 沒開 tunnel 時 compose 仍對它做插值而報錯）。
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
+    depends_on:
+      - frontend
+
+volumes:
+  postgres_data:

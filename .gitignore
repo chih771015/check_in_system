@@ -22,6 +22,11 @@ backend/vendor/
 .env
 .env.local
 .env.*.local
+# 正式環境設定（含密碼/金鑰，絕不可進 git；範本 .env.production.example 不受影響仍會追蹤）
+.env.production
+backend/.env.production
+# Google service account 憑證
+backend/google-credentials.json
 
 # Claude Code local overrides (already gitignored via settings.local.json rule, belt-and-suspenders)
 .claude/settings.local.json
