@@ -37,6 +37,23 @@ test.describe('translator management', () => {
     await expect(page.locator('table')).toContainText(name);
   });
 
+  test('creating a translator with a duplicate email shows the backend error', async ({ page }) => {
+    await page.getByRole('button', { name: /Add Translator|新增翻譯員|เพิ่ม/i }).click();
+
+    const modal = page.locator('.ant-modal').last();
+    await modal.getByLabel(/Name|姓名|ชื่อ/i).fill('Dup Alice');
+    // Reuse a seeded translator's email → backend must reject with EMAIL_TAKEN.
+    await modal.getByLabel(/Email|信箱|電子郵件|อีเมล/i).fill(SEED.translatorActive.email);
+    await modal.getByLabel(/Phone|電話|โทร/i).fill('0911-dup');
+    await modal.getByLabel(/Password|密碼|รหัสผ่าน/i).fill('Test1234!');
+
+    await modal.getByRole('button', { name: /^(Create|新增|建立|สร้าง)$/i }).click();
+
+    // The specific reason must surface (was previously swallowed as a generic
+    // "failed" toast). zh-TW: 此 Email 已被使用 / en: Email already in use.
+    await expect(page.locator('body')).toContainText(/Email already in use|此 Email 已被使用|อีเมลนี้ถูกใช้แล้ว/i);
+  });
+
   test('admin can disable an active translator', async ({ page }) => {
     const row = page.locator('tr', { hasText: SEED.translatorActive.name });
     await row.getByRole('button', { name: /Disable|停用|ปิด/i }).click();
