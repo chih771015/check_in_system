@@ -17,11 +17,12 @@ import (
 
 // Sentinel errors returned by DiagnosisService.
 var (
-	ErrSchedulePatientNotFound = errors.New("schedule patient not found")
-	ErrDiagnosisPhotoLimit     = errors.New("diagnosis photo limit reached (max 3 per patient)")
-	ErrDiagnosisNotOwned       = errors.New("schedule patient does not belong to this translator")
-	ErrDiagnosisPhotoNotFound  = errors.New("diagnosis photo not found")
-	ErrNoShowReasonRequired    = errors.New("no_show_reason is required")
+	ErrSchedulePatientNotFound   = errors.New("schedule patient not found")
+	ErrDiagnosisPhotoLimit       = errors.New("diagnosis photo limit reached (max 3 per patient)")
+	ErrDiagnosisNotOwned         = errors.New("schedule patient does not belong to this translator")
+	ErrDiagnosisPhotoNotFound    = errors.New("diagnosis photo not found")
+	ErrDiagnosisLockedAfterLeave = errors.New("diagnosis can no longer be changed after leave check-in")
+	ErrNoShowReasonRequired      = errors.New("no_show_reason is required")
 )
 
 // MaxDiagnosisPhotos is the per-(schedule, patient) cap defined in the spec.
@@ -34,6 +35,7 @@ type DiagnosisService struct {
 	spRepo       *repository.SchedulePatientRepository
 	photoRepo    *repository.DiagnosisPhotoRepository
 	scheduleRepo *repository.ScheduleRepository
+	checkinRepo  *repository.CheckinRepository // optional; enables the post-leave lock
 }
 
 // NewDiagnosisService creates a new DiagnosisService.
@@ -45,6 +47,14 @@ func NewDiagnosisService(
 	return &DiagnosisService{spRepo: spRepo, photoRepo: photoRepo, scheduleRepo: scheduleRepo}
 }
 
+// WithCheckinRepo wires the checkin repo so translator-side edits are locked
+// once the schedule has a "leave" check-in. When not set, the lock is inactive
+// (keeps legacy constructors / tests simple).
+func (s *DiagnosisService) WithCheckinRepo(r *repository.CheckinRepository) *DiagnosisService {
+	s.checkinRepo = r
+	return s
+}
+
 // UploadDiagnosis appends new photo URLs to a SchedulePatient and marks it
 // completed when at least one photo is present.
 //   - translatorID must own the parent schedule
@@ -52,6 +62,9 @@ func NewDiagnosisService(
 func (s *DiagnosisService) UploadDiagnosis(ctx context.Context, translatorID, spID uint, photoURLs []string) error {
 	sp, err := s.assertOwnedSchedulePatient(ctx, translatorID, spID)
 	if err != nil {
+		return err
+	}
+	if err := s.assertNotLeftYet(ctx, sp.ScheduleID); err != nil {
 		return err
 	}
 
@@ -87,6 +100,14 @@ func (s *DiagnosisService) MarkNoShow(ctx context.Context, translatorID, spID ui
 	}
 	sp, err := s.assertOwnedSchedulePatient(ctx, translatorID, spID)
 	if err != nil {
+		return err
+	}
+	if err := s.assertNotLeftYet(ctx, sp.ScheduleID); err != nil {
+		return err
+	}
+	// Marking no_show means "I pressed completed by mistake" — drop any photos
+	// so a no_show slot never carries stale evidence.
+	if err := s.purgePhotos(ctx, sp.ID); err != nil {
 		return err
 	}
 	return s.spRepo.WithCtx(ctx).UpdateStatus(sp.ID, model.SchedulePatientStatusNoShow, reason)
@@ -126,6 +147,9 @@ func (s *DiagnosisService) AdminMarkNoShow(ctx context.Context, spID uint, reaso
 	}
 	if _, err := s.spRepo.WithCtx(ctx).FindByID(spID); err != nil {
 		return ErrSchedulePatientNotFound
+	}
+	if err := s.purgePhotos(ctx, spID); err != nil {
+		return err
 	}
 	return s.spRepo.WithCtx(ctx).UpdateStatus(spID, model.SchedulePatientStatusNoShow, reason)
 }
@@ -206,7 +230,11 @@ func (s *DiagnosisService) DeletePhoto(ctx context.Context, translatorID, photoI
 	if err != nil {
 		return ErrDiagnosisPhotoNotFound
 	}
-	if _, err := s.assertOwnedSchedulePatient(ctx, translatorID, photo.SchedulePatientID); err != nil {
+	sp, err := s.assertOwnedSchedulePatient(ctx, translatorID, photo.SchedulePatientID)
+	if err != nil {
+		return err
+	}
+	if err := s.assertNotLeftYet(ctx, sp.ScheduleID); err != nil {
 		return err
 	}
 	return s.deletePhotoRow(ctx, photo)
@@ -223,6 +251,37 @@ func (s *DiagnosisService) AdminDeletePhoto(ctx context.Context, photoID uint) e
 		return ErrSchedulePatientNotFound
 	}
 	return s.deletePhotoRow(ctx, photo)
+}
+
+// assertNotLeftYet rejects translator-side diagnosis edits once the schedule
+// has a "leave" check-in: after departure only an admin may amend the records.
+// No-op when checkinRepo isn't wired (legacy/tests).
+func (s *DiagnosisService) assertNotLeftYet(ctx context.Context, scheduleID uint) error {
+	if s.checkinRepo == nil {
+		return nil
+	}
+	if _, err := s.checkinRepo.WithCtx(ctx).FindByScheduleAndType(scheduleID, "leave"); err == nil {
+		return ErrDiagnosisLockedAfterLeave
+	}
+	return nil
+}
+
+// purgePhotos deletes all diagnosis photos (rows + best-effort files) for a
+// SchedulePatient. Used when a slot is marked no_show so it never carries stale
+// evidence.
+func (s *DiagnosisService) purgePhotos(ctx context.Context, spID uint) error {
+	photoRepo := s.photoRepo.WithCtx(ctx)
+	photos, err := photoRepo.FindBySchedulePatientID(spID)
+	if err != nil {
+		return err
+	}
+	for _, p := range photos {
+		if err := photoRepo.Delete(p.ID); err != nil {
+			return err
+		}
+		removeUploadedFile(p.PhotoURL)
+	}
+	return nil
 }
 
 // deletePhotoRow deletes the DB row, removes the file best-effort, and reverts

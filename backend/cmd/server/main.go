@@ -134,7 +134,8 @@ func main() {
 	patientService := service.NewPatientService(patientRepo).
 		WithScopeRepo(schedulePatientRepo).
 		WithHistoryRepos(scheduleRepo, schedulePatientRepo, diagnosisPhotoRepo)
-	diagnosisService := service.NewDiagnosisService(schedulePatientRepo, diagnosisPhotoRepo, scheduleRepo)
+	diagnosisService := service.NewDiagnosisService(schedulePatientRepo, diagnosisPhotoRepo, scheduleRepo).
+		WithCheckinRepo(checkinRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)

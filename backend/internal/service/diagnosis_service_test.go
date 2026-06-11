@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"translator-checkin/internal/dto"
 	"translator-checkin/internal/model"
@@ -18,6 +19,7 @@ type diagFixture struct {
 	spRepo       *repository.SchedulePatientRepository
 	scheduleRepo *repository.ScheduleRepository
 	photoRepo    *repository.DiagnosisPhotoRepository
+	checkinRepo  *repository.CheckinRepository
 	scheduleSvc  *ScheduleService
 	patientRepo  *repository.PatientRepository
 	userRepo     *repository.UserRepository
@@ -25,6 +27,19 @@ type diagFixture struct {
 	other        *model.User
 	schedule     *model.Schedule
 	sp           *model.SchedulePatient
+}
+
+// seedLeaveCheckin records a "leave" check-in for the fixture's schedule so the
+// post-leave diagnosis lock activates.
+func (fx *diagFixture) seedLeaveCheckin(t *testing.T) {
+	t.Helper()
+	require.NoError(t, fx.checkinRepo.Create(&model.Checkin{
+		ScheduleID:   fx.schedule.ID,
+		TranslatorID: fx.translator.ID,
+		Type:         "leave",
+		CheckinTime:  time.Now(),
+		SelfieURL:    "/uploads/leave.jpg",
+	}))
 }
 
 func newDiagFixture(t *testing.T) *diagFixture {
@@ -65,10 +80,11 @@ func newDiagFixture(t *testing.T) *diagFixture {
 	require.NoError(t, err)
 
 	return &diagFixture{
-		svc:          NewDiagnosisService(spRepo, photoRepo, scheduleRepo),
+		svc:          NewDiagnosisService(spRepo, photoRepo, scheduleRepo).WithCheckinRepo(checkinRepo),
 		spRepo:       spRepo,
 		scheduleRepo: scheduleRepo,
 		photoRepo:    photoRepo,
+		checkinRepo:  checkinRepo,
 		scheduleSvc:  scheduleSvc,
 		patientRepo:  patientRepo,
 		userRepo:     userRepo,
@@ -229,6 +245,86 @@ func TestDiagnosisService_AdminDeletePhoto_NoOwnerCheck(t *testing.T) {
 	require.NoError(t, fx.svc.AdminDeletePhoto(ctx, items[0].ID))
 	remaining, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
 	assert.Len(t, remaining, 0)
+}
+
+// ─── no_show 清空殘留照片（按錯更正）────────────────────────────────────────
+
+func TestDiagnosisService_MarkNoShow_PurgesExistingPhotos(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg", "/uploads/b.jpg"}))
+
+	require.NoError(t, fx.svc.MarkNoShow(ctx, fx.translator.ID, fx.sp.ID, "patient no show"))
+
+	// no_show 後照片應被清空，狀態與原因正確。
+	photos, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, photos, 0)
+	reloaded, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, model.SchedulePatientStatusNoShow, reloaded.Status)
+	assert.Equal(t, "patient no show", reloaded.NoShowReason)
+}
+
+func TestDiagnosisService_AdminMarkNoShow_PurgesExistingPhotos(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.AdminUploadDiagnosis(ctx, fx.sp.ID, []string{"/uploads/a.jpg"}))
+
+	require.NoError(t, fx.svc.AdminMarkNoShow(ctx, fx.sp.ID, "admin no show"))
+
+	photos, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, photos, 0)
+	reloaded, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, model.SchedulePatientStatusNoShow, reloaded.Status)
+}
+
+// ─── 離開打卡後鎖定翻譯員的診斷修改（管理員例外）──────────────────────────────
+
+func TestDiagnosisService_UploadDiagnosis_LockedAfterLeave(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	fx.seedLeaveCheckin(t)
+	err := fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg"})
+	assert.True(t, errors.Is(err, ErrDiagnosisLockedAfterLeave))
+}
+
+func TestDiagnosisService_DeletePhoto_LockedAfterLeave(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg"}))
+	items, _ := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+	fx.seedLeaveCheckin(t)
+
+	err := fx.svc.DeletePhoto(ctx, fx.translator.ID, items[0].ID)
+	assert.True(t, errors.Is(err, ErrDiagnosisLockedAfterLeave))
+}
+
+func TestDiagnosisService_MarkNoShow_LockedAfterLeave(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	fx.seedLeaveCheckin(t)
+	err := fx.svc.MarkNoShow(ctx, fx.translator.ID, fx.sp.ID, "reason")
+	assert.True(t, errors.Is(err, ErrDiagnosisLockedAfterLeave))
+}
+
+func TestDiagnosisService_ListPhotoItems_AllowedAfterLeave(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg"}))
+	fx.seedLeaveCheckin(t)
+	// 唯讀仍允許（只是不能改）。
+	_, err := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+	require.NoError(t, err)
+}
+
+func TestDiagnosisService_AdminBypassesLockAfterLeave(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	fx.seedLeaveCheckin(t)
+	// 管理員不受離開鎖定限制。
+	require.NoError(t, fx.svc.AdminUploadDiagnosis(ctx, fx.sp.ID, []string{"/uploads/a.jpg"}))
+	items, _ := fx.svc.AdminListPhotoItems(ctx, fx.sp.ID)
+	require.Len(t, items, 1)
+	require.NoError(t, fx.svc.AdminDeletePhoto(ctx, items[0].ID))
 }
 
 // ─── Phase 4.4 CheckOut gating ──────────────────────────────────────────────

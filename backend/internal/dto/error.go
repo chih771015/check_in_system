@@ -67,17 +67,17 @@ const (
 	CodeReadRowsFailed        = "READ_ROWS_FAILED"
 
 	// Checkin
-	CodeCheckinNotFound       = "CHECKIN_NOT_FOUND"
-	CodeInvalidCheckinID      = "INVALID_CHECKIN_ID"
-	CodeScheduleNotOwned      = "SCHEDULE_NOT_OWNED"
-	CodeDuplicateCheckin      = "DUPLICATE_CHECKIN"
-	CodeArriveBeforeLeave     = "ARRIVE_BEFORE_LEAVE"
-	CodeArriveVerifyFailed    = "ARRIVE_VERIFY_FAILED"
-	CodeSelfieRequired        = "SELFIE_REQUIRED"
-	CodeEnvironmentRequired   = "ENVIRONMENT_PHOTO_REQUIRED"
-	CodeCheckinCreateFailed   = "CHECKIN_CREATE_FAILED"
-	CodeGoogleNotConfigured   = "GOOGLE_NOT_CONFIGURED"
-	CodeExportFailed          = "EXPORT_FAILED"
+	CodeCheckinNotFound     = "CHECKIN_NOT_FOUND"
+	CodeInvalidCheckinID    = "INVALID_CHECKIN_ID"
+	CodeScheduleNotOwned    = "SCHEDULE_NOT_OWNED"
+	CodeDuplicateCheckin    = "DUPLICATE_CHECKIN"
+	CodeArriveBeforeLeave   = "ARRIVE_BEFORE_LEAVE"
+	CodeArriveVerifyFailed  = "ARRIVE_VERIFY_FAILED"
+	CodeSelfieRequired      = "SELFIE_REQUIRED"
+	CodeEnvironmentRequired = "ENVIRONMENT_PHOTO_REQUIRED"
+	CodeCheckinCreateFailed = "CHECKIN_CREATE_FAILED"
+	CodeGoogleNotConfigured = "GOOGLE_NOT_CONFIGURED"
+	CodeExportFailed        = "EXPORT_FAILED"
 
 	// Patient
 	CodePatientNotFound  = "PATIENT_NOT_FOUND"
@@ -93,6 +93,7 @@ const (
 	CodeDiagnosisPhotoLimit        = "DIAGNOSIS_PHOTO_LIMIT"
 	CodeDiagnosisNotOwned          = "DIAGNOSIS_NOT_OWNED"
 	CodeDiagnosisPhotoNotFound     = "DIAGNOSIS_PHOTO_NOT_FOUND"
+	CodeDiagnosisLockedAfterLeave  = "DIAGNOSIS_LOCKED_AFTER_LEAVE"
 	CodeNoShowReasonRequired       = "NO_SHOW_REASON_REQUIRED"
 	CodeCheckoutBlockedByPending   = "CHECKOUT_BLOCKED_BY_PENDING"
 
