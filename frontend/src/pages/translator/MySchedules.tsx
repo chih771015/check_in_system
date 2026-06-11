@@ -139,13 +139,12 @@ export default function MySchedules() {
 
   /** Renders one patient row inside a schedule card. */
   const renderPatient = (s: ScheduleItem, p: SchedulePatient) => {
-    // Per-patient actions are relevant after translator has arrived AND the
-    // slot hasn't been finalised as `completed`. We deliberately allow
-    // actions on `no_show` so a translator can revise their decision (upload
-    // a photo flips status straight to completed; clicking no-show again
-    // lets them tweak the reason) — anything except completed is recoverable
-    // until the leave checkin is recorded.
-    const showActions = s.checkinStatus === 'arrived' && p.status !== 'completed';
+    // Per-patient actions are relevant once the translator has arrived. We
+    // intentionally also show actions on `completed` slots: the translator may
+    // need to add another photo or delete a wrong one via the manage modal —
+    // previously the buttons vanished after the first upload, trapping them.
+    // No-show stays available only while the slot isn't completed.
+    const showActions = s.checkinStatus === 'arrived';
     return (
       <div
         key={p.id}
@@ -174,11 +173,13 @@ export default function MySchedules() {
         {showActions && (
           <Space size="small" style={{ marginTop: 6 }} wrap>
             <Button size="small" type="primary" onClick={() => setDiagFor(p.id)}>
-              {t('diagnosis.upload')}
+              {p.status === 'completed' ? t('diagnosis.managePhotos') : t('diagnosis.upload')}
             </Button>
-            <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
-              {t('diagnosis.noShow')}
-            </Button>
+            {p.status !== 'completed' && (
+              <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
+                {t('diagnosis.noShow')}
+              </Button>
+            )}
           </Space>
         )}
       </div>

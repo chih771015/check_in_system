@@ -30,7 +30,12 @@ import { getTranslators } from '../../api/translators';
 import SchedulePatientListEditor from '../../components/SchedulePatientListEditor';
 import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
 import NoShowModal from '../../components/NoShowModal';
-import { adminUploadDiagnosis, adminMarkNoShow } from '../../api/checkins';
+import {
+  adminUploadDiagnosis,
+  adminMarkNoShow,
+  adminListDiagnosisPhotos,
+  adminDeleteDiagnosisPhoto,
+} from '../../api/checkins';
 import { getSchedulePatientPhotos } from '../../api/diagnosisResults';
 import { validatePatientTimes } from '../../utils/schedulePatient';
 import { extractApiError } from '../../utils/apiError';
@@ -714,6 +719,8 @@ export default function ScheduleManagement() {
           open={adminDiagFor !== null}
           schedulePatientId={adminDiagFor}
           upload={adminUploadDiagnosis}
+          listPhotos={adminListDiagnosisPhotos}
+          deletePhoto={adminDeleteDiagnosisPhoto}
           onClose={() => setAdminDiagFor(null)}
           onUploaded={() => {
             void fetchData();

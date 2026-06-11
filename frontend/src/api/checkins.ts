@@ -76,6 +76,44 @@ export function uploadDiagnosis(schedulePatientId: number, photos: File[]) {
     .then((r) => r.data);
 }
 
+/** One diagnosis photo with its row ID, returned by the list endpoints. */
+export interface DiagnosisPhotoItem {
+  id: number;
+  photoUrl: string;
+}
+
+/**
+ * listDiagnosisPhotos returns the existing diagnosis photos (with IDs) for a
+ * SchedulePatient owned by the current translator, so the manage modal can
+ * preview and delete specific photos.
+ */
+export function listDiagnosisPhotos(schedulePatientId: number) {
+  return client
+    .get<{ photos: DiagnosisPhotoItem[] }>('/checkins/diagnosis/photos', {
+      params: { schedulePatientId },
+    })
+    .then((r) => r.data.photos);
+}
+
+/** deleteDiagnosisPhoto removes one diagnosis photo owned by the translator. */
+export function deleteDiagnosisPhoto(photoId: number) {
+  return client.delete(`/checkins/diagnosis/photos/${photoId}`).then((r) => r.data);
+}
+
+/** Admin surrogate: list diagnosis photos for any SchedulePatient (with IDs). */
+export function adminListDiagnosisPhotos(schedulePatientId: number) {
+  return client
+    .get<{ photos: DiagnosisPhotoItem[] }>('/admin/diagnosis/photos', {
+      params: { schedulePatientId },
+    })
+    .then((r) => r.data.photos);
+}
+
+/** Admin surrogate: delete one diagnosis photo by ID. */
+export function adminDeleteDiagnosisPhoto(photoId: number) {
+  return client.delete(`/admin/diagnosis/photos/${photoId}`).then((r) => r.data);
+}
+
 /** markNoShow flips a SchedulePatient's status to no_show with a reason. */
 export function markNoShow(schedulePatientId: number, reason: string) {
   return client

@@ -307,6 +307,15 @@
     "statusCompleted": "เสร็จสิ้น",
     "statusNoShow": "ไม่มา",
     "pendingPatients": "รอดำเนินการ: {{count}}",
-    "viewPhotos": "ดูภาพ"
+    "viewPhotos": "ดูภาพ",
+    "managePhotos": "จัดการภาพใบรับรอง",
+    "existingPhotos": "ภาพที่อัปโหลดแล้ว",
+    "noPhotosYet": "ยังไม่มีการอัปโหลดภาพ",
+    "addPhotos": "เพิ่มภาพ",
+    "remainingSlots": "เพิ่มได้อีก {{count}} ภาพ",
+    "deletePhoto": "ลบภาพ",
+    "deletePhotoConfirm": "ต้องการลบภาพนี้หรือไม่?",
+    "photoDeleted": "ลบภาพแล้ว",
+    "done": "เสร็จสิ้น"
   }
 }

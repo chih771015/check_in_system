@@ -307,6 +307,15 @@
     "statusCompleted": "已完成",
     "statusNoShow": "未到",
     "pendingPatients": "待處理：{{count}}",
-    "viewPhotos": "查看照片"
+    "viewPhotos": "查看照片",
+    "managePhotos": "管理診斷證明照片",
+    "existingPhotos": "已上傳的照片",
+    "noPhotosYet": "尚未上傳任何照片",
+    "addPhotos": "新增照片",
+    "remainingSlots": "還可新增 {{count}} 張",
+    "deletePhoto": "刪除照片",
+    "deletePhotoConfirm": "確定要刪除這張照片嗎？",
+    "photoDeleted": "照片已刪除",
+    "done": "完成"
   }
 }
