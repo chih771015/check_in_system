@@ -15,7 +15,7 @@
 ## 3. 翻譯員頁（`pages/translator/`）
 | 檔案 | 路由 | 重點 |
 |------|------|------|
-| `MySchedules.tsx` | /my-schedules | 自己的排班；每病人可開 [DiagnosisUploadModal](../components/COMPONENTS_SPEC.md) / [NoShowModal]；打卡入口 |
+| `MySchedules.tsx` | /my-schedules | 自己的排班；每病人可開 [DiagnosisUploadModal](../components/COMPONENTS_SPEC.md)（completed 顯示「管理照片」仍可補傳/刪除）/ [NoShowModal]（僅未完成時）；打卡入口 |
 | `MyCheckins.tsx` | /my-checkins | 打卡歷史 + 統計 |
 | `CheckIn.tsx` | /checkin/:scheduleId/:type | **打卡頁**：自拍照 + GPS（用 [useGeolocation ★](../hooks/HOOKS_SPEC.md)）；送出 disabled until GPS success |
 | `MakeupCheckIn.tsx` | /makeup/:scheduleId/:type | 補打卡（+ 原因）|
@@ -25,7 +25,7 @@
 ## 4. 管理員頁（`pages/admin/`）
 | 檔案 | 路由 | 重點 |
 |------|------|------|
-| `TranslatorManagement.tsx` | /admin/translators | 翻譯員 CRUD + 停用 + 重設密碼（登入預設頁）|
+| `TranslatorManagement.tsx` | /admin/translators | 翻譯員 CRUD + 停用 + 重設密碼（登入預設頁）；新增失敗用 `extractApiError` 顯示後端原因（如重複 email → `EMAIL_TAKEN`）|
 | `AdminManagement.tsx` | /admin/admins | 管理員 CRUD（不可刪自己）|
 | `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁 |
 | `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史 |

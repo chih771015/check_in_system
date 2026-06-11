@@ -32,7 +32,7 @@ CreateBatch / FindByScheduleID / FindByID（preload Patient）/ DeleteBySchedule
 FindByScheduleID / **FindByScheduleAndType**（重複打卡 + arrive-before-leave 的關鍵查詢）/ Create / FindByID / UpdateFields(map) / Delete / DeleteByScheduleID(s) / ListAll(ListAllParams: date/translator/type/isMakeup)。
 
 ### DiagnosisPhotoRepository
-Create / FindBySchedulePatientID（order by uploaded_at）/ CountBySchedulePatientID（上限檢查用）。
+Create / FindBySchedulePatientID（order by uploaded_at）/ CountBySchedulePatientID（上限檢查用）/ **FindByID** / **Delete(id)**（單張刪除，service 再決定是否退回 pending）。
 
 ### PatientRepository
 Create / Update / Delete / FindByID / **FindByIDTypeAndNumber**（唯一性檢查）/ List(search,page) / **ListForTranslator**（scope 限縮：只回該翻譯員排班內病人）。

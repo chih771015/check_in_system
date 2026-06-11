@@ -214,6 +214,11 @@
 - 翻譯員只能操作自己排班下的病人（ownership 驗證）。
 - 管理員代理：`POST /api/admin/diagnosis`、`POST /api/admin/no-show`（無 ownership 限制）。
 - 照片上限 3 張：超過回 `DIAGNOSIS_PHOTO_LIMIT`。
+- **照片管理（上傳後可刪除 / 補傳）✅（2026-06-11 新增）**：
+  - `GET /api/checkins/diagnosis/photos?schedulePatientId=`：列出既有照片（含 id）。
+  - `DELETE /api/checkins/diagnosis/photos/:photoId`：刪除單張（best-effort 連磁碟檔一起刪）。
+  - 管理員代理：`GET/DELETE /api/admin/diagnosis/photos[...]`。
+  - 首次只選一張仍可事後補傳；完成後在「管理照片」中增刪。**刪到一張不剩 → status 退回 `pending`**（可重新補傳或標 no_show）。
 - 與離開打卡連動：所有病人 completed/no_show 後才能離開（見 8.1）。
 
 **診斷結果總覽（Admin）✅**
@@ -285,7 +290,7 @@
 | 使用者規模 | < 100 人 | — |
 | RWD / 手機優先 | 翻譯員主要用手機 | ✅（responsive E2E）|
 | 安全 | HTTPS、JWT（HS256，secret 須 ≥32 字且非預設，否則拒絕開機）、bcrypt、lockout | ✅ |
-| 照片 | 多檔上傳存本機 `uploads/`，靜態服務 `/uploads`；保留 `PHOTO_RETENTION_DAYS`（預設 90）天後 cron 清除 | ✅ |
+| 照片 | 多檔上傳存本機 `uploads/`，靜態服務 `/uploads`；**預設永久保存（`PHOTO_RETENTION_DAYS=0`，不自動刪）**，設正整數才會於每日 03:00 cron 清除 | ✅ |
 | 物件儲存（S3/GCS）| 原規劃雲端儲存 | ⬜（目前本機檔案系統）|
 | 照片 URL 簽名 | 防未授權存取 | ⬜（目前靜態路徑可直接存取）|
 | Tracing | OpenTelemetry → OTLP/gRPC → Jaeger；SQL/HTTP span，PII 清洗 | ✅ |

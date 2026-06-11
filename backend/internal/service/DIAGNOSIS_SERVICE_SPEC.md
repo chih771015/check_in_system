@@ -4,8 +4,9 @@
 > 上層：[service overview](SERVICE_SPEC.md) ← [ARCHITECTURE_SPEC.md](../../../ARCHITECTURE_SPEC.md)
 
 ## 1. 定位與職責
-逐 **SchedulePatient** 的服務結果：上傳診斷證明照片（≤3）標記 `completed`、標記 `no_show`（需原因）、查詢照片、**診斷結果總覽（分頁 + 篩選）**。translator 操作需 ownership；admin 有 surrogate 變體（無 ownership 檢查）。
+逐 **SchedulePatient** 的服務結果：上傳診斷證明照片（≤3）標記 `completed`、標記 `no_show`（需原因）、查詢照片（含 id，供刪除）、**刪除單張照片（可再補傳）**、**診斷結果總覽（分頁 + 篩選）**。translator 操作需 ownership；admin 有 surrogate 變體（無 ownership 檢查）。
 - **不做**：照片存檔（handler 存好 URL 才呼叫）、打卡（CheckinService，但兩者透過 SchedulePatient.status 連動）。
+- **做**：刪除照片時 best-effort 移除磁碟檔（`removeUploadedFile`，失敗只記 log 不阻擋）。
 
 ## 2. 對外契約
 | 方法 | ownership | 說明 |
@@ -15,9 +16,13 @@
 | `AdminUploadDiagnosis(ctx,spID,urls)` | ✗ | 代理上傳 |
 | `AdminMarkNoShow(ctx,spID,reason)` | ✗ | 代理標記 |
 | `GetPhotos(ctx,spID)` | ✗ | 回照片 URL（upload time 排序）|
+| `ListPhotoItems(ctx,translatorID,spID)` | ✅ | 回照片**含 id**（`DiagnosisPhotoItem`），供管理 modal 刪除 |
+| `AdminListPhotoItems(ctx,spID)` | ✗ | 代理版（無 ownership）|
+| `DeletePhoto(ctx,translatorID,photoID)` | ✅ | 刪一張照片 + best-effort 刪檔；歸零時 status 退回 pending |
+| `AdminDeletePhoto(ctx,photoID)` | ✗ | 代理刪除 |
 | `ListResults(ctx,query)` | ✗ | terminal(completed/no_show) 總覽，分頁 |
 
-常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrNoShowReasonRequired`。
+常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrNoShowReasonRequired`。
 
 ## 3. 狀態模型（SchedulePatient.status）
 
@@ -27,11 +32,13 @@ stateDiagram-v2
   [*] --> pending: 排班建立時
   pending --> completed: UploadDiagnosis (≥1 photo)
   pending --> no_show: MarkNoShow (reason 必填)
-  completed --> completed: 再上傳 (累計≤3) / admin 重傳
+  completed --> completed: 再上傳 (累計≤3) / admin 重傳 / 刪除但仍有照片
   no_show --> completed: admin/translator 補上傳 (status 被覆寫)
   completed --> no_show: MarkNoShow 覆寫
+  completed --> pending: DeletePhoto 刪到一張不剩
 ```
 > status 轉換**無單向限制**：upload 一律覆寫成 completed、no_show 一律覆寫成 no_show（允許更正）。
+> **刪除照片**：仍有照片 → 維持 completed；刪到歸零 → 退回 pending（讓該 slot 可重新補傳或標記未到）。
 
 ### 3c. 不變式
 | 不變式 | 保證 |
@@ -66,6 +73,9 @@ sequenceDiagram
 | 非自己排班 | translator upload/no_show | `DIAGNOSIS_NOT_OWNED` (403) |
 | 既有+新 > 3 | upload | `DIAGNOSIS_PHOTO_LIMIT` (400) |
 | no_show 無 reason | no_show | `NO_SHOW_REASON_REQUIRED` (400) |
+| photoID 不存在 | delete | `DIAGNOSIS_PHOTO_NOT_FOUND` (404) |
+| 刪非自己排班的照片 | translator delete | `DIAGNOSIS_NOT_OWNED` (403) |
+| 刪最後一張 | delete | status 退回 `pending` |
 | admin 代理 | Admin* | 跳過 ownership |
 | ListResults 含 pending | ListResults | **排除**（只回 completed/no_show）|
 

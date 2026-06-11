@@ -19,7 +19,7 @@
 | **AuthService** | login + lockout、改密碼重簽 JWT、admin reset | [重型 ★](AUTH_SERVICE_SPEC.md) |
 | **CheckinService** | 打卡守衛、逾時自動 makeup、leave 阻擋 pending、統計 | [重型 ★](CHECKIN_SERVICE_SPEC.md) |
 | **ScheduleService** | 多病人 transaction、週期展開、批次匯入 V1/V2 | [重型 ★](SCHEDULE_SERVICE_SPEC.md) |
-| **DiagnosisService** | 逐病人照片(≤3)/no_show、ownership、結果總覽 | [重型 ★](DIAGNOSIS_SERVICE_SPEC.md) |
+| **DiagnosisService** | 逐病人照片(≤3) 上傳/刪除/再補傳、no_show、ownership、結果總覽 | [重型 ★](DIAGNOSIS_SERVICE_SPEC.md) |
 | PatientService | CRUD、id_number 正規化、(idType,idNumber) 唯一、translator scope、就診歷史 | 本檔 §3 |
 | TranslatorService | translator CRUD / disable（軟停用）| 本檔 §3 |
 | AdminService | admin CRUD、不可刪自己、seed | 本檔 §3 |
@@ -61,8 +61,9 @@
 - `Send(to,subject,body,*Attachment)`：需 `SMTP_HOST`+`SMTP_FROM`，未設定回錯（不靜默成功）。支援單一 base64 附件、RFC2047 中文主旨。
 
 ### CleanupService（`cleanup_service.go`）
-- `RunPhotoCleanup`：walk `UPLOAD_DIR`，刪除 mtime 早於 `PHOTO_RETENTION_DAYS`（預設90）的影像檔（限 jpg/png/gif/webp）。每日 03:00 cron。
-- ⚠️ 純依檔案 mtime，**不檢查是否仍被 DB 引用**；保留期需大於業務查詢期。
+- `RunPhotoCleanup`：walk `UPLOAD_DIR`，刪除 mtime 早於 `PHOTO_RETENTION_DAYS` 的影像檔（限 jpg/png/gif/webp）。每日 03:00 cron。
+- **`PHOTO_RETENTION_DAYS=0`（預設）= 永久保存**：直接 log 並 return，永不刪除任何檔案。只有設正整數才會清。
+- ⚠️ 設正整數時純依檔案 mtime，**不檢查是否仍被 DB 引用**；保留期需大於業務查詢期。
 
 ### AuditService（`audit_service.go`）
 - `Log(ctx,adminID,action,targetType,targetID,detail)`：補 admin_name 後寫入；**錯誤吞掉**（稽核不得阻斷主流程）。

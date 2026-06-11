@@ -94,7 +94,7 @@
 | 2.2.3 | 缺少 password | 400，驗證錯誤 |
 | 2.2.4 | 缺少 name | 400，驗證錯誤 |
 | 2.2.5 | email 格式不合法 | 400，email 格式錯誤 |
-| 2.2.6 | 重複的 email | 400，"email already exists" |
+| 2.2.6 | 重複的 email | ✏️ **409，`EMAIL_TAKEN`**（前端須顯示「此 Email 已被使用」，不可吞成籠統失敗）|
 | 2.2.7 | 密碼少於 6 字元 | 400，驗證錯誤 |
 | 2.2.8 | 不帶 phone（選填欄位） | 201，建立成功，phone 為空 |
 | 2.2.9 | 新建翻譯員的 role 為 "translator" | DB 中 role = "translator" |
@@ -584,10 +584,10 @@
 
 | # | 測試項目 | 預期結果 |
 |---|---------|---------|
-| 9.2.1 | 超過 retention 的照片被刪除 | 檔案消失 |
+| 9.2.1 | 設正整數 retention 時，超過期限的照片被刪除 | 檔案消失 |
 | 9.2.2 | 未超過 retention 的照片保留 | 檔案存在 |
-| 9.2.3 | PHOTO_RETENTION_DAYS 預設 90 天 | 90 天前照片被刪 |
-| 9.2.4 | 自訂 PHOTO_RETENTION_DAYS | 依設定執行 |
+| 9.2.3 | ✏️ **PHOTO_RETENTION_DAYS 預設 0 = 永久保存** | 連極舊照片都不刪；log「permanent retention, skipping」 |
+| 9.2.4 | 自訂正整數 PHOTO_RETENTION_DAYS | 依設定執行 |
 
 ### 9.3 定期匯出 (每日 08:00)
 
@@ -729,10 +729,13 @@
 | # | 測試項目 | 預期結果 |
 |---|---------|---------|
 | 10.13.1 | DiagnosisUploadModal 未選檔時送出禁用 | 按鈕 disabled |
-| 10.13.2 | 選檔超過 3 張自動截斷並提示（不擋送出） | 最多 3 張 |
-| 10.13.3 | 選 1~3 張可送出並呼叫 upload | 觸發上傳 |
-| 10.13.4 | NoShowModal 原因空白時送出禁用 | 按鈕 disabled |
-| 10.13.5 | NoShowModal 填原因後可送出並呼叫 markNoShow | 觸發 |
+| 10.13.2 | 開啟時載入既有照片清單（呼叫 listPhotos） | 顯示縮圖或「尚未上傳」 |
+| 10.13.3 | 選檔超過剩餘額度自動截斷並提示（不擋送出） | 上限 = 3 − 既有張數 |
+| 10.13.4 | 選 1~N 張可送出並呼叫 upload；送出後不自動關閉、重新載入清單 | 觸發上傳 + 通知父層 |
+| 10.13.5 | 既有照片可逐張刪除（Popconfirm → deletePhoto(id)） | 觸發刪除 + 通知父層 |
+| 10.13.6 | NoShowModal 原因空白時送出禁用 | 按鈕 disabled |
+| 10.13.7 | NoShowModal 填原因後可送出並呼叫 markNoShow | 觸發 |
+| 10.13.8 | MySchedules：completed 病人顯示「管理照片」仍可開 modal | 按鈕不消失 |
 
 ### 10.14 管理員 / 診斷結果頁 ✏️
 
@@ -944,6 +947,21 @@
 | 14.5.2 | 尚無上傳 | 回空陣列 |
 | 14.5.3 | SchedulePatient 不存在 | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
 
+### 14.6 診斷照片管理（刪除 / 補傳）✏️（2026-06-11 新增）
+
+`GET /api/checkins/diagnosis/photos`、`DELETE /api/checkins/diagnosis/photos/:photoId`（admin 對應 `/admin/diagnosis/photos[...]`）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.6.1 | 列出含 id 的照片（自己排班） | 200，`{photos:[{id,photoUrl}]}` |
+| 14.6.2 | 列出非自己排班的照片 | 403，`DIAGNOSIS_NOT_OWNED` |
+| 14.6.3 | 刪除一張、仍有其他照片 | 200，slot 維持 `completed` |
+| 14.6.4 | 刪除最後一張 | 200，slot 退回 `pending` |
+| 14.6.5 | 刪非自己排班的照片 | 403，`DIAGNOSIS_NOT_OWNED` |
+| 14.6.6 | photoId 不存在 | 404，`DIAGNOSIS_PHOTO_NOT_FOUND` |
+| 14.6.7 | 刪除後額度回收可再補傳（≤3） | 上傳成功 |
+| 14.6.8 | 管理員代理列表/刪除（無 ownership）+ 寫 audit | 成功 + audit_logs 有紀錄 |
+
 ---
 
 ## 附錄 A：測試統計
@@ -958,13 +976,13 @@
 | 稽核紀錄 | 26 |
 | 中介層與安全性 | 21 |
 | 追蹤 (Jaeger) | 13 |
-| Cron 排程 | 12 |
-| 前端 UI | 55 |
+| Cron 排程 | 12（含永久保存）|
+| 前端 UI | 58（含診斷照片管理）|
 | 管理員帳號管理 | 13 |
 | 病人管理 | 23 |
 | 多病人排班 | 21 |
-| 診斷證明 / 未到 / 結果 | 24 |
-| **合計** | **396** |
+| 診斷證明 / 未到 / 結果 | 32（含照片刪除/補傳）|
+| **合計** | **~410** |
 
 ---
 

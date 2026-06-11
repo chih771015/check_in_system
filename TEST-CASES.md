@@ -286,7 +286,7 @@ TRANS_TOKEN = （登入後取得）
 | **名稱** | 用已存在的 email 建立翻譯員 |
 | **前置條件** | trans1@test.com 已存在 |
 | **測試步驟** | 1. Body: `{"email":"trans1@test.com","password":"Pass1234","name":"重複"}` |
-| **預期結果** | HTTP 400，`{"error":"email already exists"}` |
+| **預期結果** | HTTP **409**，`{"code":"EMAIL_TAKEN","message":...}`；前端「翻譯員管理」新增表單須**顯示**該訊息（zh-TW「此 Email 已被使用」），不可吞成籠統「失敗」 |
 
 ### TC-TM-005：建立 — 密碼太短
 
@@ -1202,15 +1202,25 @@ TRANS_TOKEN = （登入後取得）
 | **測試步驟** | 1. 等待 cron tick |
 | **預期結果** | 不觸發匯出 |
 
-### TC-CRON-004：照片清理
+### TC-CRON-004：照片清理（僅在設定正整數保留天數時）
 
 | 項目 | 內容 |
 |------|------|
 | **ID** | TC-CRON-004 |
-| **名稱** | 超過 retention 期限的照片被清理 |
-| **前置條件** | uploads 目錄有超過 PHOTO_RETENTION_DAYS 的照片 |
+| **名稱** | 設定正整數保留天數時，超過期限的照片被清理 |
+| **前置條件** | `PHOTO_RETENTION_DAYS` 設為正整數 N，uploads 目錄有超過 N 天的照片 |
 | **測試步驟** | 1. 等待 03:00 cron tick |
 | **預期結果** | 1. 過期照片被刪除<br>2. 未過期照片保留 |
+
+### TC-CRON-004b：永久保存（預設）
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-CRON-004b |
+| **名稱** | `PHOTO_RETENTION_DAYS=0`（預設）時永不刪除 |
+| **前置條件** | `PHOTO_RETENTION_DAYS=0`，uploads 目錄有非常舊（如 6 年前）的照片 |
+| **測試步驟** | 1. 觸發 `RunPhotoCleanup` |
+| **預期結果** | 不刪除任何檔案；log 記「permanent retention, skipping」（對應單元測試 `TestCleanupService_PermanentWhenRetentionZero`）|
 
 ### TC-CRON-005：排班提醒
 
@@ -1840,6 +1850,35 @@ TRANS_TOKEN = （登入後取得）
 | **測試步驟** | 1. 有照片<br>2. 無照片<br>3. sp 不存在 |
 | **預期結果** | 1. 回 URL 陣列（依上傳時間）<br>2. 回空陣列<br>3. 404 `SCHEDULE_PATIENT_NOT_FOUND` |
 
+### TC-DX-011：列出含 id 的照片（管理用）
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-011 |
+| **名稱** | GET /api/checkins/diagnosis/photos?schedulePatientId= |
+| **測試步驟** | 1. 自己排班：有/無照片<br>2. 非自己排班 |
+| **預期結果** | 1. 回 `{photos:[{id,photoUrl}]}`（含 id）/ 空陣列<br>2. 403 `DIAGNOSIS_NOT_OWNED` |
+
+### TC-DX-012：刪除照片 + 狀態退回
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-012 |
+| **名稱** | DELETE /api/checkins/diagnosis/photos/:photoId |
+| **測試步驟** | 1. 刪一張但仍有其他照片<br>2. 刪到一張不剩<br>3. 刪非自己排班的照片<br>4. photoId 不存在 |
+| **預期結果** | 1. 200，slot 維持 `completed`<br>2. 200，slot 退回 `pending`<br>3. 403 `DIAGNOSIS_NOT_OWNED`<br>4. 404 `DIAGNOSIS_PHOTO_NOT_FOUND` |
+
+### TC-DX-013：刪除後再補傳
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-013 |
+| **名稱** | 上傳一張 → 補傳 → 刪除 → 再補傳（額度回收）|
+| **測試步驟** | 1. 上傳 1 張<br>2. 再上傳 1 張（共 2）<br>3. 刪 1 張<br>4. 再上傳 1 張 |
+| **預期結果** | 各步成功；任一時刻照片數 ≤ 3，刪除會釋放額度可再傳（對應 e2e `diagnosis-manage.spec.ts`）|
+
+> 管理員代理變體：`GET/DELETE /api/admin/diagnosis/photos[...]` 行為同上但跳過 ownership，並寫 audit log。
+
 ---
 
 ## 附錄 A：測試案例統計
@@ -1854,15 +1893,15 @@ TRANS_TOKEN = （登入後取得）
 | TC-AUD：稽核紀錄 | 5 |
 | TC-MW：中介層與權限 | 6 |
 | TC-TRACE：追蹤 | 5 |
-| TC-CRON：排程任務 | 5 |
+| TC-CRON：排程任務 | 6（含 TC-CRON-004b 永久保存）|
 | TC-SEC：安全性 | 6 |
 | TC-E2E：端對端流程 | 7 |
 | TC-UI：前端 UI | 10 大項 (40+ 子項) + 5 新元件 |
 | TC-ADM：管理員帳號管理 | 6 |
 | TC-PT：病人管理 | 10 |
 | TC-SCP：多病人排班 | 10 |
-| TC-DX：診斷證明 / 未到 / 結果 | 10 |
-| **合計** | **~210 案例** |
+| TC-DX：診斷證明 / 未到 / 結果 | 13（含照片刪除/補傳）|
+| **合計** | **~214 案例** |
 
 ## 附錄 B：優先級分級
 
@@ -1889,6 +1928,8 @@ TRANS_TOKEN = （登入後取得）
 - TC-PT-001~010（病人 CRUD + 歷史 + scope）
 - TC-SCP-009~010（向後相容 + Excel V2 匯入）
 - TC-DX-008~010（診斷結果總覽 + 單一病人照片）
+- TC-DX-011~013（診斷照片管理：列表含 id / 刪除 + 狀態退回 / 刪除後再補傳）
+- TC-TM-004（重複 email → 409 EMAIL_TAKEN 且前端顯示訊息）
 - TC-E2E-002~007（其他端對端流程）
 
 ### 🟢 P2 — 一般

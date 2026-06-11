@@ -18,7 +18,7 @@
 | `patient.go` | Patient CRUD、list query（search/page）、history、response（camelCase）|
 | `schedule.go` | CreateScheduleRequest（含 `Patients []SchedulePatientPayload`、recurrence）、Update（指標 + `*[]Payload`）、ScheduleResponse、SchedulePatientResponse |
 | `checkin.go` | CheckinRequest、CheckinMakeupRequest、AdminUpdateCheckinRequest（指標）、CheckinResponse、AdminListParams 對應 |
-| `diagnosis_result.go` | DiagnosisResultsQuery / Response / Entry（分頁 + 篩選）|
+| `diagnosis_result.go` | DiagnosisResultsQuery / Response / Entry（分頁 + 篩選）、**DiagnosisPhotoItem{id,photoUrl}**（管理 modal 依 id 刪除）|
 
 ## 3. 錯誤碼契約（最關鍵）
 `error.go` 是**前後端 i18n 的單一真實來源**：code 為 `SCREAMING_SNAKE_CASE`，前端對應 `errors.<CODE>`。

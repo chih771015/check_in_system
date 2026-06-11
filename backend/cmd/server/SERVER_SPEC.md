@@ -34,6 +34,7 @@ stateDiagram-v2
 - `/api/auth/*` public（login）/ JWTAuth（change-password）。
 - `/api/admin/*`：JWTAuth → RequirePasswordChanged → RoleRequired("admin")。
 - translator 群組（`/schedules`、`/checkins*`、`/patients`）：…RoleRequired("translator")。
+  - 診斷照片管理：`GET /checkins/diagnosis/photos?schedulePatientId=`（列出含 id）、`DELETE /checkins/diagnosis/photos/:photoId`（刪除）。list 刻意用 query param，避免與 `:photoId` 造成 gin wildcard 衝突；admin 端對應 `GET/DELETE /admin/diagnosis/photos[...]`。
 - 守衛細節見 [middleware spec](../../internal/middleware/MIDDLEWARE_SPEC.md)。
 
 ## 5. Cron 排程（3 個）
@@ -41,7 +42,7 @@ stateDiagram-v2
 |------|------|--------------|
 | `0 8 * * *` | 定期匯出：當天符合 day_of_month 的設定 → 上月報表 email | ExportService.RunExportForAdmin |
 | `0 7 * * *` | 明日排程提醒（LINE+Email）| NotificationService.SendScheduleReminders |
-| `0 3 * * *` | 清除逾期照片 | CleanupService.RunPhotoCleanup |
+| `0 3 * * *` | 清除逾期照片（**預設 no-op**：`PHOTO_RETENTION_DAYS=0` 表永久保存；只有設正整數才會清）| CleanupService.RunPhotoCleanup |
 
 每個 cron tick 開**獨立 root span**（`cron.*`），讓 Jaeger 每次執行成一條 trace。
 

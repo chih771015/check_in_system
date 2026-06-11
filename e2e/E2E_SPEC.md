@@ -49,11 +49,12 @@ Playwright (e2e/) ──HTTP──▶ frontend :3001 (nginx) ──/api──▶
 | spec | 流程 |
 |------|------|
 | auth | 登入 / 改密碼 / 停用帳號被擋 / 鎖定 |
-| translator-mgmt | 翻譯員 CRUD + 重設密碼 |
+| translator-mgmt | 翻譯員 CRUD + 重設密碼 + **重複 email 顯示 EMAIL_TAKEN 訊息** |
 | schedule-crud / schedule-validation | 排班建立、多病人、時段驗證 |
 | translator-checkin | 到達/離開打卡流程 |
 | makeup-checkin | 補打卡 + 原因 |
-| diagnosis-flow | 逐病人診斷上傳 / no_show |
+| diagnosis-flow | 逐病人診斷上傳 / no_show（admin 結果總覽）|
+| diagnosis-manage | **診斷照片上傳 → 補傳 → 刪除 → 刪光退回 pending（API 層，避開打卡 UI）+ 刪不存在回 404** |
 | patient-history | 病人就診歷史 |
 | export | Excel 匯出 |
 | errors | 錯誤碼 → i18n 訊息 |

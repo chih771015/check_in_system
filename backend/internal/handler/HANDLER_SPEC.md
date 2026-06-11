@@ -15,7 +15,7 @@ HTTP 邊界轉接層：bind DTO、取 context（userID/role）、存上傳檔、
 | patient_handler | /admin/patients CRUD + history、/patients(translator) |
 | schedule_handler | /admin/schedules CRUD + import + group delete、/schedules(translator) |
 | checkin_handler | /checkins、/checkins/makeup、/checkins、/checkins/stats、/admin/checkins、/admin/export/excel、google-sheet |
-| diagnosis_handler | /checkins/diagnosis、/checkins/no-show、/admin/diagnosis、/admin/no-show、/admin/diagnosis-results、/admin/schedule-patients/:id/photos |
+| diagnosis_handler | /checkins/diagnosis、/checkins/diagnosis/photos（GET 列表 ?schedulePatientId / DELETE :photoId）、/checkins/no-show、/admin/diagnosis、/admin/diagnosis/photos（GET 列表 / DELETE :photoId）、/admin/no-show、/admin/diagnosis-results、/admin/schedule-patients/:id/photos |
 | export_schedule_handler | /admin/export/schedule (get/upsert/run) |
 | audit_handler | /admin/audit-logs |
 | error_mapper | 共用錯誤轉換（非 handler，是工具）|

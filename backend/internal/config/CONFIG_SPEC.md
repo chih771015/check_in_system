@@ -19,7 +19,7 @@
 | SMTP_HOST/PORT/USER/PASSWORD/FROM | ""/587/""/""/"" | 寄信（MailService）|
 | MAX_LOGIN_ATTEMPTS | 5 | lockout 門檻 |
 | LOCK_DURATION_MINUTES | 15 | lockout 時長 |
-| PHOTO_RETENTION_DAYS | 90 | 照片清除保留期 |
+| PHOTO_RETENTION_DAYS | 0 | 照片清除保留期；**0 = 永久保存（預設，不自動刪）**，正整數才會在每日 03:00 清 |
 | ADMIN_DEFAULT_PASSWORD | "" | seed admin 密碼（空則隨機產生並 log）|
 | LINE_CHANNEL_ACCESS_TOKEN | "" | LINE push |
 

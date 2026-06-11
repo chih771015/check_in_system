@@ -21,7 +21,8 @@ typeahead `Select`：mount 載入病人、輸入時 **debounce 250ms** 重查（
 - 用 `clampPatientTimes`（[utils](../FRONTEND_SPEC.md)）把時段夾進整體範圍，前端先擋 `PATIENT_TIME_OUT_OF_RANGE`。
 
 ### DiagnosisUploadModal.tsx
-上傳 ≤3 張診斷照片到一個 SchedulePatient（multipart）。`MAX_PHOTOS=3` 前端先擋（後端 `DIAGNOSIS_PHOTO_LIMIT` 為最終守衛）。`upload` 可注入（測試）。成功 → `onUploaded()`。
+管理一個 SchedulePatient 的 ≤3 張診斷照片：開啟時載入既有照片（縮圖 + 逐張刪除 Popconfirm）、依**剩餘額度**（3 − 既有張數）新增上傳。`MAX_PHOTOS=3` 前端先擋（後端 `DIAGNOSIS_PHOTO_LIMIT` 為最終守衛）。上傳/刪除後重新載入清單並 `onUploaded()`，**modal 維持開啟**可連續操作。`upload`/`listPhotos`/`deletePhoto` 皆可注入（預設翻譯員 API；admin 端注入 `admin*` 變體）。
+> 取代了舊的「上傳即關閉、無法再管理」行為 — 翻譯員首次只選一張後仍能補傳或刪除（2026-06-11）。
 
 ### NoShowModal.tsx
 輸入 no-show 原因並標記。原因必填：**前端 disable 送出**給即時回饋，後端 `NO_SHOW_REASON_REQUIRED` 為最終守衛。`markNoShow` 可注入。
