@@ -43,7 +43,9 @@ export default function MySchedules() {
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   // Modal state — null means closed; non-null is the SchedulePatient.id.
+  // diagReadOnly: opened in view-only mode (e.g. after leave check-in).
   const [diagFor, setDiagFor] = useState<number | null>(null);
+  const [diagReadOnly, setDiagReadOnly] = useState(false);
   const [noShowFor, setNoShowFor] = useState<number | null>(null);
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -139,12 +141,11 @@ export default function MySchedules() {
 
   /** Renders one patient row inside a schedule card. */
   const renderPatient = (s: ScheduleItem, p: SchedulePatient) => {
-    // Per-patient actions are relevant once the translator has arrived. We
-    // intentionally also show actions on `completed` slots: the translator may
-    // need to add another photo or delete a wrong one via the manage modal —
-    // previously the buttons vanished after the first upload, trapping them.
-    // No-show stays available only while the slot isn't completed.
-    const showActions = s.checkinStatus === 'arrived';
+    // The translator can EDIT diagnosis only while arrived (before leave). Once
+    // they have done their leave check-in, the slot is read-only: they may still
+    // view status & photos but can no longer modify them (only an admin can).
+    // The backend enforces the same lock (DIAGNOSIS_LOCKED_AFTER_LEAVE).
+    const canEdit = s.checkinStatus === 'arrived';
     return (
       <div
         key={p.id}
@@ -170,18 +171,41 @@ export default function MySchedules() {
             — {p.noShowReason}
           </div>
         )}
-        {showActions && (
-          <Space size="small" style={{ marginTop: 6 }} wrap>
-            <Button size="small" type="primary" onClick={() => setDiagFor(p.id)}>
-              {p.status === 'completed' ? t('diagnosis.managePhotos') : t('diagnosis.upload')}
-            </Button>
-            {p.status !== 'completed' && (
-              <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
-                {t('diagnosis.noShow')}
+        <Space size="small" style={{ marginTop: 6 }} wrap>
+          {canEdit ? (
+            <>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => {
+                  setDiagReadOnly(false);
+                  setDiagFor(p.id);
+                }}
+              >
+                {p.status === 'completed' ? t('diagnosis.managePhotos') : t('diagnosis.upload')}
               </Button>
-            )}
-          </Space>
-        )}
+              {p.status !== 'completed' && (
+                <Button size="small" danger onClick={() => setNoShowFor(p.id)}>
+                  {t('diagnosis.noShow')}
+                </Button>
+              )}
+            </>
+          ) : (
+            // After leave (or before arrive): read-only. Offer a view button only
+            // when there is something to view (completed slots have photos).
+            p.status === 'completed' && (
+              <Button
+                size="small"
+                onClick={() => {
+                  setDiagReadOnly(true);
+                  setDiagFor(p.id);
+                }}
+              >
+                {t('diagnosis.viewPhotos')}
+              </Button>
+            )
+          )}
+        </Space>
       </div>
     );
   };
@@ -266,6 +290,7 @@ export default function MySchedules() {
         <DiagnosisUploadModal
           open={diagFor !== null}
           schedulePatientId={diagFor}
+          readOnly={diagReadOnly}
           onClose={() => setDiagFor(null)}
           onUploaded={fetchSchedules}
         />

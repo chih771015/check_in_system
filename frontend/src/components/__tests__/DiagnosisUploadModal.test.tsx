@@ -14,7 +14,7 @@ function makeFile(name: string) {
   return new File(['data'], name, { type: 'image/jpeg' });
 }
 
-function setup(existing: DiagnosisPhotoItem[] = []) {
+function setup(existing: DiagnosisPhotoItem[] = [], readOnly = false) {
   const onClose = vi.fn();
   const onUploaded = vi.fn();
   uploadMock.mockReset();
@@ -28,6 +28,7 @@ function setup(existing: DiagnosisPhotoItem[] = []) {
       <DiagnosisUploadModal
         open
         schedulePatientId={42}
+        readOnly={readOnly}
         onClose={onClose}
         onUploaded={onUploaded}
         upload={uploadMock}
@@ -111,5 +112,16 @@ describe('DiagnosisUploadModal', () => {
 
     await vi.waitFor(() => expect(deletePhotoMock).toHaveBeenCalledWith(7));
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
+  });
+
+  it('read-only mode shows photos but no add input and no delete buttons', async () => {
+    setup([{ id: 7, photoUrl: '/uploads/x.jpg' }], true);
+
+    // Photos are listed (read-only title).
+    expect(await screen.findByText('View Photos')).toBeInTheDocument();
+    // No "add photos" file input and no delete buttons in read-only mode.
+    expect(document.querySelector('input[type="file"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete photo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
   });
 });

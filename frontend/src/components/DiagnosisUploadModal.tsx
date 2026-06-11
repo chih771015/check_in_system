@@ -20,6 +20,12 @@ interface DiagnosisUploadModalProps {
   upload?: (spID: number, files: File[]) => Promise<unknown>;
   listPhotos?: (spID: number) => Promise<DiagnosisPhotoItem[]>;
   deletePhoto?: (photoId: number) => Promise<unknown>;
+  /**
+   * View-only mode: show the photos but hide all edit affordances (add + delete).
+   * Used e.g. for a translator after they have done their leave check-in — they
+   * can still review status & photos but can no longer modify them.
+   */
+  readOnly?: boolean;
 }
 
 const MAX_PHOTOS = 3;
@@ -41,6 +47,7 @@ export default function DiagnosisUploadModal({
   upload = defaultUpload,
   listPhotos = defaultListPhotos,
   deletePhoto = defaultDeletePhoto,
+  readOnly = false,
 }: DiagnosisUploadModalProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -112,7 +119,7 @@ export default function DiagnosisUploadModal({
 
   return (
     <Modal
-      title={t('diagnosis.managePhotos')}
+      title={readOnly ? t('diagnosis.viewPhotos') : t('diagnosis.managePhotos')}
       open={open}
       onCancel={onClose}
       footer={[
@@ -144,29 +151,32 @@ export default function DiagnosisUploadModal({
                     height={88}
                     style={{ objectFit: 'cover', borderRadius: 6 }}
                   />
-                  <Popconfirm
-                    title={t('diagnosis.deletePhotoConfirm')}
-                    okText={t('common.confirm')}
-                    cancelText={t('common.cancel')}
-                    onConfirm={() => handleDelete(p.id)}
-                  >
-                    <Button
-                      size="small"
-                      danger
-                      type="primary"
-                      shape="circle"
-                      icon={<DeleteOutlined />}
-                      aria-label={t('diagnosis.deletePhoto')}
-                      style={{ position: 'absolute', top: -8, right: -8 }}
-                    />
-                  </Popconfirm>
+                  {!readOnly && (
+                    <Popconfirm
+                      title={t('diagnosis.deletePhotoConfirm')}
+                      okText={t('common.confirm')}
+                      cancelText={t('common.cancel')}
+                      onConfirm={() => handleDelete(p.id)}
+                    >
+                      <Button
+                        size="small"
+                        danger
+                        type="primary"
+                        shape="circle"
+                        icon={<DeleteOutlined />}
+                        aria-label={t('diagnosis.deletePhoto')}
+                        style={{ position: 'absolute', top: -8, right: -8 }}
+                      />
+                    </Popconfirm>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Add more photos (respecting the remaining slots) */}
+        {/* Add more photos (respecting the remaining slots) — hidden in read-only mode */}
+        {!readOnly && (
         <div>
           <Typography.Text strong>{t('diagnosis.addPhotos')}</Typography.Text>
           <div style={{ color: '#999', fontSize: 12, margin: '2px 0 6px' }}>
@@ -195,6 +205,7 @@ export default function DiagnosisUploadModal({
             {submitting ? t('diagnosis.uploading') : t('diagnosis.submit')}
           </Button>
         </div>
+        )}
       </Space>
     </Modal>
   );

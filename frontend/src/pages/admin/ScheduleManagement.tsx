@@ -657,8 +657,16 @@ export default function ScheduleManagement() {
                   key: 'action',
                   width: 180,
                   render: (_: unknown, r: SchedulePatient) => {
-                    // pending / no_show are still actionable; completed is final.
-                    if (r.status === 'completed') return <span style={{ color: '#ccc' }}>—</span>;
+                    // Admins are never locked out: a completed slot can still
+                    // have its photos managed (add / delete) — translators lose
+                    // this after leave, so the admin is the escalation path.
+                    if (r.status === 'completed') {
+                      return (
+                        <Button size="small" onClick={() => setAdminDiagFor(r.id)}>
+                          {t('diagnosis.managePhotos')}
+                        </Button>
+                      );
+                    }
                     return (
                       <Space>
                         <Button size="small" type="primary" onClick={() => setAdminDiagFor(r.id)}>
