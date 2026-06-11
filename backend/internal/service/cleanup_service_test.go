@@ -48,6 +48,19 @@ func TestCleanupService_RemovesOldPhotos(t *testing.T) {
 	assert.NoError(t, errFresh, "fresh photo should remain")
 }
 
+func TestCleanupService_PermanentWhenRetentionZero(t *testing.T) {
+	// retention <= 0 means "permanent storage" — even very old photos must
+	// be kept. This is the production default after the policy change.
+	dir := withTempUploadDir(t, 0)
+	old := filepath.Join(dir, "old.jpg")
+	touchFile(t, old, time.Now().AddDate(-6, 0, 0)) // 6 years old
+
+	NewCleanupService().RunPhotoCleanup()
+
+	_, err := os.Stat(old)
+	assert.NoError(t, err, "with retention 0 (permanent) no photo should ever be removed")
+}
+
 func TestCleanupService_SpareNonImageFiles(t *testing.T) {
 	dir := withTempUploadDir(t, 30)
 	old := filepath.Join(dir, "old.txt")

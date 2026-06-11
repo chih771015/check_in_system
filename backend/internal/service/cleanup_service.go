@@ -26,8 +26,12 @@ func (c *CleanupService) RunPhotoCleanup() {
 		return
 	}
 	retentionDays := cfg.PhotoRetentionDays
+	// retentionDays <= 0 means permanent storage: never delete anything.
+	// This is the production default — some certificates must be kept for
+	// 5+ years, so automatic pruning is disabled.
 	if retentionDays <= 0 {
-		retentionDays = 90
+		log.Println("[cleanup] PHOTO_RETENTION_DAYS <= 0 — permanent retention, skipping cleanup")
+		return
 	}
 	cutoff := time.Now().AddDate(0, 0, -retentionDays)
 

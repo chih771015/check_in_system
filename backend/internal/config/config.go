@@ -58,7 +58,9 @@ func Load() *Config {
 		}
 	}
 
-	photoRetentionDays := 90
+	// Default 0 = permanent storage (never auto-delete photos). Set a positive
+	// number only if you explicitly want old photos pruned after N days.
+	photoRetentionDays := 0
 	if v := os.Getenv("PHOTO_RETENTION_DAYS"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil {
 			photoRetentionDays = parsed
