@@ -124,4 +124,4 @@ bash scripts/deploy-prod.sh
 - [ ] 已設定 Cloudflare Tunnel，對外是 `https://`（有 🔒）。
 - [ ] `backend/.env.production` **沒有**被 commit 進 git（已由 .gitignore 擋下）。
 - [ ] 已安排資料庫與照片的定期備份。
-- [ ] 確認照片保留天數 `PHOTO_RETENTION_DAYS`（預設 90 天）符合業務需求。
+- [ ] 照片預設**永久保存**（`PHOTO_RETENTION_DAYS=0`，永不自動刪除）；確認硬碟空間足夠並安排備份。

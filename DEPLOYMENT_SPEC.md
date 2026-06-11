@@ -26,7 +26,7 @@
 | `UPLOAD_DIR` | — | 預設 `/app/uploads`（已綁 volume）|
 | `JWT_EXPIRY_HOURS` | — | 預設 24 |
 | `MAX_LOGIN_ATTEMPTS` / `LOCK_DURATION_MINUTES` | — | 帳號鎖定（5 / 15）|
-| `PHOTO_RETENTION_DAYS` | — | 照片保留天數（90）；cron 每日 03:00 清 |
+| `PHOTO_RETENTION_DAYS` | — | 照片保留天數；**預設 0 = 永久保存**（永不刪）。填正整數才會在每日 03:00 清除舊照片 |
 | `GOOGLE_CREDENTIALS_FILE` | 選填 | Google Sheet 匯出 service account |
 | `SMTP_HOST/PORT/USER/PASSWORD/FROM` | 選填 | 寄信（定期匯出報表）|
 | `LINE_CHANNEL_ACCESS_TOKEN` | 選填 | LINE 排班提醒 |
@@ -68,7 +68,7 @@ bash scripts/stop.sh             # 停止
 | PostgreSQL | volume `postgres_data` | `pg_dump`（或備份 volume）|
 | 上傳照片 | bind mount `backend/uploads/` | 直接備份目錄 |
 - `docker compose down` 保留 volume；`down -v` 會**刪除資料**，正式環境慎用。
-- 照片留存 `PHOTO_RETENTION_DAYS` 天後由 cron 自動清除 → 業務查詢期需短於保留期，必要的證據請另存。
+- 照片預設**永久保存**（`PHOTO_RETENTION_DAYS=0`）；若設為正整數 N，則 N 天後由 cron（每日 03:00）自動清除 → 此時業務查詢期需短於保留期，必要證據請另存。
 
 ## 6. 背景排程（cron，backend 內建）
 | 時間 | 工作 | 需求 |
