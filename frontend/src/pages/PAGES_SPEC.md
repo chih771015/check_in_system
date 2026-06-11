@@ -15,7 +15,7 @@
 ## 3. 翻譯員頁（`pages/translator/`）
 | 檔案 | 路由 | 重點 |
 |------|------|------|
-| `MySchedules.tsx` | /my-schedules | 自己的排班；每病人可開 [DiagnosisUploadModal](../components/COMPONENTS_SPEC.md)（completed 顯示「管理照片」仍可補傳/刪除）/ [NoShowModal]（僅未完成時）；打卡入口 |
+| `MySchedules.tsx` | /my-schedules | 自己的排班；**arrived（離開前）**可編輯診斷（completed→「管理照片」補傳/刪除、其餘→上傳/未到）；**離開打卡後唯讀**：completed 只剩「查看照片」（`readOnly` modal），不能再改（後端亦回 `DIAGNOSIS_LOCKED_AFTER_LEAVE`）；打卡入口 |
 | `MyCheckins.tsx` | /my-checkins | 打卡歷史 + 統計 |
 | `CheckIn.tsx` | /checkin/:scheduleId/:type | **打卡頁**：自拍照 + GPS（用 [useGeolocation ★](../hooks/HOOKS_SPEC.md)）；送出 disabled until GPS success |
 | `MakeupCheckIn.tsx` | /makeup/:scheduleId/:type | 補打卡（+ 原因）|
@@ -29,7 +29,7 @@
 | `AdminManagement.tsx` | /admin/admins | 管理員 CRUD（不可刪自己）|
 | `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁 |
 | `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史 |
-| `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]）+ 匯入 + 週期 + 群組刪 |
+| `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]）+ 匯入 + 週期 + 群組刪；詳情 modal 可代理診斷（**completed 也有「管理照片」可增刪**，admin 不受離開鎖定限制）/ 未到 |
 | `CheckinRecords.tsx` | /admin/checkins | 打卡查核 + 篩選 + 編修/刪 + [MapLink] |
 | `DiagnosisResults.tsx` | /admin/diagnosis-results | 診斷結果總覽（分頁/篩選/看照片）|
 | `ExportSettings.tsx` | /admin/export-settings | 定期匯出設定 + 立即執行 + 即時 Excel/Sheet |

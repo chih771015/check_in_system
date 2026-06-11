@@ -735,7 +735,9 @@
 | 10.13.5 | 既有照片可逐張刪除（Popconfirm → deletePhoto(id)） | 觸發刪除 + 通知父層 |
 | 10.13.6 | NoShowModal 原因空白時送出禁用 | 按鈕 disabled |
 | 10.13.7 | NoShowModal 填原因後可送出並呼叫 markNoShow | 觸發 |
-| 10.13.8 | MySchedules：completed 病人顯示「管理照片」仍可開 modal | 按鈕不消失 |
+| 10.13.8 | MySchedules：arrived 時 completed 病人顯示「管理照片」可開 modal | 按鈕不消失 |
+| 10.13.9 | MySchedules：**離開打卡後**唯讀 — completed 只剩「查看照片」、無上傳/未到入口 | 不顯示修改入口 |
+| 10.13.10 | DiagnosisUploadModal `readOnly` 模式：顯示照片、無檔案輸入、無刪除鈕 | 唯讀 |
 
 ### 10.14 管理員 / 診斷結果頁 ✏️
 
@@ -744,6 +746,7 @@
 | 10.14.1 | 管理員帳號管理頁列表 / 新增 / 刪除 | UI 操作正確 |
 | 10.14.2 | 診斷結果總覽頁篩選 + 分頁 | 呼叫對應 API |
 | 10.14.3 | 手機側邊選單點選後自動收起 | sidebar 收合 |
+| 10.14.4 | ScheduleManagement：**completed 病人有「管理照片」可增刪**（admin 不受離開鎖定） | 開啟可刪除/補傳的 manage modal |
 
 ---
 
