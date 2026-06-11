@@ -1877,7 +1877,26 @@ TRANS_TOKEN = （登入後取得）
 | **測試步驟** | 1. 上傳 1 張<br>2. 再上傳 1 張（共 2）<br>3. 刪 1 張<br>4. 再上傳 1 張 |
 | **預期結果** | 各步成功；任一時刻照片數 ≤ 3，刪除會釋放額度可再傳（對應 e2e `diagnosis-manage.spec.ts`）|
 
-> 管理員代理變體：`GET/DELETE /api/admin/diagnosis/photos[...]` 行為同上但跳過 ownership，並寫 audit log。
+### TC-DX-014：標記 no_show 清空照片
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-014 |
+| **名稱** | 已完成（有照片）改標 no_show |
+| **測試步驟** | 1. 上傳 2 張 → completed<br>2. 對同一 slot 標記 no_show |
+| **預期結果** | 照片全清空、status=no_show、reason 保留（對應 `TestDiagnosisService_MarkNoShow_PurgesExistingPhotos`）|
+
+### TC-DX-015：離開後鎖定翻譯員診斷修改
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-015 |
+| **名稱** | 排班已 leave 打卡後，翻譯員不能改診斷 |
+| **前置條件** | 該排班已有 `leave` 打卡 |
+| **測試步驟** | 1. translator upload / delete / no_show<br>2. translator 列出照片（唯讀）<br>3. admin upload / delete / no_show |
+| **預期結果** | 1. 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE`<br>2. 唯讀仍可<br>3. admin 不受限，成功 |
+
+> 管理員代理變體：`GET/DELETE /api/admin/diagnosis/photos[...]` 行為同上但跳過 ownership 與離開鎖定，並寫 audit log。
 
 ---
 
@@ -1900,8 +1919,8 @@ TRANS_TOKEN = （登入後取得）
 | TC-ADM：管理員帳號管理 | 6 |
 | TC-PT：病人管理 | 10 |
 | TC-SCP：多病人排班 | 10 |
-| TC-DX：診斷證明 / 未到 / 結果 | 13（含照片刪除/補傳）|
-| **合計** | **~214 案例** |
+| TC-DX：診斷證明 / 未到 / 結果 | 15（含照片刪除/補傳、no_show 清空、離開鎖定）|
+| **合計** | **~216 案例** |
 
 ## 附錄 B：優先級分級
 
@@ -1928,7 +1947,7 @@ TRANS_TOKEN = （登入後取得）
 - TC-PT-001~010（病人 CRUD + 歷史 + scope）
 - TC-SCP-009~010（向後相容 + Excel V2 匯入）
 - TC-DX-008~010（診斷結果總覽 + 單一病人照片）
-- TC-DX-011~013（診斷照片管理：列表含 id / 刪除 + 狀態退回 / 刪除後再補傳）
+- TC-DX-011~015（診斷照片管理：列表含 id / 刪除 + 狀態退回 / 刪除後再補傳 / no_show 清空照片 / 離開後鎖定）
 - TC-TM-004（重複 email → 409 EMAIL_TAKEN 且前端顯示訊息）
 - TC-E2E-002~007（其他端對端流程）
 

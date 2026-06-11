@@ -219,6 +219,8 @@
   - `DELETE /api/checkins/diagnosis/photos/:photoId`：刪除單張（best-effort 連磁碟檔一起刪）。
   - 管理員代理：`GET/DELETE /api/admin/diagnosis/photos[...]`。
   - 首次只選一張仍可事後補傳；完成後在「管理照片」中增刪。**刪到一張不剩 → status 退回 `pending`**（可重新補傳或標 no_show）。
+- **標記 no_show 會清空既有照片**（按錯 completed 改回 no_show 時，照片一併移除，no_show slot 不殘留照片）。
+- **離開後鎖定**：翻譯員一旦對該排班打了**離開卡**，就不能再上傳/刪除/標記診斷證明（回 `DIAGNOSIS_LOCKED_AFTER_LEAVE`，409）；之後僅**管理員**可代為更正。前端在離開後也會隱藏操作按鈕。
 - 與離開打卡連動：所有病人 completed/no_show 後才能離開（見 8.1）。
 
 **診斷結果總覽（Admin）✅**

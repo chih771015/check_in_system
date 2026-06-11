@@ -961,6 +961,10 @@
 | 14.6.6 | photoId 不存在 | 404，`DIAGNOSIS_PHOTO_NOT_FOUND` |
 | 14.6.7 | 刪除後額度回收可再補傳（≤3） | 上傳成功 |
 | 14.6.8 | 管理員代理列表/刪除（無 ownership）+ 寫 audit | 成功 + audit_logs 有紀錄 |
+| 14.6.9 | 標記 no_show 清空既有照片 | 照片全刪、status=no_show、reason 保留 |
+| 14.6.10 | 排班已 leave 後 translator upload/delete/no_show | 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE` |
+| 14.6.11 | 排班已 leave 後 translator 列出照片（唯讀） | 仍允許 |
+| 14.6.12 | 排班已 leave 後 admin upload/delete/no_show | 不受限，成功 |
 
 ---
 
@@ -981,8 +985,8 @@
 | 管理員帳號管理 | 13 |
 | 病人管理 | 23 |
 | 多病人排班 | 21 |
-| 診斷證明 / 未到 / 結果 | 32（含照片刪除/補傳）|
-| **合計** | **~410** |
+| 診斷證明 / 未到 / 結果 | 36（含照片刪除/補傳、no_show 清空、離開鎖定）|
+| **合計** | **~414** |
 
 ---
 

@@ -12,7 +12,7 @@
 | 方法 | ownership | 說明 |
 |------|-----------|------|
 | `UploadDiagnosis(ctx,translatorID,spID,urls)` | ✅ | 累計照片≤3，標 completed |
-| `MarkNoShow(ctx,translatorID,spID,reason)` | ✅ | reason 必填，標 no_show |
+| `MarkNoShow(ctx,translatorID,spID,reason)` | ✅ | reason 必填，標 no_show；**並清空該 slot 既有照片**（按錯更正）|
 | `AdminUploadDiagnosis(ctx,spID,urls)` | ✗ | 代理上傳 |
 | `AdminMarkNoShow(ctx,spID,reason)` | ✗ | 代理標記 |
 | `GetPhotos(ctx,spID)` | ✗ | 回照片 URL（upload time 排序）|
@@ -22,7 +22,9 @@
 | `AdminDeletePhoto(ctx,photoID)` | ✗ | 代理刪除 |
 | `ListResults(ctx,query)` | ✗ | terminal(completed/no_show) 總覽，分頁 |
 
-常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrNoShowReasonRequired`。
+常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrDiagnosisLockedAfterLeave / ErrNoShowReasonRequired`。
+
+**離開後鎖定（translator）**：透過 `WithCheckinRepo` 注入 checkinRepo 後，`UploadDiagnosis / DeletePhoto / MarkNoShow` 會檢查該排班是否已有 `leave` 打卡；有 → 回 `ErrDiagnosisLockedAfterLeave`（409）。唯讀（`ListPhotoItems`）與所有 `Admin*` 變體不受限。未注入 checkinRepo 時鎖定不啟用（legacy/測試）。
 
 ## 3. 狀態模型（SchedulePatient.status）
 
@@ -38,7 +40,9 @@ stateDiagram-v2
   completed --> pending: DeletePhoto 刪到一張不剩
 ```
 > status 轉換**無單向限制**：upload 一律覆寫成 completed、no_show 一律覆寫成 no_show（允許更正）。
-> **刪除照片**：仍有照片 → 維持 completed；刪到歸零 → 退回 pending（讓該 slot 可重新補傳或標記未到）。
+> **標記 no_show 會清空既有照片**（視為「按錯 completed，改回 no_show」）→ 保證 no_show slot 不殘留照片。
+> **刪除照片**：仍有照片 → 維持 completed；刪到歸零 → 退回 pending（讓該 slot 可重新補傳或標記未到）。因 no_show 不留照片，刪除退回 pending 只會發生在 completed slot。
+> **離開後鎖定**：排班一旦 leave 打卡，translator 不能再 upload/delete/no_show（僅 admin 可）。
 
 ### 3c. 不變式
 | 不變式 | 保證 |
@@ -76,7 +80,9 @@ sequenceDiagram
 | photoID 不存在 | delete | `DIAGNOSIS_PHOTO_NOT_FOUND` (404) |
 | 刪非自己排班的照片 | translator delete | `DIAGNOSIS_NOT_OWNED` (403) |
 | 刪最後一張 | delete | status 退回 `pending` |
-| admin 代理 | Admin* | 跳過 ownership |
+| 標記 no_show | no_show | 清空既有照片（避免 no_show slot 殘留照片）|
+| 排班已 leave（translator）| upload/delete/no_show | `DIAGNOSIS_LOCKED_AFTER_LEAVE` (409)；僅 admin 可改 |
+| admin 代理 | Admin* | 跳過 ownership 與離開鎖定 |
 | ListResults 含 pending | ListResults | **排除**（只回 completed/no_show）|
 
 ## 6. ListResults（診斷結果總覽）
