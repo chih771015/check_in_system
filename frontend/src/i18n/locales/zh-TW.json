@@ -289,6 +289,8 @@
     "SCHEDULE_PATIENT_NOT_FOUND": "找不到病人排班項目",
     "DIAGNOSIS_PHOTO_LIMIT": "已達診斷證明照片上限（每位病人最多 3 張）",
     "DIAGNOSIS_NOT_OWNED": "此病人項目不屬於您",
+    "DIAGNOSIS_PHOTO_NOT_FOUND": "找不到該診斷證明照片",
+    "DIAGNOSIS_LOCKED_AFTER_LEAVE": "已完成離開打卡，無法再修改診斷證明，請洽管理員",
     "NO_SHOW_REASON_REQUIRED": "請填寫未到原因",
     "CHECKOUT_BLOCKED_BY_PENDING": "請先處理完所有病人（上傳診斷證明或標記未到）才能離開打卡"
   },
