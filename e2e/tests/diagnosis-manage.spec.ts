@@ -84,6 +84,31 @@ test.describe('diagnosis photo manage', () => {
     expect(await statusOf()).toBe('pending');
   });
 
+  test('marking no-show clears any photos that were uploaded by mistake', async ({ request }) => {
+    const token = await login(request, SEED.translatorActive.email, SEED.password);
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const sched = (await (await request.get('/api/schedules', { headers })).json()).data as Array<{
+      patients?: Array<{ id: number; status: string }>;
+    }>;
+    const spId = sched.flatMap((s) => s.patients ?? []).find((p) => p.status === 'pending')!.id;
+
+    // Upload (slot→completed), then change mind and mark no-show.
+    await request.post('/api/checkins/diagnosis', {
+      headers,
+      multipart: { schedulePatientId: String(spId), photo: photoPart('oops.jpg') },
+    });
+    const ns = await request.post('/api/checkins/no-show', {
+      headers,
+      data: { schedulePatientId: spId, reason: 'patient did not show' },
+    });
+    expect(ns.ok()).toBeTruthy();
+
+    // Photos are gone; slot is no_show.
+    const photos = (await (await request.get(`/api/checkins/diagnosis/photos?schedulePatientId=${spId}`, { headers })).json()).photos;
+    expect(photos).toHaveLength(0);
+  });
+
   test('deleting a non-existent photo returns 404', async ({ request }) => {
     const token = await login(request, SEED.translatorActive.email, SEED.password);
     const res = await request.delete('/api/checkins/diagnosis/photos/999999', {
