@@ -10,6 +10,7 @@ import {
   disableTranslator,
   resetTranslatorPassword,
 } from '../../api/translators';
+import { extractApiError } from '../../utils/apiError';
 
 export default function TranslatorManagement() {
   const [data, setData] = useState<TranslatorListItem[]>([]);
@@ -60,8 +61,10 @@ export default function TranslatorManagement() {
       setCreateOpen(false);
       createForm.resetFields();
       void fetchData();
-    } catch {
-      message.error(t('common.failed'));
+    } catch (err: unknown) {
+      // Surface the backend reason (e.g. duplicate email → EMAIL_TAKEN) so the
+      // admin understands why the create failed instead of a generic "failed".
+      message.error(extractApiError(err) || t('common.failed'));
     } finally {
       setCreateSubmitting(false);
     }
