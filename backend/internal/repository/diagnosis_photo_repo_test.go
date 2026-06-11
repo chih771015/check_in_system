@@ -51,6 +51,34 @@ func TestDiagnosisPhotoRepo_CountBySchedulePatient(t *testing.T) {
 	assert.EqualValues(t, 1, count)
 }
 
+func TestDiagnosisPhotoRepo_FindByIDAndDelete(t *testing.T) {
+	db := newSchedulePatientTestDB(t)
+	sch := seedSchedule(t, db, 0)
+	p := seedPatient(t, db, "A", "X1")
+
+	spRepo := NewSchedulePatientRepository(db)
+	sp := &model.SchedulePatient{ScheduleID: sch.ID, PatientID: p.ID, StartTime: "09:00", EndTime: "10:00"}
+	require.NoError(t, spRepo.CreateBatch([]*model.SchedulePatient{sp}))
+
+	repo := NewDiagnosisPhotoRepository(db)
+	photo := &model.DiagnosisPhoto{SchedulePatientID: sp.ID, PhotoURL: "/u/d1.jpg", UploadedAt: time.Now()}
+	require.NoError(t, repo.Create(photo))
+
+	// FindByID returns the row.
+	got, err := repo.FindByID(photo.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "/u/d1.jpg", got.PhotoURL)
+	assert.Equal(t, sp.ID, got.SchedulePatientID)
+
+	// Delete removes it; subsequent FindByID errors.
+	require.NoError(t, repo.Delete(photo.ID))
+	_, err = repo.FindByID(photo.ID)
+	assert.Error(t, err)
+
+	count, _ := repo.CountBySchedulePatientID(sp.ID)
+	assert.EqualValues(t, 0, count)
+}
+
 func TestDiagnosisPhotoRepo_FindBySchedulePatient_OtherSPIsolated(t *testing.T) {
 	db := newSchedulePatientTestDB(t)
 	sch := seedSchedule(t, db, 0)

@@ -3,8 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"translator-checkin/internal/config"
 	"translator-checkin/internal/dto"
 	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
@@ -15,6 +20,7 @@ var (
 	ErrSchedulePatientNotFound = errors.New("schedule patient not found")
 	ErrDiagnosisPhotoLimit     = errors.New("diagnosis photo limit reached (max 3 per patient)")
 	ErrDiagnosisNotOwned       = errors.New("schedule patient does not belong to this translator")
+	ErrDiagnosisPhotoNotFound  = errors.New("diagnosis photo not found")
 	ErrNoShowReasonRequired    = errors.New("no_show_reason is required")
 )
 
@@ -157,6 +163,106 @@ func (s *DiagnosisService) GetPhotos(ctx context.Context, spID uint) ([]string, 
 		urls = append(urls, p.PhotoURL)
 	}
 	return urls, nil
+}
+
+// ListPhotoItems returns the diagnosis photos (with their row IDs) for a
+// SchedulePatient owned by the given translator. The IDs let the client delete
+// a specific photo. Ownership is enforced.
+func (s *DiagnosisService) ListPhotoItems(ctx context.Context, translatorID, spID uint) ([]dto.DiagnosisPhotoItem, error) {
+	sp, err := s.assertOwnedSchedulePatient(ctx, translatorID, spID)
+	if err != nil {
+		return nil, err
+	}
+	return s.photoItems(ctx, sp.ID)
+}
+
+// AdminListPhotoItems is the admin-surrogate variant of ListPhotoItems — no
+// ownership check.
+func (s *DiagnosisService) AdminListPhotoItems(ctx context.Context, spID uint) ([]dto.DiagnosisPhotoItem, error) {
+	if _, err := s.spRepo.WithCtx(ctx).FindByID(spID); err != nil {
+		return nil, ErrSchedulePatientNotFound
+	}
+	return s.photoItems(ctx, spID)
+}
+
+func (s *DiagnosisService) photoItems(ctx context.Context, spID uint) ([]dto.DiagnosisPhotoItem, error) {
+	photos, err := s.photoRepo.WithCtx(ctx).FindBySchedulePatientID(spID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]dto.DiagnosisPhotoItem, 0, len(photos))
+	for _, p := range photos {
+		items = append(items, dto.DiagnosisPhotoItem{ID: p.ID, PhotoURL: p.PhotoURL})
+	}
+	return items, nil
+}
+
+// DeletePhoto removes one diagnosis photo owned (transitively) by the given
+// translator. After deletion, if the slot has no photos left, its status is
+// reverted to "pending" so the translator can re-upload or mark no-show again.
+// The underlying file is removed best-effort.
+func (s *DiagnosisService) DeletePhoto(ctx context.Context, translatorID, photoID uint) error {
+	photo, err := s.photoRepo.WithCtx(ctx).FindByID(photoID)
+	if err != nil {
+		return ErrDiagnosisPhotoNotFound
+	}
+	if _, err := s.assertOwnedSchedulePatient(ctx, translatorID, photo.SchedulePatientID); err != nil {
+		return err
+	}
+	return s.deletePhotoRow(ctx, photo)
+}
+
+// AdminDeletePhoto is the admin-surrogate variant of DeletePhoto — no ownership
+// check.
+func (s *DiagnosisService) AdminDeletePhoto(ctx context.Context, photoID uint) error {
+	photo, err := s.photoRepo.WithCtx(ctx).FindByID(photoID)
+	if err != nil {
+		return ErrDiagnosisPhotoNotFound
+	}
+	if _, err := s.spRepo.WithCtx(ctx).FindByID(photo.SchedulePatientID); err != nil {
+		return ErrSchedulePatientNotFound
+	}
+	return s.deletePhotoRow(ctx, photo)
+}
+
+// deletePhotoRow deletes the DB row, removes the file best-effort, and reverts
+// the slot to pending when it becomes empty.
+func (s *DiagnosisService) deletePhotoRow(ctx context.Context, photo *model.DiagnosisPhoto) error {
+	photoRepo := s.photoRepo.WithCtx(ctx)
+	if err := photoRepo.Delete(photo.ID); err != nil {
+		return err
+	}
+	removeUploadedFile(photo.PhotoURL)
+
+	remaining, err := photoRepo.CountBySchedulePatientID(photo.SchedulePatientID)
+	if err != nil {
+		return err
+	}
+	if remaining == 0 {
+		// No evidence left — revert to pending so the slot is actionable again.
+		return s.spRepo.WithCtx(ctx).UpdateStatus(photo.SchedulePatientID, model.SchedulePatientStatusPending, "")
+	}
+	return nil
+}
+
+// removeUploadedFile best-effort deletes the file backing a "/uploads/<name>"
+// URL. Failures are logged but never block the delete operation (e.g. in tests
+// the URL has no real file on disk).
+func removeUploadedFile(photoURL string) {
+	cfg := config.AppConfig
+	if cfg == nil || cfg.UploadDir == "" {
+		return
+	}
+	name := strings.TrimPrefix(photoURL, "/uploads/")
+	if name == "" || name == photoURL {
+		return // not an uploads URL — leave it alone
+	}
+	// Guard against path traversal: only operate on a bare base filename.
+	name = filepath.Base(name)
+	path := filepath.Join(cfg.UploadDir, name)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		log.Printf("[diagnosis] failed to remove photo file %s: %v", path, err)
+	}
 }
 
 // ListResults returns the paginated overview of all "terminal" SchedulePatient

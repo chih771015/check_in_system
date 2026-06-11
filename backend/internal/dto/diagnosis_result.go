@@ -2,6 +2,13 @@ package dto
 
 import "time"
 
+// DiagnosisPhotoItem is one diagnosis photo with its row ID, used by the
+// upload/manage modal so the client can delete a specific photo by ID.
+type DiagnosisPhotoItem struct {
+	ID       uint   `json:"id"`
+	PhotoURL string `json:"photoUrl"`
+}
+
 // DiagnosisResultsQuery captures the optional filters for the admin
 // "diagnosis results" overview list.
 //

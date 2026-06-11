@@ -65,6 +65,40 @@ func (h *DiagnosisHandler) UploadDiagnosis(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis uploaded", "photoUrls": urls})
 }
 
+// ListMyPhotos handles GET /api/checkins/diagnosis/photos?schedulePatientId=ID
+// — returns the diagnosis photos (with IDs) for a SchedulePatient owned by the
+// requesting translator, so the manage modal can delete specific photos.
+func (h *DiagnosisHandler) ListMyPhotos(c *gin.Context) {
+	spID, err := strconv.ParseUint(c.Query("schedulePatientId"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeSchedulePatientNotFound, "Invalid schedulePatientId")
+		return
+	}
+	translatorID := c.GetUint("userID")
+	items, err := h.diagService.ListPhotoItems(c.Request.Context(), translatorID, uint(spID))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"photos": items})
+}
+
+// DeleteMyPhoto handles DELETE /api/checkins/diagnosis/photos/:photoId
+// — removes one diagnosis photo owned by the requesting translator.
+func (h *DiagnosisHandler) DeleteMyPhoto(c *gin.Context) {
+	photoID, err := strconv.ParseUint(c.Param("photoId"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeDiagnosisPhotoNotFound, "Invalid photoId")
+		return
+	}
+	translatorID := c.GetUint("userID")
+	if err := h.diagService.DeletePhoto(c.Request.Context(), translatorID, uint(photoID)); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis photo deleted"})
+}
+
 // MarkNoShow handles POST /api/checkins/no-show.
 func (h *DiagnosisHandler) MarkNoShow(c *gin.Context) {
 	var req dto.MarkNoShowRequest
@@ -132,6 +166,41 @@ func (h *DiagnosisHandler) AdminGetSchedulePatientPhotos(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"photos": urls})
+}
+
+// AdminListPhotoItems handles GET /api/admin/diagnosis/photos?schedulePatientId=ID
+// — like ListMyPhotos but admin-surrogate (no ownership check); returns IDs so
+// the admin manage modal can delete specific photos.
+func (h *DiagnosisHandler) AdminListPhotoItems(c *gin.Context) {
+	spID, err := strconv.ParseUint(c.Query("schedulePatientId"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeSchedulePatientNotFound, "Invalid schedulePatientId")
+		return
+	}
+	items, err := h.diagService.AdminListPhotoItems(c.Request.Context(), uint(spID))
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"photos": items})
+}
+
+// AdminDeletePhoto handles DELETE /api/admin/diagnosis/photos/:photoId
+// — admin-surrogate delete of one diagnosis photo.
+func (h *DiagnosisHandler) AdminDeletePhoto(c *gin.Context) {
+	photoID, err := strconv.ParseUint(c.Param("photoId"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeDiagnosisPhotoNotFound, "Invalid photoId")
+		return
+	}
+	ctx := c.Request.Context()
+	if err := h.diagService.AdminDeletePhoto(ctx, uint(photoID)); err != nil {
+		respondError(c, err)
+		return
+	}
+	adminID := c.GetUint("userID")
+	h.auditService.Log(ctx, adminID, "admin_delete_diagnosis_photo", "diagnosis_photo", uint(photoID), "")
+	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis photo deleted (admin)"})
 }
 
 // AdminListResults handles GET /api/admin/diagnosis-results

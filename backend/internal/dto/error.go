@@ -92,6 +92,7 @@ const (
 	CodeSchedulePatientNotFound    = "SCHEDULE_PATIENT_NOT_FOUND"
 	CodeDiagnosisPhotoLimit        = "DIAGNOSIS_PHOTO_LIMIT"
 	CodeDiagnosisNotOwned          = "DIAGNOSIS_NOT_OWNED"
+	CodeDiagnosisPhotoNotFound     = "DIAGNOSIS_PHOTO_NOT_FOUND"
 	CodeNoShowReasonRequired       = "NO_SHOW_REASON_REQUIRED"
 	CodeCheckoutBlockedByPending   = "CHECKOUT_BLOCKED_BY_PENDING"
 

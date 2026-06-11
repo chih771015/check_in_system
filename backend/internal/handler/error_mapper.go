@@ -119,6 +119,8 @@ func mapError(err error) (int, string) {
 		return http.StatusBadRequest, dto.CodeDiagnosisPhotoLimit
 	case errors.Is(err, service.ErrDiagnosisNotOwned):
 		return http.StatusForbidden, dto.CodeDiagnosisNotOwned
+	case errors.Is(err, service.ErrDiagnosisPhotoNotFound):
+		return http.StatusNotFound, dto.CodeDiagnosisPhotoNotFound
 	case errors.Is(err, service.ErrNoShowReasonRequired):
 		return http.StatusBadRequest, dto.CodeNoShowReasonRequired
 	case errors.Is(err, service.ErrCheckoutBlockedByPending):

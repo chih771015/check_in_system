@@ -238,6 +238,8 @@ func main() {
 
 			// Stage 4 — admin surrogate uploads / mark no-show
 			admin.POST("/diagnosis", diagnosisHandler.AdminUploadDiagnosis)
+			admin.GET("/diagnosis/photos", diagnosisHandler.AdminListPhotoItems)
+			admin.DELETE("/diagnosis/photos/:photoId", diagnosisHandler.AdminDeletePhoto)
 			admin.POST("/no-show", diagnosisHandler.AdminMarkNoShow)
 
 			// Diagnosis results overview (all completed / no_show rows).
@@ -265,6 +267,8 @@ func main() {
 
 			// Stage 4 — per-patient diagnosis upload and no-show marking.
 			translatorRoutes.POST("/checkins/diagnosis", diagnosisHandler.UploadDiagnosis)
+			translatorRoutes.GET("/checkins/diagnosis/photos", diagnosisHandler.ListMyPhotos)
+			translatorRoutes.DELETE("/checkins/diagnosis/photos/:photoId", diagnosisHandler.DeleteMyPhoto)
 			translatorRoutes.POST("/checkins/no-show", diagnosisHandler.MarkNoShow)
 
 			// Patient list for translator (trimmed view).
@@ -321,7 +325,8 @@ func startExportCron(repo *repository.ExportScheduleRepository, exportSvc *servi
 
 // startBackgroundCrons registers daily cron jobs for:
 //   - 07:00 schedule reminders (LINE / email)
-//   - 03:00 photo cleanup of files older than retention window
+//   - 03:00 photo cleanup (no-op by default: PHOTO_RETENTION_DAYS=0 means
+//     permanent storage; only prunes when a positive retention is configured)
 //
 // Each tick opens its own root span so we get a separate Jaeger trace per run.
 func startBackgroundCrons(notificationSvc *service.NotificationService, cleanupSvc *service.CleanupService) {

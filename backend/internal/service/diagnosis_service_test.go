@@ -152,6 +152,85 @@ func TestDiagnosisService_AdminMarkNoShow_Success(t *testing.T) {
 	assert.Equal(t, model.SchedulePatientStatusNoShow, reloaded.Status)
 }
 
+// ─── Diagnosis photo manage (list with IDs / delete / re-add) ───────────────
+
+func TestDiagnosisService_ListPhotoItems_OwnerSeesIDs(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg", "/u/2.jpg"}))
+
+	items, err := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+	require.NoError(t, err)
+	require.Len(t, items, 2)
+	assert.NotZero(t, items[0].ID)
+	assert.Equal(t, "/u/1.jpg", items[0].PhotoURL)
+}
+
+func TestDiagnosisService_ListPhotoItems_NotOwned(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg"}))
+	_, err := fx.svc.ListPhotoItems(ctx, fx.other.ID, fx.sp.ID)
+	assert.True(t, errors.Is(err, ErrDiagnosisNotOwned))
+}
+
+func TestDiagnosisService_DeletePhoto_OwnerSuccess_KeepsCompletedWhenOthersRemain(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg", "/u/2.jpg"}))
+	items, _ := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+
+	require.NoError(t, fx.svc.DeletePhoto(ctx, fx.translator.ID, items[0].ID))
+
+	remaining, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, remaining, 1)
+	// Still has a photo → stays completed.
+	reloaded, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, model.SchedulePatientStatusCompleted, reloaded.Status)
+}
+
+func TestDiagnosisService_DeletePhoto_RevertsToPendingWhenLastRemoved(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/only.jpg"}))
+	items, _ := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+
+	require.NoError(t, fx.svc.DeletePhoto(ctx, fx.translator.ID, items[0].ID))
+
+	remaining, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, remaining, 0)
+	// No photos left → status reverts to pending so the slot is actionable again.
+	reloaded, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, model.SchedulePatientStatusPending, reloaded.Status)
+}
+
+func TestDiagnosisService_DeletePhoto_NotOwned(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg"}))
+	items, _ := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+
+	err := fx.svc.DeletePhoto(ctx, fx.other.ID, items[0].ID)
+	assert.True(t, errors.Is(err, ErrDiagnosisNotOwned))
+}
+
+func TestDiagnosisService_DeletePhoto_NotFound(t *testing.T) {
+	fx := newDiagFixture(t)
+	err := fx.svc.DeletePhoto(context.Background(), fx.translator.ID, 99999)
+	assert.True(t, errors.Is(err, ErrDiagnosisPhotoNotFound))
+}
+
+func TestDiagnosisService_AdminDeletePhoto_NoOwnerCheck(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg"}))
+	items, _ := fx.svc.ListPhotoItems(ctx, fx.translator.ID, fx.sp.ID)
+
+	require.NoError(t, fx.svc.AdminDeletePhoto(ctx, items[0].ID))
+	remaining, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, remaining, 0)
+}
+
 // ─── Phase 4.4 CheckOut gating ──────────────────────────────────────────────
 
 func TestCheckinService_Leave_BlockedByPendingPatients(t *testing.T) {

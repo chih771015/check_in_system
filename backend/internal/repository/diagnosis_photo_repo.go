@@ -40,6 +40,20 @@ func (r *DiagnosisPhotoRepository) FindBySchedulePatientID(spID uint) ([]model.D
 	return photos, err
 }
 
+// FindByID returns a single diagnosis photo by its primary key.
+func (r *DiagnosisPhotoRepository) FindByID(id uint) (*model.DiagnosisPhoto, error) {
+	var photo model.DiagnosisPhoto
+	if err := r.db.First(&photo, id).Error; err != nil {
+		return nil, err
+	}
+	return &photo, nil
+}
+
+// Delete removes a diagnosis photo row by its primary key.
+func (r *DiagnosisPhotoRepository) Delete(id uint) error {
+	return r.db.Delete(&model.DiagnosisPhoto{}, id).Error
+}
+
 // CountBySchedulePatientID returns how many photos already exist for one slot.
 // Used by the service to enforce the 3-photo cap before insert.
 func (r *DiagnosisPhotoRepository) CountBySchedulePatientID(spID uint) (int64, error) {
