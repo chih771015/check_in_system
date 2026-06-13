@@ -304,6 +304,7 @@
     "submit": "送出",
     "uploaded": "診斷證明已上傳",
     "markedNoShow": "已標記病人未到",
+    "noShowClearsPhotosConfirm": "標記未到會刪除此筆已上傳的照片，確定要繼續嗎？",
     "tooManyFiles": "最多只能上傳 3 張照片",
     "statusPending": "待處理",
     "statusCompleted": "已完成",

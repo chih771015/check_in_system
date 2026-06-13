@@ -12,6 +12,7 @@ import {
   Modal,
   Image,
   Empty,
+  Popconfirm,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
@@ -179,9 +180,17 @@ export default function DiagnosisResultsPage() {
             {t('diagnosis.managePhotos')}
           </Button>
           {r.status === 'completed' && (
-            <Button size="small" danger onClick={() => setNoShowFor(r)}>
-              {t('diagnosis.noShow')}
-            </Button>
+            // Warn first: marking no-show purges this slot's photos.
+            <Popconfirm
+              title={t('diagnosis.noShowClearsPhotosConfirm')}
+              okText={t('common.confirm')}
+              cancelText={t('common.cancel')}
+              onConfirm={() => setNoShowFor(r)}
+            >
+              <Button size="small" danger>
+                {t('diagnosis.noShow')}
+              </Button>
+            </Popconfirm>
           )}
         </Space>
       ),

@@ -304,6 +304,7 @@
     "submit": "Submit",
     "uploaded": "Diagnosis uploaded",
     "markedNoShow": "Patient marked as no-show",
+    "noShowClearsPhotosConfirm": "Marking no-show will delete this slot's uploaded photos. Continue?",
     "tooManyFiles": "You can only upload up to 3 photos",
     "statusPending": "Pending",
     "statusCompleted": "Completed",

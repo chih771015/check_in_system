@@ -61,6 +61,7 @@ describe('DiagnosisResults — admin edit from overview', () => {
 
   it('completed row can mark no-show; no_show row cannot', async () => {
     renderPage();
+    // (heavy page + Popconfirm + modal chain — give it room in CI)
     const user = userEvent.setup({ delay: null });
     await screen.findByText('PatientOne');
 
@@ -72,7 +73,9 @@ describe('DiagnosisResults — admin edit from overview', () => {
     // but a no_show row can still be managed (e.g. upload to restore completed)
     expect(within(noShow).getByRole('button', { name: /Manage Diagnosis Photos/ })).toBeInTheDocument();
 
+    // The no-show button is guarded by a Popconfirm (it purges photos).
     await user.click(within(completed).getByRole('button', { name: /Mark No-Show/ }));
+    await user.click(await screen.findByRole('button', { name: 'Confirm' }));
     expect(await screen.findByTestId('noshow-modal')).toHaveTextContent('noshow:11');
-  });
+  }, 30000);
 });
