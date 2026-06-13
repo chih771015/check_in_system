@@ -19,6 +19,14 @@ import { useTranslation } from 'react-i18next';
 import type { DiagnosisResult, TranslatorListItem } from '../../types';
 import { getDiagnosisResults, type DiagnosisResultsQuery } from '../../api/diagnosisResults';
 import { getTranslators } from '../../api/translators';
+import {
+  adminUploadDiagnosis,
+  adminListDiagnosisPhotos,
+  adminDeleteDiagnosisPhoto,
+  adminMarkNoShow,
+} from '../../api/checkins';
+import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
+import NoShowModal from '../../components/NoShowModal';
 import { extractApiError } from '../../utils/apiError';
 
 const { RangePicker } = DatePicker;
@@ -49,6 +57,10 @@ export default function DiagnosisResultsPage() {
   const [loading, setLoading] = useState(false);
   const [translators, setTranslators] = useState<TranslatorListItem[]>([]);
   const [photoOpen, setPhotoOpen] = useState<DiagnosisResult | null>(null);
+  // Admin surrogate edit (no leave-lock): manage photos / change status here
+  // without going through Schedule Management.
+  const [manageFor, setManageFor] = useState<DiagnosisResult | null>(null);
+  const [noShowFor, setNoShowFor] = useState<DiagnosisResult | null>(null);
 
   const query: DiagnosisResultsQuery = useMemo(
     () => ({
@@ -154,6 +166,26 @@ export default function DiagnosisResultsPage() {
       width: 160,
       render: (v: string) => new Date(v).toLocaleString(),
     },
+    {
+      title: t('common.operation'),
+      key: 'action',
+      width: 200,
+      fixed: 'right',
+      render: (_, r) => (
+        <Space wrap>
+          {/* Admins can manage photos directly here (add / delete). On a no_show
+              row, uploading a photo flips the status back to completed. */}
+          <Button size="small" onClick={() => setManageFor(r)}>
+            {t('diagnosis.managePhotos')}
+          </Button>
+          {r.status === 'completed' && (
+            <Button size="small" danger onClick={() => setNoShowFor(r)}>
+              {t('diagnosis.noShow')}
+            </Button>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   const translatorOptions = translators.map((tr) => ({ value: tr.id, label: tr.name }));
@@ -206,7 +238,7 @@ export default function DiagnosisResultsPage() {
         columns={columns}
         dataSource={data}
         loading={loading}
-        scroll={{ x: 900 }}
+        scroll={{ x: 1100 }}
         locale={{ emptyText: <Empty description={t('diagnosisResults.noResult')} /> }}
         pagination={{
           current: page,
@@ -245,6 +277,30 @@ export default function DiagnosisResultsPage() {
           </div>
         )}
       </Modal>
+
+      {/* Admin surrogate manage modal (photos add/delete) — refetch on change. */}
+      {manageFor && (
+        <DiagnosisUploadModal
+          open={!!manageFor}
+          schedulePatientId={manageFor.schedulePatientId}
+          upload={adminUploadDiagnosis}
+          listPhotos={adminListDiagnosisPhotos}
+          deletePhoto={adminDeleteDiagnosisPhoto}
+          onClose={() => setManageFor(null)}
+          onUploaded={fetchData}
+        />
+      )}
+
+      {/* Admin surrogate mark-no-show (purges photos, sets no_show). */}
+      {noShowFor && (
+        <NoShowModal
+          open={!!noShowFor}
+          schedulePatientId={noShowFor.schedulePatientId}
+          markNoShow={adminMarkNoShow}
+          onClose={() => setNoShowFor(null)}
+          onDone={fetchData}
+        />
+      )}
     </div>
   );
 }
