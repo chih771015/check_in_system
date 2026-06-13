@@ -31,7 +31,7 @@
 | `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史 |
 | `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]）+ 匯入 + 週期 + 群組刪；詳情 modal 可代理診斷（**completed 也有「管理照片」可增刪**，admin 不受離開鎖定限制）/ 未到 |
 | `CheckinRecords.tsx` | /admin/checkins | 打卡查核 + 篩選 + 編修/刪 + [MapLink] |
-| `DiagnosisResults.tsx` | /admin/diagnosis-results | 診斷結果總覽（分頁/篩選/看照片）|
+| `DiagnosisResults.tsx` | /admin/diagnosis-results | 診斷結果總覽（分頁/篩選/看照片）；**可直接管理**：每列「管理照片」（admin 增刪，reuse DiagnosisUploadModal）、completed 列可「標記未到」（reuse NoShowModal），免進排班頁；admin 不受離開鎖定 |
 | `ExportSettings.tsx` | /admin/export-settings | 定期匯出設定 + 立即執行 + 即時 Excel/Sheet |
 | `AuditLogs.tsx` | /admin/audit-logs | 稽核日誌分頁 |
 

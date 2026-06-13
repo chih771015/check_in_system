@@ -747,6 +747,8 @@
 | 10.14.2 | 診斷結果總覽頁篩選 + 分頁 | 呼叫對應 API |
 | 10.14.3 | 手機側邊選單點選後自動收起 | sidebar 收合 |
 | 10.14.4 | ScheduleManagement：**completed 病人有「管理照片」可增刪**（admin 不受離開鎖定） | 開啟可刪除/補傳的 manage modal |
+| 10.14.5 | DiagnosisResults 每列「管理照片」開 admin manage modal（帶該列 schedulePatientId） | 可增刪、完成後 refetch |
+| 10.14.6 | DiagnosisResults completed 列有「標記未到」、no_show 列沒有 | 狀態相依顯示；標記後 refetch |
 
 ---
 

@@ -226,6 +226,7 @@
 **診斷結果總覽（Admin）✅**
 - `GET /api/admin/diagnosis-results`：列出所有 terminal（completed/no_show）的 SchedulePatient，可依 status / translator / 日期 / 病人姓名篩選 + 分頁，附診斷照片（batch load 避免 N+1）。
 - `GET /api/admin/schedule-patients/:id/photos`：排班詳情 modal 看單一病人照片。
+- **可直接在總覽頁修改（免進排班頁）✅**：每列「管理照片」可增刪（admin），completed 列可「標記未到」；no_show 列補傳照片會翻回 completed。管理員不受離開鎖定限制。
 
 ---
 
