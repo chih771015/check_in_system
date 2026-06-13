@@ -69,6 +69,8 @@ grep -rl -i "<你改的功能關鍵字，如 diagnosis / 照片 / EMAIL_TAKEN / 
 | **新 repository** | 必含 `WithCtx`（見 `CLAUDE.md`）；`REPOSITORY_SPEC` 加契約 |
 | **新增前端 i18n key** | 必同步加到 `en/zh-TW/th` 三檔（i18n 測試強制一致）|
 | **改部署 / 容器** | `DEPLOYMENT_SPEC` + `docs/PRODUCTION_DEPLOY.md` + `docker/DOCKER_SPEC.md` |
+| **新增「標記未到 / no_show」入口** | `MarkNoShow` 會**清空該 slot 既有照片**。若新入口的 no-show 按鈕**可達 completed slot**（completed 才有照片），必須包一層 `diagnosis.noShowClearsPhotosConfirm` 的 Popconfirm 提示，避免誤點清掉照片。只對非 completed（pending/no_show，無照片）顯示則免。現有入口：DiagnosisResults（有提示）/ ScheduleManagement、MySchedules（僅非 completed，免）|
+| **新增「破壞性 / 不可復原」操作入口** | 一般原則：刪除、清空、覆寫等不可逆動作，UI 入口應加 Popconfirm（並在文案點出「會刪掉什麼」），後端維持最終守衛 |
 
 ### 6. 收尾檢查
 - [ ] 固定文件 5 份都看過（沒變動的可不動，但要確認沒過期）
