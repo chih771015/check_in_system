@@ -279,12 +279,15 @@ func TestDiagnosisService_AdminMarkNoShow_PurgesExistingPhotos(t *testing.T) {
 
 // ─── 離開打卡後鎖定翻譯員的診斷修改（管理員例外）──────────────────────────────
 
-func TestDiagnosisService_UploadDiagnosis_LockedAfterLeave(t *testing.T) {
+func TestDiagnosisService_UploadDiagnosis_AllowedAfterLeave(t *testing.T) {
 	fx := newDiagFixture(t)
 	ctx := context.Background()
 	fx.seedLeaveCheckin(t)
-	err := fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg"})
-	assert.True(t, errors.Is(err, ErrDiagnosisLockedAfterLeave))
+	// X-ray / lab results may surface after departure → translator can still
+	// ADD photos (only delete / no_show stay locked after leave).
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/uploads/a.jpg"}))
+	photos, _ := fx.photoRepo.FindBySchedulePatientID(fx.sp.ID)
+	assert.Len(t, photos, 1)
 }
 
 func TestDiagnosisService_DeletePhoto_LockedAfterLeave(t *testing.T) {

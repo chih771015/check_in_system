@@ -21,11 +21,14 @@ interface DiagnosisUploadModalProps {
   listPhotos?: (spID: number) => Promise<DiagnosisPhotoItem[]>;
   deletePhoto?: (photoId: number) => Promise<unknown>;
   /**
-   * View-only mode: show the photos but hide all edit affordances (add + delete).
-   * Used e.g. for a translator after they have done their leave check-in — they
-   * can still review status & photos but can no longer modify them.
+   * Per-affordance gating (default both on = full manage):
+   *   - canUpload=true,  canDelete=true  → manage (add + delete)
+   *   - canUpload=true,  canDelete=false → append-only (e.g. translator after
+   *     leave: late X-ray/lab results can be added, but deleting is locked)
+   *   - canUpload=false, canDelete=false → view-only
    */
-  readOnly?: boolean;
+  canUpload?: boolean;
+  canDelete?: boolean;
 }
 
 const MAX_PHOTOS = 3;
@@ -47,7 +50,8 @@ export default function DiagnosisUploadModal({
   upload = defaultUpload,
   listPhotos = defaultListPhotos,
   deletePhoto = defaultDeletePhoto,
-  readOnly = false,
+  canUpload = true,
+  canDelete = true,
 }: DiagnosisUploadModalProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -119,7 +123,13 @@ export default function DiagnosisUploadModal({
 
   return (
     <Modal
-      title={readOnly ? t('diagnosis.viewPhotos') : t('diagnosis.managePhotos')}
+      title={
+        !canUpload
+          ? t('diagnosis.viewPhotos')
+          : canDelete
+            ? t('diagnosis.managePhotos')
+            : t('diagnosis.supplementPhotos')
+      }
       open={open}
       onCancel={onClose}
       footer={[
@@ -151,7 +161,7 @@ export default function DiagnosisUploadModal({
                     height={88}
                     style={{ objectFit: 'cover', borderRadius: 6 }}
                   />
-                  {!readOnly && (
+                  {canDelete && (
                     <Popconfirm
                       title={t('diagnosis.deletePhotoConfirm')}
                       okText={t('common.confirm')}
@@ -175,8 +185,8 @@ export default function DiagnosisUploadModal({
           )}
         </div>
 
-        {/* Add more photos (respecting the remaining slots) — hidden in read-only mode */}
-        {!readOnly && (
+        {/* Add more photos (respecting the remaining slots) — hidden when upload not allowed */}
+        {canUpload && (
         <div>
           <Typography.Text strong>{t('diagnosis.addPhotos')}</Typography.Text>
           <div style={{ color: '#999', fontSize: 12, margin: '2px 0 6px' }}>

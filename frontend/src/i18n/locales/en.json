@@ -311,6 +311,7 @@
     "statusNoShow": "No Show",
     "pendingPatients": "Pending: {{count}}",
     "viewPhotos": "View Photos",
+    "supplementPhotos": "Add Photos (post-visit)",
     "managePhotos": "Manage Diagnosis Photos",
     "existingPhotos": "Uploaded photos",
     "noPhotosYet": "No photos uploaded yet",

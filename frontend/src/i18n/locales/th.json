@@ -311,6 +311,7 @@
     "statusNoShow": "ไม่มา",
     "pendingPatients": "รอดำเนินการ: {{count}}",
     "viewPhotos": "ดูภาพ",
+    "supplementPhotos": "ส่งภาพเพิ่มเติม",
     "managePhotos": "จัดการภาพใบรับรอง",
     "existingPhotos": "ภาพที่อัปโหลดแล้ว",
     "noPhotosYet": "ยังไม่มีการอัปโหลดภาพ",

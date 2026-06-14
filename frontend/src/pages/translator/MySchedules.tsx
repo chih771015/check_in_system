@@ -43,10 +43,17 @@ export default function MySchedules() {
   const [loading, setLoading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   // Modal state — null means closed; non-null is the SchedulePatient.id.
-  // diagReadOnly: opened in view-only mode (e.g. after leave check-in).
+  // diagCanUpload / diagCanDelete gate the modal's affordances per context.
   const [diagFor, setDiagFor] = useState<number | null>(null);
-  const [diagReadOnly, setDiagReadOnly] = useState(false);
+  const [diagCanUpload, setDiagCanUpload] = useState(true);
+  const [diagCanDelete, setDiagCanDelete] = useState(true);
   const [noShowFor, setNoShowFor] = useState<number | null>(null);
+
+  const openDiag = (id: number, canUpload: boolean, canDelete: boolean) => {
+    setDiagCanUpload(canUpload);
+    setDiagCanDelete(canDelete);
+    setDiagFor(id);
+  };
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { t } = useTranslation();
@@ -141,11 +148,13 @@ export default function MySchedules() {
 
   /** Renders one patient row inside a schedule card. */
   const renderPatient = (s: ScheduleItem, p: SchedulePatient) => {
-    // The translator can EDIT diagnosis only while arrived (before leave). Once
-    // they have done their leave check-in, the slot is read-only: they may still
-    // view status & photos but can no longer modify them (only an admin can).
-    // The backend enforces the same lock (DIAGNOSIS_LOCKED_AFTER_LEAVE).
-    const canEdit = s.checkinStatus === 'arrived';
+    // Three contexts:
+    //  - in progress (arrived/makeup): full edit (add + delete + no-show)
+    //  - left (schedule completed): append-only — late X-ray/lab results can be
+    //    added, but delete / no-show stay locked (backend also enforces this)
+    //  - before arrive (none): view-only
+    const inProgress = s.checkinStatus === 'arrived' || s.checkinStatus === 'makeup';
+    const left = s.checkinStatus === 'completed';
     return (
       <div
         key={p.id}
@@ -172,16 +181,9 @@ export default function MySchedules() {
           </div>
         )}
         <Space size="small" style={{ marginTop: 6 }} wrap>
-          {canEdit ? (
+          {inProgress ? (
             <>
-              <Button
-                size="small"
-                type="primary"
-                onClick={() => {
-                  setDiagReadOnly(false);
-                  setDiagFor(p.id);
-                }}
-              >
+              <Button size="small" type="primary" onClick={() => openDiag(p.id, true, true)}>
                 {p.status === 'completed' ? t('diagnosis.managePhotos') : t('diagnosis.upload')}
               </Button>
               {p.status !== 'completed' && (
@@ -190,17 +192,18 @@ export default function MySchedules() {
                 </Button>
               )}
             </>
+          ) : left ? (
+            // Append-only after leave (add late results; no delete / no-show).
+            // Offered for completed (supplement) and pending (late result), not no_show.
+            p.status !== 'no_show' && (
+              <Button size="small" type="primary" onClick={() => openDiag(p.id, true, false)}>
+                {t('diagnosis.supplementPhotos')}
+              </Button>
+            )
           ) : (
-            // After leave (or before arrive): read-only. Offer a view button only
-            // when there is something to view (completed slots have photos).
+            // Before arrive: view-only, only when there is something to see.
             p.status === 'completed' && (
-              <Button
-                size="small"
-                onClick={() => {
-                  setDiagReadOnly(true);
-                  setDiagFor(p.id);
-                }}
-              >
+              <Button size="small" onClick={() => openDiag(p.id, false, false)}>
                 {t('diagnosis.viewPhotos')}
               </Button>
             )
@@ -290,7 +293,8 @@ export default function MySchedules() {
         <DiagnosisUploadModal
           open={diagFor !== null}
           schedulePatientId={diagFor}
-          readOnly={diagReadOnly}
+          canUpload={diagCanUpload}
+          canDelete={diagCanDelete}
           onClose={() => setDiagFor(null)}
           onUploaded={fetchSchedules}
         />

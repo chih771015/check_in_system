@@ -64,9 +64,9 @@ func (s *DiagnosisService) UploadDiagnosis(ctx context.Context, translatorID, sp
 	if err != nil {
 		return err
 	}
-	if err := s.assertNotLeftYet(ctx, sp.ScheduleID); err != nil {
-		return err
-	}
+	// Note: uploads are intentionally allowed after the leave check-in —
+	// late-arriving evidence (X-ray / lab results) can be appended. Only
+	// delete / no_show stay locked post-leave (see DeletePhoto / MarkNoShow).
 
 	photoRepo := s.photoRepo.WithCtx(ctx)
 	existing, err := photoRepo.CountBySchedulePatientID(sp.ID)

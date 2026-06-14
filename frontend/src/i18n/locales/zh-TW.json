@@ -311,6 +311,7 @@
     "statusNoShow": "未到",
     "pendingPatients": "待處理：{{count}}",
     "viewPhotos": "查看照片",
+    "supplementPhotos": "補傳照片",
     "managePhotos": "管理診斷證明照片",
     "existingPhotos": "已上傳的照片",
     "noPhotosYet": "尚未上傳任何照片",

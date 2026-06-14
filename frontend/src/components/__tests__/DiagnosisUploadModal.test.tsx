@@ -14,7 +14,11 @@ function makeFile(name: string) {
   return new File(['data'], name, { type: 'image/jpeg' });
 }
 
-function setup(existing: DiagnosisPhotoItem[] = [], readOnly = false) {
+function setup(
+  existing: DiagnosisPhotoItem[] = [],
+  gate: { canUpload?: boolean; canDelete?: boolean } = {},
+) {
+  const { canUpload = true, canDelete = true } = gate;
   const onClose = vi.fn();
   const onUploaded = vi.fn();
   uploadMock.mockReset();
@@ -28,7 +32,8 @@ function setup(existing: DiagnosisPhotoItem[] = [], readOnly = false) {
       <DiagnosisUploadModal
         open
         schedulePatientId={42}
-        readOnly={readOnly}
+        canUpload={canUpload}
+        canDelete={canDelete}
         onClose={onClose}
         onUploaded={onUploaded}
         upload={uploadMock}
@@ -114,14 +119,22 @@ describe('DiagnosisUploadModal', () => {
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 
-  it('read-only mode shows photos but no add input and no delete buttons', async () => {
-    setup([{ id: 7, photoUrl: '/uploads/x.jpg' }], true);
+  it('view-only mode (no upload, no delete) shows photos but no edit affordances', async () => {
+    setup([{ id: 7, photoUrl: '/uploads/x.jpg' }], { canUpload: false, canDelete: false });
 
-    // Photos are listed (read-only title).
     expect(await screen.findByText('View Photos')).toBeInTheDocument();
-    // No "add photos" file input and no delete buttons in read-only mode.
     expect(document.querySelector('input[type="file"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Delete photo' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+  });
+
+  it('append-only mode (upload yes, delete no) shows add input but no delete buttons', async () => {
+    setup([{ id: 7, photoUrl: '/uploads/x.jpg' }], { canUpload: true, canDelete: false });
+
+    // Append title; can add but not delete (translator after leave).
+    expect(await screen.findByText('Add Photos (post-visit)')).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete photo' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
   });
 });
