@@ -130,6 +130,7 @@
     "edit": "編輯排班",
     "import": "Excel 批次匯入",
     "downloadTemplate": "下載匯入範本",
+    "importHint": "第一列必須是標題列；請用「下載範本」取得正確格式（相同 Code 會合併成一筆多病人排班）",
     "date": "日期",
     "startTime": "開始時間",
     "endTime": "結束時間",

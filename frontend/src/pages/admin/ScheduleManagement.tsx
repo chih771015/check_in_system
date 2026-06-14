@@ -12,6 +12,7 @@ import {
   Space,
   App,
   Typography,
+  Tooltip,
 } from 'antd';
 import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
@@ -516,7 +517,9 @@ export default function ScheduleManagement() {
             },
           } as UploadProps)}
         >
-          <Button icon={<UploadOutlined />} loading={importing} disabled={importing}>{t('schedules.import')}</Button>
+          <Tooltip title={t('schedules.importHint')}>
+            <Button icon={<UploadOutlined />} loading={importing} disabled={importing}>{t('schedules.import')}</Button>
+          </Tooltip>
         </Upload>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
           {t('schedules.add')}

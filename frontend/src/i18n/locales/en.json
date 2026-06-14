@@ -130,6 +130,7 @@
     "edit": "Edit Schedule",
     "import": "Import from Excel",
     "downloadTemplate": "Download Template",
+    "importHint": "The first row must be a header. Use \"Download Template\" for the correct format (rows with the same Code merge into one schedule).",
     "date": "Date",
     "startTime": "Start Time",
     "endTime": "End Time",
