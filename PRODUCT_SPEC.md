@@ -116,6 +116,11 @@
 - `GET /api/admin/patients/:id/history` ✅：彙整該病人**所有就診紀錄**（跨排班）：日期、時段、地點、翻譯員、status（pending/completed/no_show）、no_show 原因、診斷證明照片。
 - 翻譯員端 `GET /api/patients` ✅：**只看得到自己排班內出現過的病人**（scope 限縮），用於打卡 UI 顯示。
 
+### 6.3 xlsx 批次匯入 / 匯出 + 範本 ✅（2026-06-14 新增）
+- `POST /api/admin/patients/import`：上傳 xlsx（欄位：姓名、電話、證件類型 passport/hn/unid、證件號碼），逐列建立；**重複（證件類型+號碼已存在）或格式錯誤略過並回報**（回 `{created, skipped, errors:[{row, reason}]}`）。
+- `GET /api/admin/export/patients`：匯出所有病人為 xlsx（欄位與匯入相容，可直接再匯入）。
+- `GET /api/admin/export/patients-template`：下載匯入範本（表頭 + 範例列）。
+
 ---
 
 ## 7. 排班管理（Schedule）

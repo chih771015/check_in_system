@@ -34,6 +34,7 @@
 
 ### PatientService（`patient_service.go`）
 - `Create/Update`：先 `normalizeIDNumber`（ToUpper+Trim），再查 `FindByIDTypeAndNumber` 防重 → `ErrPatientDuplicate`。Update 排除自身。
+- **xlsx 匯入/匯出**：`ImportPatients(rows)` 逐列驗證（必填、idType∈{passport,hn,unid}）+ 走 `Create`，**重複/非法略過並回報**（`dto.PatientImportResult{created,skipped,errors[{row,reason}]}`，row 為 sheet 列號）；`BuildExcel`（全部病人，匯入相容欄位）、`BuildPatientTemplate`（表頭 + 範例列）用 excelize。
 - `List`（全部）vs `ListForTranslator`（有 spRepo 時限縮 scope，未注入則退回全部 — legacy 行為）。
 - `GetHistory`：注入 history repos 時做真實彙整（schedule_patients ⨝ schedules ⨝ users + diagnosis_photos，date DESC）；未注入回空 history。
 - 不變式：id_number 正規化是**人工維持**，繞過 service 寫 DB 會破壞唯一比對。

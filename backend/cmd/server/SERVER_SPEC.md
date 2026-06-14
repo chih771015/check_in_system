@@ -33,6 +33,7 @@ stateDiagram-v2
 - 全域：`otelgin`（span 名用 route template 降基數）→ `scrubSensitiveSpanAttributes`（移除 query string PII）→ CORS（dev 全開）→ `/uploads` 靜態。
 - `/api/auth/*` public（login）/ JWTAuth（change-password）。
 - `/api/admin/*`：JWTAuth → RequirePasswordChanged → RoleRequired("admin")。
+  - 病人 xlsx：`POST /admin/patients/import`（匯入；放 POST 樹避開 `/patients/:id` wildcard）、`GET /admin/export/patients`、`GET /admin/export/patients-template`（匯出/範本放 `/export/*` 避開 GET `:id` wildcard）。
 - translator 群組（`/schedules`、`/checkins*`、`/patients`）：…RoleRequired("translator")。
   - 診斷照片管理：`GET /checkins/diagnosis/photos?schedulePatientId=`（列出含 id）、`DELETE /checkins/diagnosis/photos/:photoId`（刪除）。list 刻意用 query param，避免與 `:photoId` 造成 gin wildcard 衝突；admin 端對應 `GET/DELETE /admin/diagnosis/photos[...]`。
 - 守衛細節見 [middleware spec](../../internal/middleware/MIDDLEWARE_SPEC.md)。

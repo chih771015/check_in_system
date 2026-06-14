@@ -27,7 +27,7 @@
 |------|------|------|
 | `TranslatorManagement.tsx` | /admin/translators | 翻譯員 CRUD + 停用 + 重設密碼（登入預設頁）；新增失敗用 `extractApiError` 顯示後端原因（如重複 email → `EMAIL_TAKEN`）|
 | `AdminManagement.tsx` | /admin/admins | 管理員 CRUD（不可刪自己）|
-| `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁 |
+| `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁；**xlsx 匯入/匯出 + 下載範本**（匯入完成顯示新增/略過筆數，略過列以 modal 列出原因）|
 | `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史 |
 | `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]）+ 匯入 + 週期 + 群組刪；詳情 modal 可代理診斷（**completed 也有「管理照片」可增刪**，admin 不受離開鎖定限制）/ 未到 |
 | `CheckinRecords.tsx` | /admin/checkins | 打卡查核 + 篩選 + 編修/刪 + [MapLink] |

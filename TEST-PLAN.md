@@ -847,6 +847,20 @@
 | 12.6.2 | 自己沒有任何排班 | 回空清單 |
 | 12.6.3 | search + 分頁在 scope 內生效 | 正確 |
 
+### 12.7 xlsx 匯入 / 匯出 / 範本 ✏️（2026-06-14 新增）
+
+`POST /admin/patients/import`、`GET /admin/export/patients`、`GET /admin/export/patients-template`
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 12.7.1 | 匯入正常列 | 建立病人，created 計數正確 |
+| 12.7.2 | 匯入重複（idType+號碼已存在）| 略過、計入 skipped + errors（含列號）|
+| 12.7.3 | 匯入缺必填 / idType 非法 | 略過、errors 標明原因 |
+| 12.7.4 | 匯入非 xlsx 檔 | 400 `INVALID_EXCEL` |
+| 12.7.5 | 匯出全部病人 xlsx | 200，xlsx Content-Type，欄位與匯入相容 |
+| 12.7.6 | 下載範本 | 200，表頭 + 範例列 |
+| 12.7.7 | 匯出檔再匯入（round-trip）| 全部重複 → created=0 |
+
 ---
 
 ## 13. 多病人排班 (Multi-Patient Schedule)

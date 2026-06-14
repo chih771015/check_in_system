@@ -15,7 +15,7 @@
 | `auth.go` | LoginRequest/Response、UserResponse、ChangePassword、ResetPassword |
 | `admin.go` | Admin list/create |
 | `translator.go` | Translator list/create/update（update 用指標 = partial）|
-| `patient.go` | Patient CRUD、list query（search/page）、history、response（camelCase）|
+| `patient.go` | Patient CRUD、list query（search/page）、history、response（camelCase）、**PatientImportResult{created,skipped,errors[{row,reason}]}**（xlsx 匯入結果）|
 | `schedule.go` | CreateScheduleRequest（含 `Patients []SchedulePatientPayload`、recurrence）、Update（指標 + `*[]Payload`）、ScheduleResponse、SchedulePatientResponse |
 | `checkin.go` | CheckinRequest、CheckinMakeupRequest、AdminUpdateCheckinRequest（指標）、CheckinResponse、AdminListParams 對應 |
 | `diagnosis_result.go` | DiagnosisResultsQuery / Response / Entry（分頁 + 篩選）、**DiagnosisPhotoItem{id,photoUrl}**（管理 modal 依 id 刪除）|

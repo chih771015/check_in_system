@@ -1648,6 +1648,24 @@ TRANS_TOKEN = （登入後取得）
 | **測試步驟** | 1. T1 呼叫 GET /api/patients |
 | **預期結果** | 只回 P1，不含 P2；T1 無排班時回空清單 |
 
+### TC-PT-011：xlsx 匯入（重複/格式錯略過並回報）
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-011 |
+| **名稱** | POST /api/admin/patients/import |
+| **測試步驟** | 1. 上傳含「正常列 + 重複(idType+號碼已存在) + 缺必填 + idType 非法」的 xlsx<br>2. 上傳非 xlsx 檔 |
+| **預期結果** | 1. 200，`{created, skipped, errors:[{row,reason}]}`；正常列建立、其餘略過並列出列號與原因<br>2. 400 `INVALID_EXCEL` |
+
+### TC-PT-012：xlsx 匯出 / 範本 + round-trip
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-PT-012 |
+| **名稱** | GET /api/admin/export/patients、/export/patients-template |
+| **測試步驟** | 1. 匯出病人 xlsx<br>2. 下載範本<br>3. 把匯出檔再匯入 |
+| **預期結果** | 1./2. 200，Content-Type 為 xlsx<br>3. 全部重複 → created=0、skipped=病人數（對應 e2e `patient-import-export.spec.ts`）|
+
 ---
 
 ## 16. TC-SCP：多病人排班
@@ -1917,7 +1935,7 @@ TRANS_TOKEN = （登入後取得）
 | TC-E2E：端對端流程 | 7 |
 | TC-UI：前端 UI | 10 大項 (40+ 子項) + 5 新元件 |
 | TC-ADM：管理員帳號管理 | 6 |
-| TC-PT：病人管理 | 10 |
+| TC-PT：病人管理 | 12（含 xlsx 匯入/匯出）|
 | TC-SCP：多病人排班 | 10 |
 | TC-DX：診斷證明 / 未到 / 結果 | 15（含照片刪除/補傳、no_show 清空、離開鎖定）|
 | **合計** | **~216 案例** |
