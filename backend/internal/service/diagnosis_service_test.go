@@ -111,9 +111,13 @@ func TestDiagnosisService_UploadDiagnosis_Success(t *testing.T) {
 func TestDiagnosisService_UploadDiagnosis_ExceedsLimit(t *testing.T) {
 	fx := newDiagFixture(t)
 	ctx := context.Background()
-	// 1 + 3 → exceeds limit (3)
-	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg"}))
-	err := fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/2.jpg", "/u/3.jpg", "/u/4.jpg"})
+	// Build MaxDiagnosisPhotos URLs (exactly at the cap) → OK, then +1 → over.
+	atCap := make([]string, MaxDiagnosisPhotos)
+	for i := range atCap {
+		atCap[i] = "/u/ok.jpg"
+	}
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, atCap))
+	err := fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/over.jpg"})
 	assert.True(t, errors.Is(err, ErrDiagnosisPhotoLimit))
 }
 

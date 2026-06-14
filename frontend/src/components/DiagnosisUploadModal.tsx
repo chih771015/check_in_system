@@ -31,7 +31,11 @@ interface DiagnosisUploadModalProps {
   canDelete?: boolean;
 }
 
-const MAX_PHOTOS = 3;
+const MAX_PHOTOS = 30;
+// Keep each upload request under nginx's client_max_body_size (100m). We warn
+// at ~90MB so a single batch never gets rejected with an opaque 413 — the user
+// is told to split into multiple uploads instead.
+const MAX_UPLOAD_BYTES = 90 * 1024 * 1024;
 
 /**
  * DiagnosisUploadModal manages up to 3 diagnosis photos for one SchedulePatient.
@@ -61,6 +65,8 @@ export default function DiagnosisUploadModal({
   const [submitting, setSubmitting] = useState(false);
 
   const remaining = MAX_PHOTOS - existing.length;
+  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+  const oversize = totalBytes > MAX_UPLOAD_BYTES;
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -91,6 +97,10 @@ export default function DiagnosisUploadModal({
       setFiles(list.slice(0, Math.max(remaining, 0)));
       return;
     }
+    // Pre-empt nginx 413: warn if this batch is too large to send in one go.
+    if (list.reduce((sum, f) => sum + f.size, 0) > MAX_UPLOAD_BYTES) {
+      void message.warning(t('diagnosis.uploadTooLarge'));
+    }
     setFiles(list);
   };
 
@@ -104,7 +114,10 @@ export default function DiagnosisUploadModal({
       await refresh();
       onUploaded();
     } catch (err: unknown) {
-      void message.error(extractApiError(err) || t('common.failed'));
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      // nginx rejects oversized bodies with 413 (no JSON body) → guide to split.
+      const msg = status === 413 ? t('diagnosis.uploadTooLarge') : extractApiError(err) || t('common.failed');
+      void message.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -204,11 +217,16 @@ export default function DiagnosisUploadModal({
               {files.map((f) => f.name).join(', ')}
             </div>
           )}
+          {oversize && (
+            <div style={{ fontSize: 12, color: '#cf1322', marginTop: 4 }}>
+              {t('diagnosis.uploadTooLarge')}
+            </div>
+          )}
           <Button
             type="primary"
             block
             style={{ marginTop: 8 }}
-            disabled={files.length === 0 || files.length > remaining}
+            disabled={files.length === 0 || files.length > remaining || oversize}
             loading={submitting}
             onClick={handleUpload}
           >

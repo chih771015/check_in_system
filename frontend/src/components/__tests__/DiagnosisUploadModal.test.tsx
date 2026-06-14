@@ -14,6 +14,13 @@ function makeFile(name: string) {
   return new File(['data'], name, { type: 'image/jpeg' });
 }
 
+// A file with a forced size (avoids allocating real megabytes in the test).
+function bigFile(name: string, size: number) {
+  const f = new File(['x'], name, { type: 'image/jpeg' });
+  Object.defineProperty(f, 'size', { value: size });
+  return f;
+}
+
 function setup(
   existing: DiagnosisPhotoItem[] = [],
   gate: { canUpload?: boolean; canDelete?: boolean } = {},
@@ -64,21 +71,36 @@ describe('DiagnosisUploadModal', () => {
     expect(submit).toBeDisabled();
   });
 
-  it('caps selection at the remaining slots and warns', async () => {
+  it('caps selection at the remaining slots (30) and warns', async () => {
     const { onUploaded } = setup([]);
     await screen.findByText('No photos uploaded yet');
     const user = userEvent.setup({ delay: null });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    await user.upload(input, [makeFile('a.jpg'), makeFile('b.jpg'), makeFile('c.jpg'), makeFile('d.jpg')]);
+    // Pick 31 → capped to the 30-photo limit.
+    const many = Array.from({ length: 31 }, (_, i) => makeFile(`p${i}.jpg`));
+    await user.upload(input, many);
 
-    expect(await screen.findByText(/up to 3/)).toBeInTheDocument();
+    expect(await screen.findByText(/up to 30/)).toBeInTheDocument();
 
     const submit = screen.getByRole('button', { name: 'Submit' });
     await user.click(submit);
     await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledOnce());
     const filesArg = uploadMock.mock.calls[0][1] as File[];
-    expect(filesArg).toHaveLength(3);
+    expect(filesArg).toHaveLength(30);
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
+  });
+
+  it('blocks submit when the selected batch is too large (pre-empts nginx 413)', async () => {
+    setup([]);
+    await screen.findByText('No photos uploaded yet');
+    const user = userEvent.setup({ delay: null });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, [bigFile('huge.jpg', 95 * 1024 * 1024)]);
+
+    // Inline hint shown and submit disabled — no oversized request is sent.
+    expect((await screen.findAllByText(/too large/i)).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+    expect(uploadMock).not.toHaveBeenCalled();
   });
 
   it('uploads 1-2 chosen files and notifies the parent (modal stays open)', async () => {

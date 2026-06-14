@@ -18,7 +18,7 @@ import (
 // Sentinel errors returned by DiagnosisService.
 var (
 	ErrSchedulePatientNotFound   = errors.New("schedule patient not found")
-	ErrDiagnosisPhotoLimit       = errors.New("diagnosis photo limit reached (max 3 per patient)")
+	ErrDiagnosisPhotoLimit       = errors.New("diagnosis photo limit reached (max 30 per patient)")
 	ErrDiagnosisNotOwned         = errors.New("schedule patient does not belong to this translator")
 	ErrDiagnosisPhotoNotFound    = errors.New("diagnosis photo not found")
 	ErrDiagnosisLockedAfterLeave = errors.New("diagnosis can no longer be changed after leave check-in")
@@ -26,7 +26,7 @@ var (
 )
 
 // MaxDiagnosisPhotos is the per-(schedule, patient) cap defined in the spec.
-const MaxDiagnosisPhotos = 3
+const MaxDiagnosisPhotos = 30
 
 // DiagnosisService handles per-patient diagnosis photo uploads and "no show"
 // status updates inside a schedule. Both flows are translator-only by default
