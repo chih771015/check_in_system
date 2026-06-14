@@ -55,6 +55,7 @@ Playwright (e2e/) ──HTTP──▶ frontend :3001 (nginx) ──/api──▶
 | makeup-checkin | 補打卡 + 原因 |
 | diagnosis-flow | 逐病人診斷上傳 / no_show（admin 結果總覽）|
 | diagnosis-manage | **診斷照片上傳 → 補傳 → 刪除 → 刪光退回 pending（API 層，避開打卡 UI）+ 刪不存在回 404** |
+| patient-import-export | **病人 xlsx 匯出 → 再匯入（重複略過）round-trip + 範本下載 + 非 xlsx 回 INVALID_EXCEL（API 層）** |
 | patient-history | 病人就診歷史 |
 | export | Excel 匯出 |
 | errors | 錯誤碼 → i18n 訊息 |
