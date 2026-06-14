@@ -209,11 +209,11 @@
 > stage 4 新增：打卡只是「到場」，真正的服務證據是**逐病人的診斷證明**。
 
 - 逐 SchedulePatient 操作：
-  - `POST /api/checkins/diagnosis`（multipart，最多 **3 張** photo）→ status 變 `completed`。
+  - `POST /api/checkins/diagnosis`（multipart，最多 **30 張** photo）→ status 變 `completed`。
   - `POST /api/checkins/no-show`（需 reason）→ status 變 `no_show`。
 - 翻譯員只能操作自己排班下的病人（ownership 驗證）。
 - 管理員代理：`POST /api/admin/diagnosis`、`POST /api/admin/no-show`（無 ownership 限制）。
-- 照片上限 3 張：超過回 `DIAGNOSIS_PHOTO_LIMIT`。
+- 照片上限 30 張：超過回 `DIAGNOSIS_PHOTO_LIMIT`。
 - **照片管理（上傳後可刪除 / 補傳）✅（2026-06-11 新增）**：
   - `GET /api/checkins/diagnosis/photos?schedulePatientId=`：列出既有照片（含 id）。
   - `DELETE /api/checkins/diagnosis/photos/:photoId`：刪除單張（best-effort 連磁碟檔一起刪）。
@@ -335,7 +335,7 @@
 | 項目 | 原始 SPEC | 現況 |
 |------|-----------|------|
 | 病人 | 排班內 free-text patient_name | 獨立 `patients` 表 + 多病人 SchedulePatient ✅ |
-| 服務證據 | 無 | 逐病人診斷證明照片（≤3）+ no_show ✅ |
+| 服務證據 | 無 | 逐病人診斷證明照片（≤30）+ no_show ✅ |
 | 離開打卡 | 直接打 | 需所有病人處理完才可離開 ✅ |
 | 環境照 | 必填 | 改選填（自拍照仍必填）✅ |
 | 通知 | LINE/Telegram 四種情境 | 僅「明日提醒」LINE+Email；其餘 ⬜，Telegram ⬜ |

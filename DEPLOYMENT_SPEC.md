@@ -97,7 +97,7 @@ bash scripts/stop.sh             # 停止
 |------|------|
 | backend 起不來 | `.env` 缺 `JWT_SECRET` / 太短；看 `logs backend` |
 | 忘記 admin 密碼 | `docker exec <backend> ./server -reset-password admin@admin.com "NewPass123"` |
-| 照片上傳 413 | 反代 `client_max_body_size`（compose 內 nginx 已設 20m）|
+| 照片上傳 413 | 反代 `client_max_body_size`（compose 內 nginx 已設 100m）|
 | 外部連不到 | 確認用 expose overlay + cloudflared，且前端走相對 `/api` |
 | 報表沒寄出 | SMTP env 未設或錯；定期匯出僅在 day_of_month 命中當天 08:00 跑 |
 

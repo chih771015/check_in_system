@@ -61,7 +61,7 @@ erDiagram
 - 關聯：Schedule、Translator（json omitempty）。
 
 ### diagnosis_photo.go — `diagnosis_photos`
-- 綁 `schedule_patient_id`；每組最多 3 張（上限由 DiagnosisService 守，model 不擋）。
+- 綁 `schedule_patient_id`；每組最多 30 張（上限由 DiagnosisService 守，model 不擋）。
 - 注意：此表 json tag 用 camelCase（`schedulePatientId`/`photoUrl`），與多數 snake_case model 不同。
 
 ### export_schedule.go — `export_schedules`

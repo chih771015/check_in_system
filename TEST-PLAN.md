@@ -901,15 +901,15 @@
 
 ## 14. 診斷證明 / 未到 / 結果總覽 (Diagnosis / No-show / Results)
 
-> stage 4：打卡只是到場，逐病人的診斷證明才是服務證據。最多 3 張照片。
+> stage 4：打卡只是到場，逐病人的診斷證明才是服務證據。最多 30 張照片。
 > 對應測試：`diagnosis_service_test.go`、`diagnosis_results_test.go`、`diagnosis_photos_get_test.go`。
 
 ### 14.1 翻譯員上傳診斷證明 `POST /api/checkins/diagnosis`
 
 | # | 測試項目 | 預期結果 |
 |---|---------|---------|
-| 14.1.1 | 上傳 1~3 張照片成功 | 該 SchedulePatient status→completed |
-| 14.1.2 | 既有 + 新增超過 3 張 | 400，`DIAGNOSIS_PHOTO_LIMIT` |
+| 14.1.1 | 上傳 1~30 張照片成功 | 該 SchedulePatient status→completed |
+| 14.1.2 | 既有 + 新增超過 30 張 | 400，`DIAGNOSIS_PHOTO_LIMIT` |
 | 14.1.3 | 操作不屬於自己排班的病人 | 403，`DIAGNOSIS_NOT_OWNED` |
 | 14.1.4 | SchedulePatient 不存在 | 404，`SCHEDULE_PATIENT_NOT_FOUND` |
 | 14.1.5 | 上傳後可由離開 gate 放行 | 配合 4.1.20~4.1.21 |
@@ -965,7 +965,7 @@
 | 14.6.4 | 刪除最後一張 | 200，slot 退回 `pending` |
 | 14.6.5 | 刪非自己排班的照片 | 403，`DIAGNOSIS_NOT_OWNED` |
 | 14.6.6 | photoId 不存在 | 404，`DIAGNOSIS_PHOTO_NOT_FOUND` |
-| 14.6.7 | 刪除後額度回收可再補傳（≤3） | 上傳成功 |
+| 14.6.7 | 刪除後額度回收可再補傳（≤30） | 上傳成功 |
 | 14.6.8 | 管理員代理列表/刪除（無 ownership）+ 寫 audit | 成功 + audit_logs 有紀錄 |
 | 14.6.9 | 標記 no_show 清空既有照片 | 照片全刪、status=no_show、reason 保留 |
 | 14.6.10 | 排班已 leave 後 translator **upload** | **允許**（補傳晚到報告）|

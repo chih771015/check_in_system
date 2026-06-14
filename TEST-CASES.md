@@ -1478,7 +1478,7 @@ TRANS_TOKEN = （登入後取得）
 > - **PatientPicker**：掛載抓清單、選取 onChange、搜尋 debounce、value 後設顯示名。
 > - **SchedulePatientListEditor**：空值一列、依 value 渲染、Add/Delete 列；
 >   util `clampPatientTimes` / `validatePatientTimes`（夾時段、偵測 end≤start/超範圍/重複病人/缺 id）。
-> - **DiagnosisUploadModal**：未選檔禁用送出、超過 3 張截斷提示、選 1~3 張可送出。
+> - **DiagnosisUploadModal**：未選檔禁用送出、超過 30 張截斷提示、選 1~30 張可送出。
 > - **NoShowModal**：原因空白禁用、填原因可送出。
 > - **管理員帳號管理頁 / 診斷結果總覽頁**：列表/新增/刪除、篩選分頁、手機 sidebar 自動收起。
 
@@ -1754,16 +1754,16 @@ TRANS_TOKEN = （登入後取得）
 ## 17. TC-DX：診斷證明 / 未到 / 結果總覽
 
 > 對應：`diagnosis_service_test.go`、`diagnosis_results_test.go`、`diagnosis_photos_get_test.go`。
-> 逐 SchedulePatient 操作，照片上限 3 張。翻譯員須擁有該排班；管理員代理無 ownership 限制。
+> 逐 SchedulePatient 操作，照片上限 30 張。翻譯員須擁有該排班；管理員代理無 ownership 限制。
 
 ### TC-DX-001：翻譯員上傳診斷成功
 
 | 項目 | 內容 |
 |------|------|
 | **ID** | TC-DX-001 |
-| **名稱** | 上傳 1~3 張 → completed |
+| **名稱** | 上傳 1~30 張 → completed |
 | **前置條件** | SchedulePatient 屬於該翻譯員，status=pending |
-| **測試步驟** | 1. POST /api/checkins/diagnosis（multipart，含 1~3 張照片） |
+| **測試步驟** | 1. POST /api/checkins/diagnosis（multipart，含 1~30 張照片） |
 | **預期結果** | 成功，status→completed，照片落地 |
 
 ### TC-DX-002：照片超過上限
@@ -1771,7 +1771,7 @@ TRANS_TOKEN = （登入後取得）
 | 項目 | 內容 |
 |------|------|
 | **ID** | TC-DX-002 |
-| **名稱** | 既有 + 新增 > 3 張 |
+| **名稱** | 既有 + 新增 > 30 張 |
 | **前置條件** | 已有 2 張 |
 | **測試步驟** | 1. 再上傳 2 張（共 4） |
 | **預期結果** | 400，`DIAGNOSIS_PHOTO_LIMIT` |
@@ -1875,7 +1875,7 @@ TRANS_TOKEN = （登入後取得）
 | **ID** | TC-DX-013 |
 | **名稱** | 上傳一張 → 補傳 → 刪除 → 再補傳（額度回收）|
 | **測試步驟** | 1. 上傳 1 張<br>2. 再上傳 1 張（共 2）<br>3. 刪 1 張<br>4. 再上傳 1 張 |
-| **預期結果** | 各步成功；任一時刻照片數 ≤ 3，刪除會釋放額度可再傳（對應 e2e `diagnosis-manage.spec.ts`）|
+| **預期結果** | 各步成功；任一時刻照片數 ≤ 30，刪除會釋放額度可再傳（對應 e2e `diagnosis-manage.spec.ts`）|
 
 ### TC-DX-014：標記 no_show 清空照片
 

@@ -4,14 +4,14 @@
 > 上層：[service overview](SERVICE_SPEC.md) ← [ARCHITECTURE_SPEC.md](../../../ARCHITECTURE_SPEC.md)
 
 ## 1. 定位與職責
-逐 **SchedulePatient** 的服務結果：上傳診斷證明照片（≤3）標記 `completed`、標記 `no_show`（需原因）、查詢照片（含 id，供刪除）、**刪除單張照片（可再補傳）**、**診斷結果總覽（分頁 + 篩選）**。translator 操作需 ownership；admin 有 surrogate 變體（無 ownership 檢查）。
+逐 **SchedulePatient** 的服務結果：上傳診斷證明照片（≤30）標記 `completed`、標記 `no_show`（需原因）、查詢照片（含 id，供刪除）、**刪除單張照片（可再補傳）**、**診斷結果總覽（分頁 + 篩選）**。translator 操作需 ownership；admin 有 surrogate 變體（無 ownership 檢查）。
 - **不做**：照片存檔（handler 存好 URL 才呼叫）、打卡（CheckinService，但兩者透過 SchedulePatient.status 連動）。
 - **做**：刪除照片時 best-effort 移除磁碟檔（`removeUploadedFile`，失敗只記 log 不阻擋）。
 
 ## 2. 對外契約
 | 方法 | ownership | 說明 |
 |------|-----------|------|
-| `UploadDiagnosis(ctx,translatorID,spID,urls)` | ✅ | 累計照片≤3，標 completed |
+| `UploadDiagnosis(ctx,translatorID,spID,urls)` | ✅ | 累計照片≤30，標 completed |
 | `MarkNoShow(ctx,translatorID,spID,reason)` | ✅ | reason 必填，標 no_show；**並清空該 slot 既有照片**（按錯更正）|
 | `AdminUploadDiagnosis(ctx,spID,urls)` | ✗ | 代理上傳 |
 | `AdminMarkNoShow(ctx,spID,reason)` | ✗ | 代理標記 |
@@ -22,7 +22,7 @@
 | `AdminDeletePhoto(ctx,photoID)` | ✗ | 代理刪除 |
 | `ListResults(ctx,query)` | ✗ | terminal(completed/no_show) 總覽，分頁 |
 
-常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrDiagnosisLockedAfterLeave / ErrNoShowReasonRequired`。
+常數 `MaxDiagnosisPhotos = 30`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrDiagnosisLockedAfterLeave / ErrNoShowReasonRequired`。
 
 **離開後鎖定（translator，僅刪除/標未到）**：透過 `WithCheckinRepo` 注入 checkinRepo 後，若該排班已有 `leave` 打卡，translator 的 `DeletePhoto / MarkNoShow` 回 `ErrDiagnosisLockedAfterLeave`（409）。**`UploadDiagnosis` 刻意不鎖**——X 光/檢驗報告常在離開後才出來，允許補傳。唯讀（`ListPhotoItems`）與所有 `Admin*` 變體不受限。未注入 checkinRepo 時鎖定不啟用（legacy/測試）。
 
@@ -34,7 +34,7 @@ stateDiagram-v2
   [*] --> pending: 排班建立時
   pending --> completed: UploadDiagnosis (≥1 photo)
   pending --> no_show: MarkNoShow (reason 必填)
-  completed --> completed: 再上傳 (累計≤3) / admin 重傳 / 刪除但仍有照片
+  completed --> completed: 再上傳 (累計≤30) / admin 重傳 / 刪除但仍有照片
   no_show --> completed: admin/translator 補上傳 (status 被覆寫)
   completed --> no_show: MarkNoShow 覆寫
   completed --> pending: DeletePhoto 刪到一張不剩
@@ -47,7 +47,7 @@ stateDiagram-v2
 ### 3c. 不變式
 | 不變式 | 保證 |
 |--------|------|
-| 每 SchedulePatient 照片 ≤ 3 | 人工維持（upload 前 `CountBySchedulePatientID + len > 3` 檢查；DB 不擋）|
+| 每 SchedulePatient 照片 ≤ 30 | 人工維持（upload 前 `CountBySchedulePatientID + len > 30` 檢查；DB 不擋）|
 | translator 只能動自己排班的病人 | 機制保證（assertOwnedSchedulePatient 比對 schedule.translator_id）|
 | no_show 必附原因 | 機制保證（reason=="" → 直接回錯）|
 | 與離開打卡連動：pending 擋 leave | 在 CheckinService（跨 service 不變式）|
@@ -63,7 +63,7 @@ sequenceDiagram
   S->>SP: FindByID(spID) 無→SchedulePatientNotFound
   S->>SP: schedule.translator_id==translatorID? 否→DiagnosisNotOwned
   S->>P: CountBySchedulePatientID
-  S->>S: existing+len(urls)>3 → DiagnosisPhotoLimit
+  S->>S: existing+len(urls)>30 → DiagnosisPhotoLimit
   loop each url
     S->>P: Create(DiagnosisPhoto)
   end
@@ -75,7 +75,7 @@ sequenceDiagram
 |------|------|------|
 | spID 不存在 | 任一 | `SCHEDULE_PATIENT_NOT_FOUND` |
 | 非自己排班 | translator upload/no_show | `DIAGNOSIS_NOT_OWNED` (403) |
-| 既有+新 > 3 | upload | `DIAGNOSIS_PHOTO_LIMIT` (400) |
+| 既有+新 > 30 | upload | `DIAGNOSIS_PHOTO_LIMIT` (400) |
 | no_show 無 reason | no_show | `NO_SHOW_REASON_REQUIRED` (400) |
 | photoID 不存在 | delete | `DIAGNOSIS_PHOTO_NOT_FOUND` (404) |
 | 刪非自己排班的照片 | translator delete | `DIAGNOSIS_NOT_OWNED` (403) |
@@ -94,7 +94,7 @@ sequenceDiagram
 - date 跨 DB 相容：sqlite 回 RFC3339、postgres 回 YYYY-MM-DD，統一 trim `T` 之後。
 
 ## 7. 並發假設
-- 照片上限「先 count 再寫」非原子；同一 SchedulePatient 並發上傳極端情況可能超過 3（低頻內部可接受）。
+- 照片上限「先 count 再寫」非原子；同一 SchedulePatient 並發上傳極端情況可能超過 30（低頻內部可接受）。
 
 ## 8. 測試考量
 - `diagnosis_service_test.go`、`diagnosis_photos_get_test.go`、`diagnosis_results_test.go`。

@@ -15,7 +15,7 @@
 | `docker-compose.yml` | **dev stack**：postgres + jaeger + backend + frontend |
 | `docker-compose.e2e.yml` | **e2e stack**：獨立 port/volume、無 jaeger、reset 端點開啟 |
 | `docker-compose.expose.yml` | dev stack 的 overlay：換成對外穿透用 nginx 設定 |
-| `nginx.conf` | 前端 SPA fallback + `/api/`、`/uploads/` 反向代理（`client_max_body_size 20m`）|
+| `nginx.conf` | 前端 SPA fallback + `/api/`、`/uploads/` 反向代理（`client_max_body_size 100m`）|
 | `nginx.expose.conf` | 同上 + 信任 cloudflared 的 `CF-Connecting-IP`、強制 `X-Forwarded-Proto: https` |
 
 ## 3. dev stack（docker-compose.yml）
@@ -70,14 +70,14 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.expose.yml 
 |------|------|
 | `/api/` → backend:8080 | 前端走相對路徑 `/api`，避免寫死 localhost（外部瀏覽器才連得到）|
 | `/uploads/` → backend:8080 | 否則照片路徑會落入 SPA fallback 回傳 index.html（破圖）|
-| `client_max_body_size 20m` | 手機照片 3–8MB；3 張診斷照需放寬（預設 1MB 會 413）|
+| `client_max_body_size 100m` | 手機照片 3–8MB；診斷照上限 30 張，單批放寬到 100m（前端 ~90MB 預檢，過大提示分批；預設 1MB 會 413）|
 | `try_files ... /index.html` | SPA 前端路由 fallback |
 
 ## 7. 邊界條件 / 常見問題
 | 情境 | 處理 |
 |------|------|
 | backend 起不來 | 多半是 `.env` 缺 `JWT_SECRET`；看 `docker compose logs backend` |
-| 照片上傳 413 | nginx `client_max_body_size`（已設 20m）；自架反代別漏 |
+| 照片上傳 413 | nginx `client_max_body_size`（已設 100m）；自架反代別漏 |
 | dev 與 e2e 互撞 | 不會：port/volume/project name 皆不同 |
 | Google Sheet 匯出失敗 | 需掛載 `google-credentials.json`（compose 內有註解範例）|
 
