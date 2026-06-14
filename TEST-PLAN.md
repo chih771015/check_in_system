@@ -736,8 +736,9 @@
 | 10.13.6 | NoShowModal 原因空白時送出禁用 | 按鈕 disabled |
 | 10.13.7 | NoShowModal 填原因後可送出並呼叫 markNoShow | 觸發 |
 | 10.13.8 | MySchedules：arrived 時 completed 病人顯示「管理照片」可開 modal | 按鈕不消失 |
-| 10.13.9 | MySchedules：**離開打卡後**唯讀 — completed 只剩「查看照片」、無上傳/未到入口 | 不顯示修改入口 |
-| 10.13.10 | DiagnosisUploadModal `readOnly` 模式：顯示照片、無檔案輸入、無刪除鈕 | 唯讀 |
+| 10.13.9 | MySchedules：**離開打卡後** completed/pending 顯示「補傳照片」（append），無刪除/未到入口 | 可加不可刪 |
+| 10.13.10 | DiagnosisUploadModal append 模式（canUpload、!canDelete）：有檔案輸入、無刪除鈕 | 可加不可刪 |
+| 10.13.11 | DiagnosisUploadModal 唯讀（皆 false）：顯示照片、無檔案輸入、無刪除/送出鈕 | 唯讀 |
 
 ### 10.14 管理員 / 診斷結果頁 ✏️
 
@@ -967,8 +968,9 @@
 | 14.6.7 | 刪除後額度回收可再補傳（≤3） | 上傳成功 |
 | 14.6.8 | 管理員代理列表/刪除（無 ownership）+ 寫 audit | 成功 + audit_logs 有紀錄 |
 | 14.6.9 | 標記 no_show 清空既有照片 | 照片全刪、status=no_show、reason 保留 |
-| 14.6.10 | 排班已 leave 後 translator upload/delete/no_show | 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE` |
-| 14.6.11 | 排班已 leave 後 translator 列出照片（唯讀） | 仍允許 |
+| 14.6.10 | 排班已 leave 後 translator **upload** | **允許**（補傳晚到報告）|
+| 14.6.11 | 排班已 leave 後 translator **delete / no_show** | 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE` |
+| 14.6.12 | 排班已 leave 後 translator 列出照片（唯讀） | 仍允許 |
 | 14.6.12 | 排班已 leave 後 admin upload/delete/no_show | 不受限，成功 |
 
 ---

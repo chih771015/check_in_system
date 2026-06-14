@@ -1891,10 +1891,10 @@ TRANS_TOKEN = （登入後取得）
 | 項目 | 內容 |
 |------|------|
 | **ID** | TC-DX-015 |
-| **名稱** | 排班已 leave 打卡後，翻譯員不能改診斷 |
+| **名稱** | 排班已 leave 打卡後：翻譯員可補傳、不可刪/改狀態 |
 | **前置條件** | 該排班已有 `leave` 打卡 |
-| **測試步驟** | 1. translator upload / delete / no_show<br>2. translator 列出照片（唯讀）<br>3. admin upload / delete / no_show |
-| **預期結果** | 1. 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE`<br>2. 唯讀仍可<br>3. admin 不受限，成功 |
+| **測試步驟** | 1. translator **upload**（補傳）<br>2. translator **delete / no_show**<br>3. translator 列出照片（唯讀）<br>4. admin upload / delete / no_show |
+| **預期結果** | 1. **成功**（補傳晚到報告）<br>2. 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE`<br>3. 唯讀仍可<br>4. admin 不受限，成功 |
 
 > 管理員代理變體：`GET/DELETE /api/admin/diagnosis/photos[...]` 行為同上但跳過 ownership 與離開鎖定，並寫 audit log。
 

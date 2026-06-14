@@ -24,7 +24,7 @@
 
 常數 `MaxDiagnosisPhotos = 3`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrDiagnosisLockedAfterLeave / ErrNoShowReasonRequired`。
 
-**離開後鎖定（translator）**：透過 `WithCheckinRepo` 注入 checkinRepo 後，`UploadDiagnosis / DeletePhoto / MarkNoShow` 會檢查該排班是否已有 `leave` 打卡；有 → 回 `ErrDiagnosisLockedAfterLeave`（409）。唯讀（`ListPhotoItems`）與所有 `Admin*` 變體不受限。未注入 checkinRepo 時鎖定不啟用（legacy/測試）。
+**離開後鎖定（translator，僅刪除/標未到）**：透過 `WithCheckinRepo` 注入 checkinRepo 後，若該排班已有 `leave` 打卡，translator 的 `DeletePhoto / MarkNoShow` 回 `ErrDiagnosisLockedAfterLeave`（409）。**`UploadDiagnosis` 刻意不鎖**——X 光/檢驗報告常在離開後才出來，允許補傳。唯讀（`ListPhotoItems`）與所有 `Admin*` 變體不受限。未注入 checkinRepo 時鎖定不啟用（legacy/測試）。
 
 ## 3. 狀態模型（SchedulePatient.status）
 
@@ -42,7 +42,7 @@ stateDiagram-v2
 > status 轉換**無單向限制**：upload 一律覆寫成 completed、no_show 一律覆寫成 no_show（允許更正）。
 > **標記 no_show 會清空既有照片**（視為「按錯 completed，改回 no_show」）→ 保證 no_show slot 不殘留照片。
 > **刪除照片**：仍有照片 → 維持 completed；刪到歸零 → 退回 pending（讓該 slot 可重新補傳或標記未到）。因 no_show 不留照片，刪除退回 pending 只會發生在 completed slot。
-> **離開後鎖定**：排班一旦 leave 打卡，translator 不能再 upload/delete/no_show（僅 admin 可）。
+> **離開後**：排班一旦 leave 打卡，translator 仍可 **upload（補傳晚到報告）**，但不能 delete / no_show（僅 admin 可）。
 
 ### 3c. 不變式
 | 不變式 | 保證 |
@@ -81,7 +81,8 @@ sequenceDiagram
 | 刪非自己排班的照片 | translator delete | `DIAGNOSIS_NOT_OWNED` (403) |
 | 刪最後一張 | delete | status 退回 `pending` |
 | 標記 no_show | no_show | 清空既有照片（避免 no_show slot 殘留照片）|
-| 排班已 leave（translator）| upload/delete/no_show | `DIAGNOSIS_LOCKED_AFTER_LEAVE` (409)；僅 admin 可改 |
+| 排班已 leave（translator）| **delete / no_show** | `DIAGNOSIS_LOCKED_AFTER_LEAVE` (409)；僅 admin 可刪/改狀態 |
+| 排班已 leave（translator）| **upload** | **允許**（補傳晚到的報告）|
 | admin 代理 | Admin* | 跳過 ownership 與離開鎖定 |
 | ListResults 含 pending | ListResults | **排除**（只回 completed/no_show）|
 

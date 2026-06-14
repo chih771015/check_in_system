@@ -15,7 +15,7 @@
 ## 3. 翻譯員頁（`pages/translator/`）
 | 檔案 | 路由 | 重點 |
 |------|------|------|
-| `MySchedules.tsx` | /my-schedules | 自己的排班；**arrived（離開前）**可編輯診斷（completed→「管理照片」補傳/刪除、其餘→上傳/未到）；**離開打卡後唯讀**：completed 只剩「查看照片」（`readOnly` modal），不能再改（後端亦回 `DIAGNOSIS_LOCKED_AFTER_LEAVE`）；打卡入口 |
+| `MySchedules.tsx` | /my-schedules | 自己的排班；三段情境：**進行中（arrived/makeup）**完整編輯（管理照片/上傳/未到）；**離開後（completed）**「補傳照片」append 模式（可加不可刪，補晚到報告）；**未到達（none）**唯讀查看。刪除/未到在離開後由後端 `DIAGNOSIS_LOCKED_AFTER_LEAVE` 守。打卡入口 |
 | `MyCheckins.tsx` | /my-checkins | 打卡歷史 + 統計 |
 | `CheckIn.tsx` | /checkin/:scheduleId/:type | **打卡頁**：自拍照 + GPS（用 [useGeolocation ★](../hooks/HOOKS_SPEC.md)）；送出 disabled until GPS success |
 | `MakeupCheckIn.tsx` | /makeup/:scheduleId/:type | 補打卡（+ 原因）|
