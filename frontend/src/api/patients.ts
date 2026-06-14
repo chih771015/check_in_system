@@ -44,6 +44,49 @@ export function getPatientHistory(id: number) {
     .then((r) => r.data);
 }
 
+export interface PatientImportError {
+  row: number;
+  reason: string;
+}
+
+export interface PatientImportResult {
+  created: number;
+  skipped: number;
+  errors: PatientImportError[];
+}
+
+/** Bulk-import patients from an xlsx file. Duplicates/invalid rows are skipped. */
+export function importPatients(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  return client
+    .post<PatientImportResult>('/admin/patients/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+}
+
+function downloadXlsx(path: string, filename: string) {
+  return client.get(path, { responseType: 'blob' }).then((r) => {
+    const url = URL.createObjectURL(new Blob([r.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+/** Download all patients as xlsx. */
+export function exportPatients() {
+  return downloadXlsx('/admin/export/patients', 'patients.xlsx');
+}
+
+/** Download the import template xlsx (header + example row). */
+export function downloadPatientTemplate() {
+  return downloadXlsx('/admin/export/patients-template', 'patients_template.xlsx');
+}
+
 export interface TranslatorPatientListResponse {
   data: TranslatorPatient[];
   total: number;

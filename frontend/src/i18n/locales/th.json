@@ -115,7 +115,13 @@
     },
     "confirmDelete": "ต้องการลบผู้ป่วย \"{{name}}\" หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้",
     "searchPlaceholder": "ค้นหาด้วยชื่อ โทรศัพท์ หรือ ID",
-    "duplicateError": "มีผู้ป่วยที่ใช้ประเภทและหมายเลข ID เดียวกันอยู่แล้ว"
+    "duplicateError": "มีผู้ป่วยที่ใช้ประเภทและหมายเลข ID เดียวกันอยู่แล้ว",
+    "import": "นำเข้า Excel",
+    "export": "ส่งออก Excel",
+    "downloadTemplate": "ดาวน์โหลดเทมเพลต",
+    "importResult": "นำเข้าเสร็จ: เพิ่ม {{created}} รายการ ข้าม {{skipped}} รายการ",
+    "importErrorsTitle": "แถวที่ถูกข้าม",
+    "importErrorRow": "แถว {{row}}"
   },
   "schedules": {
     "title": "จัดการตารางงาน",

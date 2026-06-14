@@ -115,7 +115,13 @@
     },
     "confirmDelete": "確定要刪除病人「{{name}}」嗎？此操作無法復原。",
     "searchPlaceholder": "依姓名、電話或 ID 號碼搜尋",
-    "duplicateError": "已存在相同 ID 類型與號碼的病人"
+    "duplicateError": "已存在相同 ID 類型與號碼的病人",
+    "import": "匯入 Excel",
+    "export": "匯出 Excel",
+    "downloadTemplate": "下載範本",
+    "importResult": "匯入完成：新增 {{created}} 筆、略過 {{skipped}} 筆",
+    "importErrorsTitle": "略過的資料列",
+    "importErrorRow": "第 {{row}} 列"
   },
   "schedules": {
     "title": "排班管理",

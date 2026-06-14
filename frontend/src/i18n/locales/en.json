@@ -115,7 +115,13 @@
     },
     "confirmDelete": "Are you sure you want to delete patient \"{{name}}\"? This action cannot be undone.",
     "searchPlaceholder": "Search by name, phone or ID number",
-    "duplicateError": "A patient with the same ID type and number already exists"
+    "duplicateError": "A patient with the same ID type and number already exists",
+    "import": "Import Excel",
+    "export": "Export Excel",
+    "downloadTemplate": "Download Template",
+    "importResult": "Import done: {{created}} added, {{skipped}} skipped",
+    "importErrorsTitle": "Skipped rows",
+    "importErrorRow": "Row {{row}}"
   },
   "schedules": {
     "title": "Schedule Management",

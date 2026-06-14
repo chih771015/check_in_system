@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Table,
   Button,
@@ -11,7 +11,7 @@ import {
   App,
   Tag,
 } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { IDType, Patient } from '../../types';
@@ -20,8 +20,12 @@ import {
   deletePatient,
   getPatients,
   updatePatient,
+  importPatients,
+  exportPatients,
+  downloadPatientTemplate,
   type PatientPayload,
 } from '../../api/patients';
+import { extractApiError } from '../../utils/apiError';
 
 const ID_TYPE_COLOR: Record<IDType, string> = {
   passport: 'blue',
@@ -43,6 +47,9 @@ export default function PatientManagement() {
   const [editing, setEditing] = useState<Patient | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm<PatientPayload>();
+
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
@@ -162,11 +169,41 @@ export default function PatientManagement() {
     },
   ];
 
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset so the same file can be re-picked
+    if (!file) return;
+    setImporting(true);
+    try {
+      const res = await importPatients(file);
+      void message.success(t('patients.importResult', { created: res.created, skipped: res.skipped }));
+      if (res.errors.length > 0) {
+        modal.info({
+          title: t('patients.importErrorsTitle'),
+          content: (
+            <div style={{ maxHeight: 300, overflow: 'auto' }}>
+              {res.errors.slice(0, 50).map((err) => (
+                <div key={err.row} style={{ fontSize: 13 }}>
+                  {t('patients.importErrorRow', { row: err.row })}: {err.reason}
+                </div>
+              ))}
+            </div>
+          ),
+        });
+      }
+      void fetchData();
+    } catch (err: unknown) {
+      void message.error(extractApiError(err) || t('common.failed'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Typography.Title level={4} style={{ margin: 0 }}>{t('patients.title')}</Typography.Title>
-        <Space>
+        <Space wrap>
           <Input
             allowClear
             placeholder={t('patients.searchPlaceholder')}
@@ -177,6 +214,22 @@ export default function PatientManagement() {
             prefix={<SearchOutlined />}
           />
           <Button onClick={() => { setPage(1); setSearch(searchInput.trim()); }}>{t('common.search')}</Button>
+          <Button icon={<DownloadOutlined />} onClick={() => void downloadPatientTemplate()}>
+            {t('patients.downloadTemplate')}
+          </Button>
+          <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileInputRef.current?.click()}>
+            {t('patients.import')}
+          </Button>
+          <Button icon={<DownloadOutlined />} onClick={() => void exportPatients()}>
+            {t('patients.export')}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx"
+            style={{ display: 'none' }}
+            onChange={handleImportFile}
+          />
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             {t('patients.add')}
           </Button>
