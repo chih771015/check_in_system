@@ -121,7 +121,8 @@
     "downloadTemplate": "Download Template",
     "importResult": "Import done: {{created}} added, {{skipped}} skipped",
     "importErrorsTitle": "Skipped rows",
-    "importErrorRow": "Row {{row}}"
+    "importErrorRow": "Row {{row}}",
+    "importHint": "The first row must be a header. Use \"Download Template\" to get the correct format."
   },
   "schedules": {
     "title": "Schedule Management",

@@ -121,7 +121,8 @@
     "downloadTemplate": "下載範本",
     "importResult": "匯入完成：新增 {{created}} 筆、略過 {{skipped}} 筆",
     "importErrorsTitle": "略過的資料列",
-    "importErrorRow": "第 {{row}} 列"
+    "importErrorRow": "第 {{row}} 列",
+    "importHint": "第一列必須是標題列；請用「下載範本」取得正確格式"
   },
   "schedules": {
     "title": "排班管理",

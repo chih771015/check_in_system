@@ -10,6 +10,7 @@ import {
   Typography,
   App,
   Tag,
+  Tooltip,
 } from 'antd';
 import { PlusOutlined, SearchOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -217,9 +218,11 @@ export default function PatientManagement() {
           <Button icon={<DownloadOutlined />} onClick={() => void downloadPatientTemplate()}>
             {t('patients.downloadTemplate')}
           </Button>
-          <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileInputRef.current?.click()}>
-            {t('patients.import')}
-          </Button>
+          <Tooltip title={t('patients.importHint')}>
+            <Button icon={<UploadOutlined />} loading={importing} onClick={() => fileInputRef.current?.click()}>
+              {t('patients.import')}
+            </Button>
+          </Tooltip>
           <Button icon={<DownloadOutlined />} onClick={() => void exportPatients()}>
             {t('patients.export')}
           </Button>

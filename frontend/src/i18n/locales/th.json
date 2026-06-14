@@ -121,7 +121,8 @@
     "downloadTemplate": "ดาวน์โหลดเทมเพลต",
     "importResult": "นำเข้าเสร็จ: เพิ่ม {{created}} รายการ ข้าม {{skipped}} รายการ",
     "importErrorsTitle": "แถวที่ถูกข้าม",
-    "importErrorRow": "แถว {{row}}"
+    "importErrorRow": "แถว {{row}}",
+    "importHint": "แถวแรกต้องเป็นหัวตาราง กรุณาใช้ \"ดาวน์โหลดเทมเพลต\" เพื่อรูปแบบที่ถูกต้อง"
   },
   "schedules": {
     "title": "จัดการตารางงาน",
