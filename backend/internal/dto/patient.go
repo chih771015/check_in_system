@@ -19,6 +19,19 @@ type UpdatePatientRequest struct {
 	IDNumber string `json:"idNumber" binding:"required"`
 }
 
+// PatientImportError describes one row that could not be imported.
+type PatientImportError struct {
+	Row    int    `json:"row"`    // 1-based row number in the sheet (header = 1)
+	Reason string `json:"reason"` // why it was skipped (duplicate / invalid / ...)
+}
+
+// PatientImportResult summarises a bulk xlsx import.
+type PatientImportResult struct {
+	Created int                  `json:"created"`
+	Skipped int                  `json:"skipped"`
+	Errors  []PatientImportError `json:"errors"`
+}
+
 // PatientResponse is the full admin-facing view of a patient.
 type PatientResponse struct {
 	ID        uint      `json:"id"`

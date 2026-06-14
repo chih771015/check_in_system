@@ -9,6 +9,7 @@ import (
 	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
 
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -86,6 +87,99 @@ func (s *PatientService) Create(ctx context.Context, req dto.CreatePatientReques
 		return nil, err
 	}
 	return patient, nil
+}
+
+// PatientImportRow is one raw row parsed from the import xlsx (handler builds
+// these from sheet cells; the service validates + normalises).
+type PatientImportRow struct {
+	Name     string
+	Phone    string
+	IDType   string
+	IDNumber string
+}
+
+var validIDTypes = map[string]bool{"passport": true, "hn": true, "unid": true}
+
+// ImportPatients bulk-creates patients from parsed rows. Duplicates (same
+// id_type + id_number) and invalid rows are skipped and reported; valid rows
+// are created. Never aborts the whole batch on a single bad row.
+func (s *PatientService) ImportPatients(ctx context.Context, rows []PatientImportRow) *dto.PatientImportResult {
+	res := &dto.PatientImportResult{Errors: []dto.PatientImportError{}}
+	skip := func(row int, reason string) {
+		res.Errors = append(res.Errors, dto.PatientImportError{Row: row, Reason: reason})
+		res.Skipped++
+	}
+	for i, r := range rows {
+		sheetRow := i + 2 // header occupies row 1
+		name := strings.TrimSpace(r.Name)
+		phone := strings.TrimSpace(r.Phone)
+		idType := strings.ToLower(strings.TrimSpace(r.IDType))
+		idNumber := strings.TrimSpace(r.IDNumber)
+
+		if name == "" || phone == "" || idNumber == "" {
+			skip(sheetRow, "缺少必填欄位（姓名/電話/證件號碼）")
+			continue
+		}
+		if !validIDTypes[idType] {
+			skip(sheetRow, "證件類型非法（須為 passport / hn / unid）")
+			continue
+		}
+
+		_, err := s.Create(ctx, dto.CreatePatientRequest{Name: name, Phone: phone, IDType: idType, IDNumber: idNumber})
+		switch {
+		case errors.Is(err, ErrPatientDuplicate):
+			skip(sheetRow, "重複（證件類型 + 號碼已存在）")
+		case err != nil:
+			skip(sheetRow, err.Error())
+		default:
+			res.Created++
+		}
+	}
+	return res
+}
+
+var patientExcelHeaders = []interface{}{"姓名", "電話", "證件類型(passport/hn/unid)", "證件號碼"}
+
+// BuildExcel returns an in-memory xlsx of all patients (import-compatible columns).
+func (s *PatientService) BuildExcel(ctx context.Context) (*excelize.File, error) {
+	patients, _, err := s.patientRepo.WithCtx(ctx).List("", 1, 1000000)
+	if err != nil {
+		return nil, err
+	}
+	f := newPatientSheet()
+	sheet := f.GetSheetName(0)
+	for rowIdx, p := range patients {
+		for colIdx, val := range []interface{}{p.Name, p.Phone, p.IDType, p.IDNumber} {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
+			f.SetCellValue(sheet, cell, val)
+		}
+	}
+	return f, nil
+}
+
+// BuildPatientTemplate returns an xlsx with the header and one example row to
+// guide bulk import.
+func BuildPatientTemplate() *excelize.File {
+	f := newPatientSheet()
+	sheet := f.GetSheetName(0)
+	for colIdx, val := range []interface{}{"王小明", "0912345678", "passport", "A1234567"} {
+		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 2)
+		f.SetCellValue(sheet, cell, val)
+	}
+	return f
+}
+
+// newPatientSheet builds a single-sheet xlsx with the patient header row.
+func newPatientSheet() *excelize.File {
+	f := excelize.NewFile()
+	sheet := "病人"
+	f.NewSheet(sheet)
+	f.DeleteSheet("Sheet1")
+	for i, h := range patientExcelHeaders {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	return f
 }
 
 // Update edits an existing patient. The duplicate check ignores the current

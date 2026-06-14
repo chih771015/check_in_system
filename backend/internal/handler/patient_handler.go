@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -9,6 +10,7 @@ import (
 	"translator-checkin/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 // PatientHandler exposes patient CRUD endpoints to admins and a trimmed list
@@ -43,6 +45,88 @@ func toTranslatorPatientResponse(p *model.Patient) dto.TranslatorPatientResponse
 		IDType:   p.IDType,
 		IDNumber: p.IDNumber,
 	}
+}
+
+// ExportPatients handles GET /api/admin/export/patients — all patients as xlsx.
+func (h *PatientHandler) ExportPatients(c *gin.Context) {
+	f, err := h.patientService.BuildExcel(c.Request.Context())
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="patients.xlsx"`)
+	if err := f.Write(c.Writer); err != nil {
+		respondCode(c, http.StatusInternalServerError, dto.CodeExportFailed, "Failed to generate Excel")
+	}
+}
+
+// DownloadPatientTemplate handles GET /api/admin/export/patients-template.
+func (h *PatientHandler) DownloadPatientTemplate(c *gin.Context) {
+	f := service.BuildPatientTemplate()
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="patients_template.xlsx"`)
+	if err := f.Write(c.Writer); err != nil {
+		respondCode(c, http.StatusInternalServerError, dto.CodeExportFailed, "Failed to generate template")
+	}
+}
+
+// ImportPatients handles POST /api/admin/patients/import (multipart xlsx).
+// Columns: A=Name | B=Phone | C=IDType(passport/hn/unid) | D=IDNumber.
+// Duplicates / invalid rows are skipped and reported; valid rows created.
+func (h *PatientHandler) ImportPatients(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeFileRequired, "file is required")
+		return
+	}
+	f, err := file.Open()
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeFileOpenFailed, "failed to open file")
+		return
+	}
+	defer f.Close()
+
+	xl, err := excelize.OpenReader(f)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidExcel, "invalid excel file: "+err.Error())
+		return
+	}
+	defer xl.Close()
+
+	xrows, err := xl.GetRows(xl.GetSheetName(0))
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeReadRowsFailed, "failed to read rows")
+		return
+	}
+
+	rows := make([]service.PatientImportRow, 0, len(xrows))
+	for i, r := range xrows {
+		if i == 0 {
+			continue // skip header row
+		}
+		rows = append(rows, service.PatientImportRow{
+			Name:     cellAt(r, 0),
+			Phone:    cellAt(r, 1),
+			IDType:   cellAt(r, 2),
+			IDNumber: cellAt(r, 3),
+		})
+	}
+
+	ctx := c.Request.Context()
+	res := h.patientService.ImportPatients(ctx, rows)
+	adminID := c.GetUint("userID")
+	h.auditService.Log(ctx, adminID, "import_patients", "patient", 0,
+		fmt.Sprintf("created=%d skipped=%d", res.Created, res.Skipped))
+	c.JSON(http.StatusOK, res)
+}
+
+// cellAt safely reads column idx from a sheet row (missing column → "").
+func cellAt(row []string, idx int) string {
+	if idx < len(row) {
+		return row[idx]
+	}
+	return ""
 }
 
 // ListPatients handles GET /api/admin/patients

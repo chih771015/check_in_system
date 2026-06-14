@@ -17,6 +17,53 @@ func newPatientService(t *testing.T) *PatientService {
 	return NewPatientService(repository.NewPatientRepository(db))
 }
 
+func TestPatientService_ImportPatients(t *testing.T) {
+	svc := newPatientService(t)
+	ctx := context.Background()
+
+	// Seed one existing patient to trigger a duplicate-skip.
+	_, err := svc.Create(ctx, dto.CreatePatientRequest{Name: "Dup", Phone: "1", IDType: "passport", IDNumber: "DUP1"})
+	require.NoError(t, err)
+
+	rows := []PatientImportRow{
+		{Name: "New A", Phone: "0911", IDType: "passport", IDNumber: "A1"},       // ok
+		{Name: "New B", Phone: "0922", IDType: "HN", IDNumber: "b2"},             // ok (idType case-insensitive, idNumber normalised)
+		{Name: "Dup again", Phone: "0933", IDType: "passport", IDNumber: "dup1"}, // duplicate → skip
+		{Name: "", Phone: "0944", IDType: "passport", IDNumber: "C3"},            // missing name → skip
+		{Name: "Bad type", Phone: "0955", IDType: "driver", IDNumber: "D4"},      // invalid idType → skip
+	}
+	res := svc.ImportPatients(ctx, rows)
+
+	assert.Equal(t, 2, res.Created)
+	assert.Equal(t, 3, res.Skipped)
+	require.Len(t, res.Errors, 3)
+	// Errors carry the sheet row number (header = row 1, so first data row = 2).
+	assert.Equal(t, 4, res.Errors[0].Row) // duplicate row (rows[2] → sheet row 4)
+
+	// The two valid ones are actually persisted.
+	_, total, _ := svc.List(ctx, dto.PatientListQuery{Page: 1, PageSize: 50})
+	assert.EqualValues(t, 3, total) // 1 seed + 2 imported
+}
+
+func TestPatientService_BuildExcelAndTemplate(t *testing.T) {
+	svc := newPatientService(t)
+	ctx := context.Background()
+	_, err := svc.Create(ctx, dto.CreatePatientRequest{Name: "Excel Me", Phone: "0900", IDType: "passport", IDNumber: "EX1"})
+	require.NoError(t, err)
+
+	f, err := svc.BuildExcel(ctx)
+	require.NoError(t, err)
+	rows, err := f.GetRows(f.GetSheetName(0))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows), 2) // header + 1 data row
+	assert.Contains(t, rows[1], "Excel Me")
+
+	tpl := BuildPatientTemplate()
+	trows, err := tpl.GetRows(tpl.GetSheetName(0))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(trows), 2) // header + example row
+}
+
 func TestPatientService_Create_NormalizesIDNumber(t *testing.T) {
 	svc := newPatientService(t)
 	ctx := context.Background()
