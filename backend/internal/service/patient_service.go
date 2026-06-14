@@ -116,6 +116,12 @@ func (s *PatientService) ImportPatients(ctx context.Context, rows []PatientImpor
 		idType := strings.ToLower(strings.TrimSpace(r.IDType))
 		idNumber := strings.TrimSpace(r.IDNumber)
 
+		// Fully-blank row (e.g. a spacer line in the sheet) → skip silently,
+		// don't count or report it. Row numbers stay correct because we keep
+		// iterating the full slice.
+		if name == "" && phone == "" && idType == "" && idNumber == "" {
+			continue
+		}
 		if name == "" || phone == "" || idNumber == "" {
 			skip(sheetRow, "缺少必填欄位（姓名/電話/證件號碼）")
 			continue

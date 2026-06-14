@@ -31,11 +31,12 @@ func TestPatientService_ImportPatients(t *testing.T) {
 		{Name: "Dup again", Phone: "0933", IDType: "passport", IDNumber: "dup1"}, // duplicate → skip
 		{Name: "", Phone: "0944", IDType: "passport", IDNumber: "C3"},            // missing name → skip
 		{Name: "Bad type", Phone: "0955", IDType: "driver", IDNumber: "D4"},      // invalid idType → skip
+		{Name: " ", Phone: "", IDType: "", IDNumber: ""},                         // fully blank → skipped SILENTLY (not counted)
 	}
 	res := svc.ImportPatients(ctx, rows)
 
 	assert.Equal(t, 2, res.Created)
-	assert.Equal(t, 3, res.Skipped)
+	assert.Equal(t, 3, res.Skipped, "fully-blank rows are not counted")
 	require.Len(t, res.Errors, 3)
 	// Errors carry the sheet row number (header = row 1, so first data row = 2).
 	assert.Equal(t, 4, res.Errors[0].Row) // duplicate row (rows[2] → sheet row 4)
