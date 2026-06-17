@@ -90,6 +90,30 @@ describe('DiagnosisUploadModal', () => {
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 
+  it('lets the user remove a selected (not-yet-uploaded) photo before submitting', async () => {
+    setup([]);
+    await screen.findByText('No photos uploaded yet');
+    const user = userEvent.setup({ delay: null });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, [makeFile('a.jpg'), makeFile('b.jpg')]);
+
+    expect(screen.getByText('a.jpg')).toBeInTheDocument();
+    expect(screen.getByText('b.jpg')).toBeInTheDocument();
+
+    // Remove the first selected photo.
+    const removeButtons = screen.getAllByRole('button', { name: 'Remove this photo from selection' });
+    expect(removeButtons).toHaveLength(2);
+    await user.click(removeButtons[0]);
+
+    expect(screen.queryByText('a.jpg')).toBeNull();
+    expect(screen.getByText('b.jpg')).toBeInTheDocument();
+
+    // Submitting now uploads only the remaining file.
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledOnce());
+    expect((uploadMock.mock.calls[0][1] as File[]).map((f) => f.name)).toEqual(['b.jpg']);
+  });
+
   it('blocks submit when the selected batch is too large (pre-empts nginx 413)', async () => {
     setup([]);
     await screen.findByText('No photos uploaded yet');

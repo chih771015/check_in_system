@@ -315,6 +315,7 @@
     "noShowClearsPhotosConfirm": "標記未到會刪除此筆已上傳的照片，確定要繼續嗎？",
     "tooManyFiles": "最多只能上傳 30 張照片",
     "uploadTooLarge": "這次照片總大小過大，請分批上傳",
+    "removeSelected": "從選取中移除這張",
     "statusPending": "待處理",
     "statusCompleted": "已完成",
     "statusNoShow": "未到",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Button, App, Space, Image, Popconfirm, Spin, Typography } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, CloseOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
   uploadDiagnosis as defaultUpload,
@@ -213,8 +213,24 @@ export default function DiagnosisUploadModal({
             onChange={handleSelect}
           />
           {files.length > 0 && (
-            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-              {files.map((f) => f.name).join(', ')}
+            <div style={{ marginTop: 4 }}>
+              {files.map((f, idx) => (
+                <div
+                  key={`${f.name}-${idx}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#666' }}
+                >
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.name}
+                  </span>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CloseOutlined />}
+                    aria-label={t('diagnosis.removeSelected')}
+                    onClick={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
+                  />
+                </div>
+              ))}
             </div>
           )}
           {oversize && (

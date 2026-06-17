@@ -315,6 +315,7 @@
     "noShowClearsPhotosConfirm": "Marking no-show will delete this slot's uploaded photos. Continue?",
     "tooManyFiles": "You can only upload up to 30 photos",
     "uploadTooLarge": "These photos are too large to upload at once. Please upload in smaller batches.",
+    "removeSelected": "Remove this photo from selection",
     "statusPending": "Pending",
     "statusCompleted": "Completed",
     "statusNoShow": "No Show",
