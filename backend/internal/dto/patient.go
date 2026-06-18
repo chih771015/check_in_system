@@ -84,6 +84,8 @@ type PatientHistoryEntry struct {
 	Status          string   `json:"status"`
 	NoShowReason    string   `json:"noShowReason,omitempty"`
 	DiagnosisPhotos []string `json:"diagnosisPhotos"`
+	PrepaidAmount   int      `json:"prepaidAmount"`
+	ActualAmount    int      `json:"actualAmount"`
 }
 
 // PatientHistoryResponse wraps the history list with the patient header so the

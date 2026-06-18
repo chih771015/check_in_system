@@ -73,3 +73,10 @@ func (r *SchedulePatientRepository) UpdateStatus(id uint, status, noShowReason s
 		Where("id = ?", id).
 		Updates(map[string]any{"status": status, "no_show_reason": noShowReason}).Error
 }
+
+// UpdateActualAmount sets the actual paid amount (整數元) for a SchedulePatient.
+func (r *SchedulePatientRepository) UpdateActualAmount(id uint, amount int) error {
+	return r.db.Model(&model.SchedulePatient{}).
+		Where("id = ?", id).
+		Update("actual_amount", amount).Error
+}

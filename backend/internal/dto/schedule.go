@@ -3,9 +3,10 @@ package dto
 // SchedulePatientPayload is one entry in the Patients array of a
 // create/update schedule request.
 type SchedulePatientPayload struct {
-	PatientID uint   `json:"patientId" binding:"required"`
-	StartTime string `json:"startTime" binding:"required"`
-	EndTime   string `json:"endTime" binding:"required"`
+	PatientID     uint   `json:"patientId" binding:"required"`
+	StartTime     string `json:"startTime" binding:"required"`
+	EndTime       string `json:"endTime" binding:"required"`
+	PrepaidAmount int    `json:"prepaidAmount" binding:"min=0"` // 預付金額（整數元）；前端必填
 }
 
 // SchedulePatientResponse is one entry in the Patients array of a schedule
@@ -17,10 +18,12 @@ type SchedulePatientResponse struct {
 	PatientPhone string `json:"patientPhone"`
 	IDType       string `json:"idType"`
 	IDNumber     string `json:"idNumber"`
-	StartTime    string `json:"startTime"`
-	EndTime      string `json:"endTime"`
-	Status       string `json:"status"`
-	NoShowReason string `json:"noShowReason,omitempty"`
+	StartTime     string `json:"startTime"`
+	EndTime       string `json:"endTime"`
+	Status        string `json:"status"`
+	NoShowReason  string `json:"noShowReason,omitempty"`
+	PrepaidAmount int    `json:"prepaidAmount"`
+	ActualAmount  int    `json:"actualAmount"`
 }
 
 // CreateScheduleRequest is the payload for creating a new schedule.

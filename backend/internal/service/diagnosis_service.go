@@ -13,6 +13,8 @@ import (
 	"translator-checkin/internal/dto"
 	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
+
+	"github.com/xuri/excelize/v2"
 )
 
 // Sentinel errors returned by DiagnosisService.
@@ -110,7 +112,36 @@ func (s *DiagnosisService) MarkNoShow(ctx context.Context, translatorID, spID ui
 	if err := s.purgePhotos(ctx, sp.ID); err != nil {
 		return err
 	}
+	// No-show means nothing was paid → actual amount is 0.
+	if err := s.spRepo.WithCtx(ctx).UpdateActualAmount(sp.ID, 0); err != nil {
+		return err
+	}
 	return s.spRepo.WithCtx(ctx).UpdateStatus(sp.ID, model.SchedulePatientStatusNoShow, reason)
+}
+
+// SetActualAmount records the actual paid amount (整數元) a translator entered
+// after the visit. Ownership is enforced; not subject to the leave lock since
+// it is post-visit data entry (like appending late results).
+func (s *DiagnosisService) SetActualAmount(ctx context.Context, translatorID, spID uint, amount int) error {
+	sp, err := s.assertOwnedSchedulePatient(ctx, translatorID, spID)
+	if err != nil {
+		return err
+	}
+	if amount < 0 {
+		amount = 0
+	}
+	return s.spRepo.WithCtx(ctx).UpdateActualAmount(sp.ID, amount)
+}
+
+// AdminSetActualAmount is the admin-surrogate variant — no ownership check.
+func (s *DiagnosisService) AdminSetActualAmount(ctx context.Context, spID uint, amount int) error {
+	if _, err := s.spRepo.WithCtx(ctx).FindByID(spID); err != nil {
+		return ErrSchedulePatientNotFound
+	}
+	if amount < 0 {
+		amount = 0
+	}
+	return s.spRepo.WithCtx(ctx).UpdateActualAmount(spID, amount)
 }
 
 // AdminUploadDiagnosis is the admin-surrogate variant — no ownership check.
@@ -149,6 +180,9 @@ func (s *DiagnosisService) AdminMarkNoShow(ctx context.Context, spID uint, reaso
 		return ErrSchedulePatientNotFound
 	}
 	if err := s.purgePhotos(ctx, spID); err != nil {
+		return err
+	}
+	if err := s.spRepo.WithCtx(ctx).UpdateActualAmount(spID, 0); err != nil {
 		return err
 	}
 	return s.spRepo.WithCtx(ctx).UpdateStatus(spID, model.SchedulePatientStatusNoShow, reason)
@@ -391,11 +425,14 @@ func (s *DiagnosisService) ListResults(ctx context.Context, q dto.DiagnosisResul
 		PatientPhone   string    `gorm:"column:patient_phone"`
 		IDType         string    `gorm:"column:id_type"`
 		IDNumber       string    `gorm:"column:id_number"`
+		PrepaidAmount  int       `gorm:"column:prepaid_amount"`
+		ActualAmount   int       `gorm:"column:actual_amount"`
 	}
 	var rows []row
 	err := base.
 		Select(`sp.id AS sp_id, sp.schedule_id, sp.start_time AS sp_start, sp.end_time AS sp_end,
 			sp.status, sp.no_show_reason, sp.updated_at,
+			sp.prepaid_amount, sp.actual_amount,
 			s.date, s.location, s.note,
 			s.translator_id, u.name AS translator_name,
 			sp.patient_id, p.name AS patient_name, p.phone AS patient_phone,
@@ -450,6 +487,8 @@ func (s *DiagnosisService) ListResults(ctx context.Context, q dto.DiagnosisResul
 			Status:            r.Status,
 			NoShowReason:      r.NoShowReason,
 			DiagnosisPhotos:   photosByID[r.SPID],
+			PrepaidAmount:     r.PrepaidAmount,
+			ActualAmount:      r.ActualAmount,
 			UpdatedAt:         r.UpdatedAt,
 		})
 	}
@@ -460,6 +499,51 @@ func (s *DiagnosisService) ListResults(ctx context.Context, q dto.DiagnosisResul
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
+}
+
+var diagnosisResultHeaders = []interface{}{
+	"日期", "時段", "地點", "翻譯員", "病人", "電話", "證件類型", "證件號碼",
+	"狀態", "未到原因", "預付金額", "實付金額", "照片數",
+}
+
+// BuildResultsExcel exports the diagnosis-results overview (per patient, with
+// prepaid / actual amounts) as an in-memory xlsx, honouring the same filters as
+// ListResults but without pagination.
+func (s *DiagnosisService) BuildResultsExcel(ctx context.Context, q dto.DiagnosisResultsQuery) (*excelize.File, error) {
+	q.Page = 1
+	q.PageSize = 1000000
+	resp, err := s.ListResults(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+
+	f := excelize.NewFile()
+	sheet := "診斷結果"
+	f.NewSheet(sheet)
+	f.DeleteSheet("Sheet1")
+	for i, h := range diagnosisResultHeaders {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for rowIdx, e := range resp.Data {
+		statusLabel := e.Status
+		switch e.Status {
+		case model.SchedulePatientStatusCompleted:
+			statusLabel = "已完成"
+		case model.SchedulePatientStatusNoShow:
+			statusLabel = "未到"
+		}
+		vals := []interface{}{
+			e.Date, e.StartTime + "-" + e.EndTime, e.Location, e.TranslatorName,
+			e.PatientName, e.PatientPhone, e.IDType, e.IDNumber,
+			statusLabel, e.NoShowReason, e.PrepaidAmount, e.ActualAmount, len(e.DiagnosisPhotos),
+		}
+		for colIdx, v := range vals {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
+			f.SetCellValue(sheet, cell, v)
+		}
+	}
+	return f, nil
 }
 
 func indexOfByte(s string, c byte) int {

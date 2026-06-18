@@ -312,15 +312,17 @@ func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint
 		Date         string
 		SPStart      string
 		SPEnd        string
-		Location     string
-		Status       string
-		NoShowReason string
-		TName        string
+		Location      string
+		Status        string
+		NoShowReason  string
+		PrepaidAmount int
+		ActualAmount  int
+		TName         string
 	}
 	var rows []joined
 	err := db.Table("schedule_patients as sp").
 		Select(`sp.id as sp_id, sp.schedule_id, sp.start_time as sp_start, sp.end_time as sp_end,
-			sp.status, sp.no_show_reason,
+			sp.status, sp.no_show_reason, sp.prepaid_amount, sp.actual_amount,
 			schedules.date, schedules.location, users.name as t_name`).
 		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
 		Joins("JOIN users ON users.id = schedules.translator_id").
@@ -353,6 +355,8 @@ func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint
 			Status:          r.Status,
 			NoShowReason:    r.NoShowReason,
 			DiagnosisPhotos: photoURLs,
+			PrepaidAmount:   r.PrepaidAmount,
+			ActualAmount:    r.ActualAmount,
 		})
 	}
 	return entries, nil

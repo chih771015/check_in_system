@@ -29,6 +29,13 @@ type MarkNoShowRequest struct {
 	Reason            string `json:"reason" binding:"required"`
 }
 
+// SetActualAmountRequest is the payload for setting a SchedulePatient's actual
+// paid amount (整數元). Used by translators (post-visit) and admins.
+type SetActualAmountRequest struct {
+	SchedulePatientID uint `json:"schedulePatientId" binding:"required"`
+	ActualAmount      int  `json:"actualAmount" binding:"min=0"`
+}
+
 // CheckinResponse is returned after a successful check-in.
 type CheckinResponse struct {
 	ID             uint      `json:"id"`

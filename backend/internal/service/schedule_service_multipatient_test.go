@@ -60,14 +60,17 @@ func TestScheduleService_Create_WithPatients_Success(t *testing.T) {
 
 	resp, err := fx.svc.Create(context.Background(), mkMultiCreateReq(fx.translator.ID, "2026-06-10",
 		[]dto.SchedulePatientPayload{
-			{PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00"},
-			{PatientID: p2.ID, StartTime: "10:00", EndTime: "11:00"},
+			{PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00", PrepaidAmount: 1200},
+			{PatientID: p2.ID, StartTime: "10:00", EndTime: "11:00", PrepaidAmount: 0},
 		}))
 	require.NoError(t, err)
 	assert.Len(t, resp.Patients, 2)
 	assert.Equal(t, "P1", resp.Patients[0].PatientName)
 	assert.Equal(t, "P2", resp.Patients[1].PatientName)
 	assert.Equal(t, "pending", resp.Patients[0].Status, "initial status should be pending")
+	// Prepaid amount is persisted and returned; actual defaults to 0.
+	assert.Equal(t, 1200, resp.Patients[0].PrepaidAmount)
+	assert.Equal(t, 0, resp.Patients[0].ActualAmount)
 }
 
 func TestScheduleService_Create_WithPatients_EmptyListRejected(t *testing.T) {

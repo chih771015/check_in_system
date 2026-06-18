@@ -99,6 +99,22 @@ func (h *DiagnosisHandler) DeleteMyPhoto(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis photo deleted"})
 }
 
+// SetActualAmount handles POST /api/checkins/diagnosis/amount — translator sets
+// the actual paid amount for one of their own SchedulePatients.
+func (h *DiagnosisHandler) SetActualAmount(c *gin.Context) {
+	var req dto.SetActualAmountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondBadRequest(c, err)
+		return
+	}
+	translatorID := c.GetUint("userID")
+	if err := h.diagService.SetActualAmount(c.Request.Context(), translatorID, req.SchedulePatientID, req.ActualAmount); err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Actual amount saved"})
+}
+
 // MarkNoShow handles POST /api/checkins/no-show.
 func (h *DiagnosisHandler) MarkNoShow(c *gin.Context) {
 	var req dto.MarkNoShowRequest
@@ -203,6 +219,24 @@ func (h *DiagnosisHandler) AdminDeletePhoto(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Diagnosis photo deleted (admin)"})
 }
 
+// AdminSetActualAmount handles POST /api/admin/diagnosis/amount — admin sets the
+// actual paid amount for any SchedulePatient (no ownership check).
+func (h *DiagnosisHandler) AdminSetActualAmount(c *gin.Context) {
+	var req dto.SetActualAmountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondBadRequest(c, err)
+		return
+	}
+	ctx := c.Request.Context()
+	if err := h.diagService.AdminSetActualAmount(ctx, req.SchedulePatientID, req.ActualAmount); err != nil {
+		respondError(c, err)
+		return
+	}
+	adminID := c.GetUint("userID")
+	h.auditService.Log(ctx, adminID, "admin_set_actual_amount", "schedule_patient", req.SchedulePatientID, "")
+	c.JSON(http.StatusOK, gin.H{"message": "Actual amount saved (admin)"})
+}
+
 // AdminListResults handles GET /api/admin/diagnosis-results
 //
 // Returns the paginated overview of all completed / no-show schedule patients
@@ -219,6 +253,27 @@ func (h *DiagnosisHandler) AdminListResults(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+// AdminExportResults handles GET /api/admin/export/diagnosis — downloads the
+// diagnosis-results overview (per patient, with amounts) as xlsx, same filters
+// as AdminListResults.
+func (h *DiagnosisHandler) AdminExportResults(c *gin.Context) {
+	var q dto.DiagnosisResultsQuery
+	if err := c.ShouldBindQuery(&q); err != nil {
+		respondBadRequest(c, err)
+		return
+	}
+	f, err := h.diagService.BuildResultsExcel(c.Request.Context(), q)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", `attachment; filename="diagnosis_results.xlsx"`)
+	if err := f.Write(c.Writer); err != nil {
+		respondCode(c, http.StatusInternalServerError, dto.CodeExportFailed, "Failed to generate Excel")
+	}
 }
 
 // AdminMarkNoShow handles POST /api/admin/no-show (admin surrogate).

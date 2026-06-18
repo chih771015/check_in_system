@@ -166,12 +166,13 @@ func (s *ScheduleService) createWithPatients(ctx context.Context, req dto.Create
 		rows := make([]*model.SchedulePatient, 0, len(req.Patients))
 		for i, p := range req.Patients {
 			rows = append(rows, &model.SchedulePatient{
-				ScheduleID: schedule.ID,
-				PatientID:  p.PatientID,
-				StartTime:  p.StartTime,
-				EndTime:    p.EndTime,
-				OrderIdx:   i,
-				Status:     model.SchedulePatientStatusPending,
+				ScheduleID:    schedule.ID,
+				PatientID:     p.PatientID,
+				StartTime:     p.StartTime,
+				EndTime:       p.EndTime,
+				OrderIdx:      i,
+				Status:        model.SchedulePatientStatusPending,
+				PrepaidAmount: p.PrepaidAmount,
 			})
 		}
 		return tx.Create(&rows).Error
@@ -422,12 +423,13 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 			rows := make([]*model.SchedulePatient, 0, len(*req.Patients))
 			for i, p := range *req.Patients {
 				rows = append(rows, &model.SchedulePatient{
-					ScheduleID: schedule.ID,
-					PatientID:  p.PatientID,
-					StartTime:  p.StartTime,
-					EndTime:    p.EndTime,
-					OrderIdx:   i,
-					Status:     model.SchedulePatientStatusPending,
+					ScheduleID:    schedule.ID,
+					PatientID:     p.PatientID,
+					StartTime:     p.StartTime,
+					EndTime:       p.EndTime,
+					OrderIdx:      i,
+					Status:        model.SchedulePatientStatusPending,
+					PrepaidAmount: p.PrepaidAmount,
 				})
 			}
 			return tx.Create(&rows).Error
@@ -567,10 +569,12 @@ func (s *ScheduleService) toResponse(schedule *model.Schedule, checkinStatus str
 			PatientPhone: sp.Patient.Phone,
 			IDType:       sp.Patient.IDType,
 			IDNumber:     sp.Patient.IDNumber,
-			StartTime:    sp.StartTime,
-			EndTime:      sp.EndTime,
-			Status:       sp.Status,
-			NoShowReason: sp.NoShowReason,
+			StartTime:     sp.StartTime,
+			EndTime:       sp.EndTime,
+			Status:        sp.Status,
+			NoShowReason:  sp.NoShowReason,
+			PrepaidAmount: sp.PrepaidAmount,
+			ActualAmount:  sp.ActualAmount,
 		})
 	}
 	return dto.ScheduleResponse{

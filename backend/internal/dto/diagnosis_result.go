@@ -46,6 +46,8 @@ type DiagnosisResultEntry struct {
 	Status            string    `json:"status"`
 	NoShowReason      string    `json:"noShowReason,omitempty"`
 	DiagnosisPhotos   []string  `json:"diagnosisPhotos"`
+	PrepaidAmount     int       `json:"prepaidAmount"`
+	ActualAmount      int       `json:"actualAmount"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
 

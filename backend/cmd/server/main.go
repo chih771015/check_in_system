@@ -247,9 +247,11 @@ func main() {
 			admin.GET("/diagnosis/photos", diagnosisHandler.AdminListPhotoItems)
 			admin.DELETE("/diagnosis/photos/:photoId", diagnosisHandler.AdminDeletePhoto)
 			admin.POST("/no-show", diagnosisHandler.AdminMarkNoShow)
+			admin.POST("/diagnosis/amount", diagnosisHandler.AdminSetActualAmount)
 
 			// Diagnosis results overview (all completed / no_show rows).
 			admin.GET("/diagnosis-results", diagnosisHandler.AdminListResults)
+			admin.GET("/export/diagnosis", diagnosisHandler.AdminExportResults)
 
 			// Per-SchedulePatient photos (used by schedule detail modal).
 			admin.GET("/schedule-patients/:id/photos", diagnosisHandler.AdminGetSchedulePatientPhotos)
@@ -276,6 +278,7 @@ func main() {
 			translatorRoutes.GET("/checkins/diagnosis/photos", diagnosisHandler.ListMyPhotos)
 			translatorRoutes.DELETE("/checkins/diagnosis/photos/:photoId", diagnosisHandler.DeleteMyPhoto)
 			translatorRoutes.POST("/checkins/no-show", diagnosisHandler.MarkNoShow)
+			translatorRoutes.POST("/checkins/diagnosis/amount", diagnosisHandler.SetActualAmount)
 
 			// Patient list for translator (trimmed view).
 			translatorRoutes.GET("/patients", patientHandler.ListPatientsForTranslator)

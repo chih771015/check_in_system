@@ -18,6 +18,10 @@ type SchedulePatient struct {
 	OrderIdx     int       `gorm:"default:0" json:"order"`
 	Status       string    `gorm:"type:varchar(20);default:'pending';not null" json:"status"`
 	NoShowReason string    `gorm:"type:text" json:"noShowReason,omitempty"`
+	// Money (integer TWD). PrepaidAmount is set by the admin at scheduling time;
+	// ActualAmount is filled by the translator after the visit (0 on no_show).
+	PrepaidAmount int       `gorm:"not null;default:0" json:"prepaidAmount"`
+	ActualAmount  int       `gorm:"not null;default:0" json:"actualAmount"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 

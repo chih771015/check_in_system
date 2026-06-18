@@ -334,6 +334,47 @@ func TestDiagnosisService_AdminBypassesLockAfterLeave(t *testing.T) {
 	require.NoError(t, fx.svc.AdminDeletePhoto(ctx, items[0].ID))
 }
 
+// ─── 金額：實付填寫 / no_show 歸零 / 報表匯出 ─────────────────────────────────
+
+func TestDiagnosisService_SetActualAmount(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.SetActualAmount(ctx, fx.translator.ID, fx.sp.ID, 1500))
+	sp, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, 1500, sp.ActualAmount)
+}
+
+func TestDiagnosisService_SetActualAmount_NotOwned(t *testing.T) {
+	fx := newDiagFixture(t)
+	err := fx.svc.SetActualAmount(context.Background(), fx.other.ID, fx.sp.ID, 1500)
+	assert.True(t, errors.Is(err, ErrDiagnosisNotOwned))
+}
+
+func TestDiagnosisService_MarkNoShow_ZeroesActualAmount(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.SetActualAmount(ctx, fx.translator.ID, fx.sp.ID, 1500))
+	require.NoError(t, fx.svc.MarkNoShow(ctx, fx.translator.ID, fx.sp.ID, "patient no show"))
+	sp, _ := fx.spRepo.FindByID(fx.sp.ID)
+	assert.Equal(t, 0, sp.ActualAmount, "no_show zeroes actual amount")
+}
+
+func TestDiagnosisService_BuildResultsExcel_IncludesAmounts(t *testing.T) {
+	fx := newDiagFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fx.svc.UploadDiagnosis(ctx, fx.translator.ID, fx.sp.ID, []string{"/u/1.jpg"}))
+	require.NoError(t, fx.svc.SetActualAmount(ctx, fx.translator.ID, fx.sp.ID, 1500))
+
+	f, err := fx.svc.BuildResultsExcel(ctx, dto.DiagnosisResultsQuery{})
+	require.NoError(t, err)
+	rows, err := f.GetRows(f.GetSheetName(0))
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(rows), 2)
+	assert.Contains(t, rows[0], "預付金額")
+	assert.Contains(t, rows[0], "實付金額")
+	assert.Contains(t, rows[1], "1500")
+}
+
 // ─── Phase 4.4 CheckOut gating ──────────────────────────────────────────────
 
 func TestCheckinService_Leave_BlockedByPendingPatients(t *testing.T) {
