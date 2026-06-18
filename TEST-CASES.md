@@ -1916,6 +1916,15 @@ TRANS_TOKEN = （登入後取得）
 
 > 管理員代理變體：`GET/DELETE /api/admin/diagnosis/photos[...]` 行為同上但跳過 ownership 與離開鎖定，並寫 audit log。
 
+### TC-DX-016：金額（預付/實付）
+
+| 項目 | 內容 |
+|------|------|
+| **ID** | TC-DX-016 |
+| **名稱** | 預付帶入、實付設定、no_show 歸零、報表匯出 |
+| **測試步驟** | 1. 排班帶 prepaidAmount 建立 → 查 response<br>2. translator 設實付（自己/非自己）<br>3. 對該 slot 標 no_show<br>4. GET /api/admin/export/diagnosis |
+| **預期結果** | 1. SchedulePatient.prepaidAmount 正確、actualAmount=0<br>2. 自己→成功；非自己→403 `DIAGNOSIS_NOT_OWNED`<br>3. actualAmount 歸 0<br>4. 200 xlsx，含預付/實付欄（對應 `BuildResultsExcel` 測試）|
+
 ---
 
 ## 附錄 A：測試案例統計

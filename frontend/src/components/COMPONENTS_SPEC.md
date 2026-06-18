@@ -23,6 +23,7 @@ typeahead `Select`：mount 載入病人、輸入時 **debounce 250ms** 重查（
 ### DiagnosisUploadModal.tsx
 管理一個 SchedulePatient 的 ≤3 張診斷照片：開啟時載入既有照片（縮圖 + 逐張刪除 Popconfirm）、依**剩餘額度**（3 − 既有張數）新增上傳。`MAX_PHOTOS=3` 前端先擋（後端 `DIAGNOSIS_PHOTO_LIMIT` 為最終守衛）。上傳/刪除後重新載入清單並 `onUploaded()`，**modal 維持開啟**可連續操作。`upload`/`listPhotos`/`deletePhoto` 皆可注入（預設翻譯員 API；admin 端注入 `admin*` 變體）。以 `canUpload`/`canDelete`（皆預設 true）控制三種模式：管理（加+刪）/ **補傳 append（可加不可刪，翻譯員離開後補晚到報告）** / 唯讀（皆 false）。
 > 取代了舊的「上傳即關閉、無法再管理」行為 — 翻譯員首次只選一張後仍能補傳或刪除（2026-06-11）。
+> 另含**金額**：顯示預付（唯讀），可編輯/儲存實付（`prepaidAmount`/`actualAmount`/`setActualAmount` props；canUpload 時可改，否則唯讀）。SchedulePatientListEditor 每列加預付金額 InputNumber。
 
 ### NoShowModal.tsx
 輸入 no-show 原因並標記。原因必填：**前端 disable 送出**給即時回饋，後端 `NO_SHOW_REASON_REQUIRED` 為最終守衛。`markNoShow` 可注入。

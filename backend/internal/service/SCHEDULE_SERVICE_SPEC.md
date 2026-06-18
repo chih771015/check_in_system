@@ -19,6 +19,8 @@
 | `BatchImportSchedules(rows)` | V1：逐列單病人，壞列不中斷 |
 | `BatchImportSchedulesV2(rows)` | V2：依 Code 合併多病人，逐群組驗證 |
 
+> 建立/更新時把 payload 的 `prepaidAmount`（預付，整數元）寫入各 SchedulePatient；`actualAmount` 由 DiagnosisService 後續設定。Response 回兩金額。
+
 Sentinel：`ErrScheduleNotFound / ErrInvalidDateFormat / ErrRecurrenceUntilReq / ErrRecurrenceBeforeStart / ErrInvalidRecurrence / ErrNoDatesGenerated / ErrSchedulePatientsRequired / ErrDuplicatePatientInSchedule / ErrPatientTimeOutOfRange / ErrPatientEndBeforeStart`。
 
 ## 3. Create 路徑決策

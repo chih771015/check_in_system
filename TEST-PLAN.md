@@ -981,6 +981,18 @@
 | 14.6.6 | photoId 不存在 | 404，`DIAGNOSIS_PHOTO_NOT_FOUND` |
 | 14.6.7 | 刪除後額度回收可再補傳（≤30） | 上傳成功 |
 | 14.6.8 | 管理員代理列表/刪除（無 ownership）+ 寫 audit | 成功 + audit_logs 有紀錄 |
+
+### 14.7 金額（預付/實付）✏️（2026-06-17 新增）
+
+| # | 測試項目 | 預期結果 |
+|---|---------|---------|
+| 14.7.1 | 排班帶 prepaidAmount 建立 | SchedulePatient.prepaidAmount 正確、actualAmount=0 |
+| 14.7.2 | translator 設實付（自己） | 200，actualAmount 更新 |
+| 14.7.3 | translator 設非自己排班實付 | 403 `DIAGNOSIS_NOT_OWNED` |
+| 14.7.4 | 標 no_show | actualAmount 歸 0 |
+| 14.7.5 | admin 代理設實付 + 寫 audit | 200 + audit_logs 有紀錄 |
+| 14.7.6 | GET /admin/export/diagnosis | 200 xlsx，含預付/實付欄 |
+| 14.7.7 | 前端各畫面顯示兩金額、modal 可改實付 | 顯示/儲存正確 |
 | 14.6.9 | 標記 no_show 清空既有照片 | 照片全刪、status=no_show、reason 保留 |
 | 14.6.10 | 排班已 leave 後 translator **upload** | **允許**（補傳晚到報告）|
 | 14.6.11 | 排班已 leave 後 translator **delete / no_show** | 409 `DIAGNOSIS_LOCKED_AFTER_LEAVE` |

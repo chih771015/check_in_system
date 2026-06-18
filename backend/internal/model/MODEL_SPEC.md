@@ -49,6 +49,7 @@ erDiagram
 ### schedule_patient.go — `schedule_patients`
 - **唯一鍵**：`(schedule_id, patient_id)`（`idx_schedule_patient_unique`）→ 同排班不重複病人。
 - per-patient `start_time`/`end_time`、`order`、`status`、`no_show_reason`。
+- **金額**：`prepaid_amount`（預付，整數元，排班時由 admin 設）、`actual_amount`（實付，整數元，翻譯員事後填；no_show 歸 0）。皆 `not null default 0`。
 - **status 常數**（同檔定義，全系統共用）：
   - `SchedulePatientStatusPending = "pending"`
   - `SchedulePatientStatusCompleted = "completed"`

@@ -228,6 +228,13 @@
 - **離開後（補傳開放、刪改鎖定）**：翻譯員打了**離開卡**後，**仍可補傳照片**（X 光/檢驗報告常事後才出來；前端顯示「補傳照片」append 模式，只能加不能刪）；但**刪除照片 / 標記未到仍鎖定**（回 `DIAGNOSIS_LOCKED_AFTER_LEAVE`，409），只有**管理員**能刪/改狀態（排班詳情或診斷總覽的「管理照片」，admin 不受限）。
 - 與離開打卡連動：所有病人 completed/no_show 後才能離開（見 8.1）。
 
+**金額（預付 / 實付）✅（2026-06-17 新增）**
+- 每位 SchedulePatient 有兩個整數金額：**預付**（`prepaidAmount`，排班時由 admin 必填）、**實付**（`actualAmount`，翻譯員在「管理照片」視窗事後填，可獨立儲存）。
+- **標記 no_show → 實付自動歸 0**（預付維持，代表「編列了但沒花」）。
+- 設定實付：`POST /api/checkins/diagnosis/amount`（翻譯員，ownership）、`POST /api/admin/diagnosis/amount`（admin 代理）。離開鎖定不套用於金額（屬事後資料補登）。
+- 顯示：MySchedules、排班詳情、診斷結果總覽、病人歷史皆顯示兩金額。
+- **Excel 匯出**：`GET /api/admin/export/diagnosis`（逐病人報表，含預付/實付，套用總覽相同篩選）。
+
 **診斷結果總覽（Admin）✅**
 - `GET /api/admin/diagnosis-results`：列出所有 terminal（completed/no_show）的 SchedulePatient，可依 status / translator / 日期 / 病人姓名篩選 + 分頁，附診斷照片（batch load 避免 N+1）。
 - `GET /api/admin/schedule-patients/:id/photos`：排班詳情 modal 看單一病人照片。

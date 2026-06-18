@@ -21,6 +21,11 @@
 | `DeletePhoto(ctx,translatorID,photoID)` | ✅ | 刪一張照片 + best-effort 刪檔；歸零時 status 退回 pending |
 | `AdminDeletePhoto(ctx,photoID)` | ✗ | 代理刪除 |
 | `ListResults(ctx,query)` | ✗ | terminal(completed/no_show) 總覽，分頁 |
+| `SetActualAmount(ctx,translatorID,spID,amount)` | ✅ | 設實付金額（整數元）；不受離開鎖定 |
+| `AdminSetActualAmount(ctx,spID,amount)` | ✗ | 代理設實付 |
+| `BuildResultsExcel(ctx,query)` | ✗ | 診斷結果 xlsx（含預付/實付，套用 ListResults 篩選、無分頁）|
+
+> **金額**：`MarkNoShow`/`AdminMarkNoShow` 在轉 no_show 時一併把 `actual_amount` 設 0。預付由排班建立時帶入（ScheduleService）。
 
 常數 `MaxDiagnosisPhotos = 30`。Sentinel：`ErrSchedulePatientNotFound / ErrDiagnosisPhotoLimit / ErrDiagnosisNotOwned / ErrDiagnosisPhotoNotFound / ErrDiagnosisLockedAfterLeave / ErrNoShowReasonRequired`。
 

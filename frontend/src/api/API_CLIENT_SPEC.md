@@ -7,6 +7,7 @@
 集中所有後端呼叫。`client.ts` 是 axios 實例 + interceptors；`api/<domain>.ts` 是各資源的薄封裝（auth/schedules/checkins/patients/translators/admins/audit/export/diagnosisResults）。
 - `checkins.ts` 含診斷照片管理：`uploadDiagnosis` / `listDiagnosisPhotos` / `deleteDiagnosisPhoto`（翻譯員）與 `adminUploadDiagnosis` / `adminListDiagnosisPhotos` / `adminDeleteDiagnosisPhoto`（管理員）；型別 `DiagnosisPhotoItem{id,photoUrl}`。
 - `patients.ts` 含 xlsx：`importPatients`（multipart→`PatientImportResult`）、`exportPatients` / `downloadPatientTemplate`（blob 下載）。
+- 金額：`checkins.ts` 的 `setActualAmount` / `adminSetActualAmount`；`diagnosisResults.ts` 的 `exportDiagnosisResults`（blob 下載，含預付/實付）。
 
 ## 2. client.ts 行為
 - `baseURL = '/api'`（相對路徑，避免寫死 localhost 導致外部瀏覽器打不到 — 見 changelog 2026-05-06）。
