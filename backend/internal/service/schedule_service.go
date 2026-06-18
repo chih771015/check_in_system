@@ -69,8 +69,24 @@ func (s *ScheduleService) WithPatientRepos(
 	return s
 }
 
+// DefaultRecentScheduleLimit caps the unfiltered admin list ("latest created
+// schedules") view.
+const DefaultRecentScheduleLimit = 100
+
 // List returns schedules with optional filters and checkin status.
+//
+// When no filter is supplied (no translator, date range or location) it returns
+// the most recently created schedules (created_at DESC, capped at
+// DefaultRecentScheduleLimit) — the default admin view. Any filter switches to
+// the full filtered query ordered by date ASC.
 func (s *ScheduleService) List(ctx context.Context, translatorID uint, dateFrom, dateTo, location string) ([]dto.ScheduleResponse, error) {
+	if translatorID == 0 && dateFrom == "" && dateTo == "" && location == "" {
+		schedules, err := s.scheduleRepo.WithCtx(ctx).FindRecentByCreated(DefaultRecentScheduleLimit)
+		if err != nil {
+			return nil, err
+		}
+		return s.toResponseList(ctx, schedules)
+	}
 	schedules, err := s.scheduleRepo.WithCtx(ctx).FindAll(translatorID, dateFrom, dateTo, location)
 	if err != nil {
 		return nil, err

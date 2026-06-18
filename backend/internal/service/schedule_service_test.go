@@ -303,6 +303,38 @@ func TestScheduleService_List_CheckinStatusPriority(t *testing.T) {
 	assert.Equal(t, "completed", statusByID[s3.ID])
 }
 
+func TestScheduleService_List_DefaultRecentWhenUnfiltered(t *testing.T) {
+	fx := newScheduleFixture(t)
+	ctx := context.Background()
+	s1, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-10"))
+	s2, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-11"))
+	s3, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-12"))
+
+	// No filter → default mode: most recently created first (created_at DESC),
+	// which is the reverse of date ASC. Created order s1,s2,s3 → expect s3,s2,s1.
+	list, err := fx.svc.List(ctx, 0, "", "", "")
+	require.NoError(t, err)
+	require.Len(t, list, 3)
+	assert.Equal(t, s3.ID, list[0].ID)
+	assert.Equal(t, s2.ID, list[1].ID)
+	assert.Equal(t, s1.ID, list[2].ID)
+}
+
+func TestScheduleService_List_FilteredUsesDateOrder(t *testing.T) {
+	fx := newScheduleFixture(t)
+	ctx := context.Background()
+	// Created later-date first so created order differs from date order.
+	later, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-12"))
+	earlier, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-10"))
+
+	// A date-range filter → filtered mode keeps the existing date ASC ordering.
+	list, err := fx.svc.List(ctx, 0, "2026-05-01", "2026-05-31", "")
+	require.NoError(t, err)
+	require.Len(t, list, 2)
+	assert.Equal(t, earlier.ID, list[0].ID, "filtered mode orders by date ASC")
+	assert.Equal(t, later.ID, list[1].ID)
+}
+
 // ─── BatchImportSchedules ────────────────────────────────────────────────────
 
 func TestScheduleService_BatchImport_MixedResults(t *testing.T) {

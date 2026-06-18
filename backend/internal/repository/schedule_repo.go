@@ -89,6 +89,23 @@ func (r *ScheduleRepository) FindAll(translatorID uint, dateFrom, dateTo, locati
 	return schedules, nil
 }
 
+// FindRecentByCreated returns the most recently created schedules
+// (created_at DESC, id DESC as a stable tiebreaker), capped at limit, with
+// Translator + Patients preloaded. This backs the default (unfiltered) admin
+// list view: "latest created schedules".
+func (r *ScheduleRepository) FindRecentByCreated(limit int) ([]model.Schedule, error) {
+	var schedules []model.Schedule
+	if err := r.db.
+		Preload("Translator").
+		Preload("Patients.Patient").
+		Order("created_at DESC, id DESC").
+		Limit(limit).
+		Find(&schedules).Error; err != nil {
+		return nil, err
+	}
+	return schedules, nil
+}
+
 // Create inserts a new schedule record.
 func (r *ScheduleRepository) Create(schedule *model.Schedule) error {
 	return r.db.Create(schedule).Error
