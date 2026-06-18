@@ -62,7 +62,15 @@ func TestPatientService_BuildExcelAndTemplate(t *testing.T) {
 	tpl := BuildPatientTemplate()
 	trows, err := tpl.GetRows(tpl.GetSheetName(0))
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(trows), 2) // header + example row
+	require.GreaterOrEqual(t, len(trows), 4) // header + one example per id type
+	// All three id types are demonstrated in the template (column C = index 2).
+	idTypes := map[string]bool{}
+	for _, r := range trows[1:] {
+		if len(r) > 2 {
+			idTypes[r[2]] = true
+		}
+	}
+	assert.True(t, idTypes["passport"] && idTypes["hn"] && idTypes["unid"], "template should show all 3 id types")
 }
 
 func TestPatientService_Create_NormalizesIDNumber(t *testing.T) {

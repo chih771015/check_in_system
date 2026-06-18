@@ -163,14 +163,21 @@ func (s *PatientService) BuildExcel(ctx context.Context) (*excelize.File, error)
 	return f, nil
 }
 
-// BuildPatientTemplate returns an xlsx with the header and one example row to
-// guide bulk import.
+// BuildPatientTemplate returns an xlsx with the header and one example row per
+// id type (passport / hn / unid) to guide bulk import.
 func BuildPatientTemplate() *excelize.File {
 	f := newPatientSheet()
 	sheet := f.GetSheetName(0)
-	for colIdx, val := range []interface{}{"王小明", "0912345678", "passport", "A1234567"} {
-		cell, _ := excelize.CoordinatesToCellName(colIdx+1, 2)
-		f.SetCellValue(sheet, cell, val)
+	examples := [][]interface{}{
+		{"王小明", "0912345678", "passport", "A1234567"},
+		{"林春嬌", "0922333444", "hn", "HN000123"},
+		{"無名氏", "0900000000", "unid", "UN-XYZ-01"},
+	}
+	for r, row := range examples {
+		for colIdx, val := range row {
+			cell, _ := excelize.CoordinatesToCellName(colIdx+1, r+2)
+			f.SetCellValue(sheet, cell, val)
+		}
 	}
 	return f
 }
