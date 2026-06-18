@@ -14,7 +14,7 @@ import {
   Typography,
   Tooltip,
 } from 'antd';
-import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, UploadOutlined, DownloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { Upload } from 'antd';
 import type { UploadProps } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -110,6 +110,8 @@ export default function ScheduleManagement() {
   const [editOpen, setEditOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScheduleItem | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  // Bumped to force-remount the filter inputs when resetting to default mode.
+  const [filterKey, setFilterKey] = useState(0);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const { message, modal } = App.useApp();
@@ -310,15 +312,26 @@ export default function ScheduleManagement() {
 
   const handleDateRangeChange = (_: unknown, dateStrings: [string, string]) => {
     if (dateStrings[0] && dateStrings[1]) {
-      setFilters((prev) => ({ ...prev, startDate: dateStrings[0], endDate: dateStrings[1] }));
+      setFilters((prev) => ({ ...prev, dateFrom: dateStrings[0], dateTo: dateStrings[1] }));
     } else {
       setFilters((prev) => {
         const next = { ...prev };
-        delete next.startDate;
-        delete next.endDate;
+        delete next.dateFrom;
+        delete next.dateTo;
         return next;
       });
     }
+  };
+
+  // Default ("latest created") mode = no filter applied. The backend then
+  // returns the most recently created schedules (created_at DESC, capped at 100).
+  const isDefaultMode = Object.keys(filters).length === 0;
+
+  // Resets all filters back to default mode and force-remounts the filter
+  // inputs (via filterKey) so their displayed values clear too.
+  const resetToDefault = () => {
+    setFilters({});
+    setFilterKey((k) => k + 1);
   };
 
   const handleTranslatorFilter = (value: string) => {
@@ -470,8 +483,16 @@ export default function ScheduleManagement() {
           alignItems: 'center',
         }}
       >
-        <RangePicker onChange={handleDateRangeChange} />
+        <Button
+          type={isDefaultMode ? 'primary' : 'default'}
+          icon={<ClockCircleOutlined />}
+          onClick={resetToDefault}
+        >
+          {t('schedules.latestCreated')}
+        </Button>
+        <RangePicker key={`range-${filterKey}`} onChange={handleDateRangeChange} />
         <Select
+          key={`tr-${filterKey}`}
           style={{ width: 160 }}
           allowClear
           placeholder={t('schedules.filterTranslator')}
@@ -481,6 +502,7 @@ export default function ScheduleManagement() {
           optionFilterProp="label"
         />
         <Input.Search
+          key={`loc-${filterKey}`}
           style={{ width: 200 }}
           placeholder={t('schedules.searchLocation')}
           allowClear

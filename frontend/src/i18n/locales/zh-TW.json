@@ -141,6 +141,7 @@
     "translator": "翻譯員",
     "filterTranslator": "依翻譯員篩選",
     "searchLocation": "搜尋地點",
+    "latestCreated": "最新創建排班",
     "deleteGroup": "刪除整組",
     "confirmDelete": "確定要刪除此排班嗎？",
     "confirmDeleteGroup": "確定要刪除整組重複排班嗎？",

@@ -141,6 +141,7 @@
     "translator": "Translator",
     "filterTranslator": "Filter by translator",
     "searchLocation": "Search location",
+    "latestCreated": "Latest created",
     "deleteGroup": "Delete Recurrence Group",
     "confirmDelete": "Delete this schedule?",
     "confirmDeleteGroup": "Delete the entire recurrence group?",
