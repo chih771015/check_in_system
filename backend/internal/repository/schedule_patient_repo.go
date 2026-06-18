@@ -74,6 +74,34 @@ func (r *SchedulePatientRepository) UpdateStatus(id uint, status, noShowReason s
 		Updates(map[string]any{"status": status, "no_show_reason": noShowReason}).Error
 }
 
+// SumActualByPatients returns, per patient id, the all-time sum of
+// actual_amount across their schedule_patient rows. Patients with no rows are
+// absent from the map (callers treat missing as 0). Used by the patient Excel
+// export to append a "實付金額總額" column in one batched query (no N+1).
+func (r *SchedulePatientRepository) SumActualByPatients(patientIDs []uint) (map[uint]int64, error) {
+	out := map[uint]int64{}
+	if len(patientIDs) == 0 {
+		return out, nil
+	}
+	type row struct {
+		PatientID uint
+		Total     int64
+	}
+	var rows []row
+	err := r.db.Model(&model.SchedulePatient{}).
+		Select("patient_id, COALESCE(SUM(actual_amount), 0) AS total").
+		Where("patient_id IN ?", patientIDs).
+		Group("patient_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, x := range rows {
+		out[x.PatientID] = x.Total
+	}
+	return out, nil
+}
+
 // UpdateActualAmount sets the actual paid amount (整數元) for a SchedulePatient.
 func (r *SchedulePatientRepository) UpdateActualAmount(id uint, amount int) error {
 	return r.db.Model(&model.SchedulePatient{}).

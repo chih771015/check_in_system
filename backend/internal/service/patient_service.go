@@ -146,19 +146,42 @@ func (s *PatientService) ImportPatients(ctx context.Context, rows []PatientImpor
 
 var patientExcelHeaders = []interface{}{"姓名", "電話", "證件類型(passport/hn/unid)", "證件號碼"}
 
-// BuildExcel returns an in-memory xlsx of all patients (import-compatible columns).
+// BuildExcel returns an in-memory xlsx of all patients. The first 4 columns
+// match the import format (姓名/電話/證件類型/證件號碼) so the file round-trips
+// through import; an export-only 5th column "實付金額總額" carries each patient's
+// all-time actual-paid total. The import header/parsing stays at 4 columns, so
+// adding this column does not break re-importing the exported file.
 func (s *PatientService) BuildExcel(ctx context.Context) (*excelize.File, error) {
 	patients, _, err := s.patientRepo.WithCtx(ctx).List("", 1, 1000000)
 	if err != nil {
 		return nil, err
 	}
+
+	// Batch-fetch actual-paid totals (avoids N+1). When the scope repo is not
+	// wired (legacy callers) totals default to 0.
+	totals := map[uint]int64{}
+	if s.spRepo != nil && len(patients) > 0 {
+		ids := make([]uint, len(patients))
+		for i, p := range patients {
+			ids[i] = p.ID
+		}
+		totals, err = s.spRepo.WithCtx(ctx).SumActualByPatients(ids)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	f := newPatientSheet()
 	sheet := f.GetSheetName(0)
+	// Export-only header in column E (not part of the import header constant).
+	f.SetCellValue(sheet, "E1", "實付金額總額")
 	for rowIdx, p := range patients {
 		for colIdx, val := range []interface{}{p.Name, p.Phone, p.IDType, p.IDNumber} {
 			cell, _ := excelize.CoordinatesToCellName(colIdx+1, rowIdx+2)
 			f.SetCellValue(sheet, cell, val)
 		}
+		totalCell, _ := excelize.CoordinatesToCellName(5, rowIdx+2)
+		f.SetCellValue(sheet, totalCell, totals[p.ID])
 	}
 	return f, nil
 }

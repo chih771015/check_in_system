@@ -131,6 +131,40 @@ func TestSchedulePatientRepo_UpdateStatus(t *testing.T) {
 	assert.Equal(t, "patient called to cancel", got.NoShowReason)
 }
 
+func TestSchedulePatientRepo_SumActualByPatients(t *testing.T) {
+	db := newSchedulePatientTestDB(t)
+	sch := seedSchedule(t, db, 0)
+	p1 := seedPatient(t, db, "A", "ID1")
+	p2 := seedPatient(t, db, "B", "ID2")
+	p3 := seedPatient(t, db, "C", "ID3") // 完全沒有看診紀錄 → map 中缺席
+
+	repo := NewSchedulePatientRepository(db)
+	require.NoError(t, repo.CreateBatch([]*model.SchedulePatient{
+		{ScheduleID: sch.ID, PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00", ActualAmount: 300},
+	}))
+	// p1 在另一個 schedule 又有一筆 → 應加總；p2 的一筆為 no_show（actual=0）
+	sch2 := seedSchedule(t, db, 0)
+	require.NoError(t, repo.CreateBatch([]*model.SchedulePatient{
+		{ScheduleID: sch2.ID, PatientID: p1.ID, StartTime: "09:00", EndTime: "10:00", ActualAmount: 500},
+		{ScheduleID: sch2.ID, PatientID: p2.ID, StartTime: "10:00", EndTime: "11:00", ActualAmount: 0},
+	}))
+
+	got, err := repo.SumActualByPatients([]uint{p1.ID, p2.ID, p3.ID})
+	require.NoError(t, err)
+	assert.EqualValues(t, 800, got[p1.ID], "p1 = 300 + 500")
+	assert.EqualValues(t, 0, got[p2.ID], "p2 only no_show (actual=0)")
+	_, ok := got[p3.ID]
+	assert.False(t, ok, "patient with no rows should be absent from the map")
+}
+
+func TestSchedulePatientRepo_SumActualByPatients_EmptyInput(t *testing.T) {
+	db := newSchedulePatientTestDB(t)
+	repo := NewSchedulePatientRepository(db)
+	got, err := repo.SumActualByPatients(nil)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 func TestSchedulePatientRepo_UniqueConstraintEnforced(t *testing.T) {
 	db := newSchedulePatientTestDB(t)
 	sch := seedSchedule(t, db, 0)

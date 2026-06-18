@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"translator-checkin/internal/dto"
+	"translator-checkin/internal/model"
 	"translator-checkin/internal/repository"
 
 	"github.com/stretchr/testify/assert"
@@ -71,6 +72,44 @@ func TestPatientService_BuildExcelAndTemplate(t *testing.T) {
 		}
 	}
 	assert.True(t, idTypes["passport"] && idTypes["hn"] && idTypes["unid"], "template should show all 3 id types")
+}
+
+func TestPatientService_BuildExcel_AppendsActualTotalColumn(t *testing.T) {
+	db := newTestDB(t)
+	patientRepo := repository.NewPatientRepository(db)
+	spRepo := repository.NewSchedulePatientRepository(db)
+	svc := NewPatientService(patientRepo).WithScopeRepo(spRepo)
+	ctx := context.Background()
+
+	p, err := svc.Create(ctx, dto.CreatePatientRequest{Name: "Excel Me", Phone: "0900", IDType: "passport", IDNumber: "EX1"})
+	require.NoError(t, err)
+
+	// Seed two visits with actual amounts → total 800.
+	tr := &model.User{Email: "t@x.com", PasswordHash: "h", Name: "T", Role: "translator", Status: "active"}
+	require.NoError(t, db.Create(tr).Error)
+	sch := &model.Schedule{TranslatorID: tr.ID, StartTime: "09:00", EndTime: "12:00", Location: "L"}
+	require.NoError(t, db.Create(sch).Error)
+	sch2 := &model.Schedule{TranslatorID: tr.ID, StartTime: "09:00", EndTime: "12:00", Location: "L"}
+	require.NoError(t, db.Create(sch2).Error)
+	require.NoError(t, spRepo.CreateBatch([]*model.SchedulePatient{
+		{ScheduleID: sch.ID, PatientID: p.ID, StartTime: "09:00", EndTime: "10:00", ActualAmount: 300},
+		{ScheduleID: sch2.ID, PatientID: p.ID, StartTime: "09:00", EndTime: "10:00", ActualAmount: 500},
+	}))
+
+	f, err := svc.BuildExcel(ctx)
+	require.NoError(t, err)
+	sheet := f.GetSheetName(0)
+
+	// Header gains a 5th column (column E) for the actual-paid total. The first
+	// 4 columns must stay unchanged so import compatibility is preserved.
+	h, err := f.GetCellValue(sheet, "E1")
+	require.NoError(t, err)
+	assert.Equal(t, "實付金額總額", h)
+
+	// Data row carries the summed actual amount in column E.
+	v, err := f.GetCellValue(sheet, "E2")
+	require.NoError(t, err)
+	assert.Equal(t, "800", v)
 }
 
 func TestPatientService_Create_NormalizesIDNumber(t *testing.T) {
