@@ -59,6 +59,10 @@ export default function PatientHistory() {
           <Typography.Text>{t('schedules.location')}: {entry.location}</Typography.Text>
           <br />
           <Typography.Text>{t('schedules.translator')}: {entry.translatorName}</Typography.Text>
+          <br />
+          <Typography.Text>
+            {t('diagnosis.prepaidAmount')}: {entry.prepaidAmount} ・ {t('diagnosis.actualAmount')}: {entry.actualAmount}
+          </Typography.Text>
           {entry.status === 'no_show' && entry.noShowReason && (
             <>
               <br />

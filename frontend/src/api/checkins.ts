@@ -114,6 +114,20 @@ export function adminDeleteDiagnosisPhoto(photoId: number) {
   return client.delete(`/admin/diagnosis/photos/${photoId}`).then((r) => r.data);
 }
 
+/** setActualAmount records the translator's actual paid amount (整數元). */
+export function setActualAmount(schedulePatientId: number, actualAmount: number) {
+  return client
+    .post('/checkins/diagnosis/amount', { schedulePatientId, actualAmount })
+    .then((r) => r.data);
+}
+
+/** Admin surrogate: set actual paid amount for any SchedulePatient. */
+export function adminSetActualAmount(schedulePatientId: number, actualAmount: number) {
+  return client
+    .post('/admin/diagnosis/amount', { schedulePatientId, actualAmount })
+    .then((r) => r.data);
+}
+
 /** markNoShow flips a SchedulePatient's status to no_show with a reason. */
 export function markNoShow(schedulePatientId: number, reason: string) {
   return client

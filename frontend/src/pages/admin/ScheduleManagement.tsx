@@ -34,6 +34,7 @@ import NoShowModal from '../../components/NoShowModal';
 import {
   adminUploadDiagnosis,
   adminMarkNoShow,
+  adminSetActualAmount,
   adminListDiagnosisPhotos,
   adminDeleteDiagnosisPhoto,
 } from '../../api/checkins';
@@ -94,7 +95,7 @@ export default function ScheduleManagement() {
   const [editPatients, setEditPatients] = useState<SchedulePatientPayload[]>([]);
   // Admin surrogate: detail modal + diagnosis / no-show modal state
   const [detailRecord, setDetailRecord] = useState<ScheduleItem | null>(null);
-  const [adminDiagFor, setAdminDiagFor] = useState<number | null>(null);
+  const [adminDiagRow, setAdminDiagRow] = useState<SchedulePatient | null>(null);
   const [adminNoShowFor, setAdminNoShowFor] = useState<number | null>(null);
   // Photo preview modal — lazy-loaded list of URLs for one SchedulePatient.
   const [photosFor, setPhotosFor] = useState<SchedulePatient | null>(null);
@@ -301,6 +302,7 @@ export default function ScheduleManagement() {
         patientId: sp.patientId,
         startTime: sp.startTime,
         endTime: sp.endTime,
+        prepaidAmount: sp.prepaidAmount,
       })),
     );
     setEditOpen(true);
@@ -618,6 +620,12 @@ export default function ScheduleManagement() {
                   render: (_: unknown, r: SchedulePatient) => `${r.startTime}-${r.endTime}`,
                 },
                 {
+                  title: `${t('diagnosis.prepaidAmount')}/${t('diagnosis.actualAmount')}`,
+                  key: 'amount',
+                  width: 120,
+                  render: (_: unknown, r: SchedulePatient) => `${r.prepaidAmount} / ${r.actualAmount}`,
+                },
+                {
                   title: t('common.status'),
                   dataIndex: 'status',
                   key: 'status',
@@ -665,14 +673,14 @@ export default function ScheduleManagement() {
                     // this after leave, so the admin is the escalation path.
                     if (r.status === 'completed') {
                       return (
-                        <Button size="small" onClick={() => setAdminDiagFor(r.id)}>
+                        <Button size="small" onClick={() => setAdminDiagRow(r)}>
                           {t('diagnosis.managePhotos')}
                         </Button>
                       );
                     }
                     return (
                       <Space>
-                        <Button size="small" type="primary" onClick={() => setAdminDiagFor(r.id)}>
+                        <Button size="small" type="primary" onClick={() => setAdminDiagRow(r)}>
                           {t('diagnosis.upload')}
                         </Button>
                         <Button size="small" danger onClick={() => setAdminNoShowFor(r.id)}>
@@ -725,14 +733,17 @@ export default function ScheduleManagement() {
       </Modal>
 
       {/* Admin surrogate upload + no-show, reusing the same modals but injecting admin* API calls */}
-      {adminDiagFor !== null && (
+      {adminDiagRow !== null && (
         <DiagnosisUploadModal
-          open={adminDiagFor !== null}
-          schedulePatientId={adminDiagFor}
+          open={adminDiagRow !== null}
+          schedulePatientId={adminDiagRow.id}
           upload={adminUploadDiagnosis}
           listPhotos={adminListDiagnosisPhotos}
           deletePhoto={adminDeleteDiagnosisPhoto}
-          onClose={() => setAdminDiagFor(null)}
+          prepaidAmount={adminDiagRow.prepaidAmount}
+          actualAmount={adminDiagRow.actualAmount}
+          setActualAmount={adminSetActualAmount}
+          onClose={() => setAdminDiagRow(null)}
           onUploaded={() => {
             void fetchData();
             // Refresh the detail modal record if open

@@ -30,6 +30,8 @@ export interface SchedulePatient {
   endTime: string;
   status: SchedulePatientStatus;
   noShowReason?: string;
+  prepaidAmount: number;
+  actualAmount: number;
 }
 
 export interface DiagnosisPhoto {
@@ -58,6 +60,8 @@ export interface DiagnosisResult {
   status: 'completed' | 'no_show';
   noShowReason?: string;
   diagnosisPhotos: string[];
+  prepaidAmount: number;
+  actualAmount: number;
   updatedAt: string;
 }
 
@@ -72,6 +76,7 @@ export interface SchedulePatientPayload {
   patientId: number;
   startTime: string;
   endTime: string;
+  prepaidAmount: number;
 }
 
 export interface ScheduleItem {
@@ -155,6 +160,8 @@ export interface PatientHistoryEntry {
   status: string;
   noShowReason?: string;
   diagnosisPhotos: string[];
+  prepaidAmount: number;
+  actualAmount: number;
 }
 
 export interface PatientListResponse {

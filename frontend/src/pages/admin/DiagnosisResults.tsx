@@ -18,13 +18,18 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import type { DiagnosisResult, TranslatorListItem } from '../../types';
-import { getDiagnosisResults, type DiagnosisResultsQuery } from '../../api/diagnosisResults';
+import {
+  getDiagnosisResults,
+  exportDiagnosisResults,
+  type DiagnosisResultsQuery,
+} from '../../api/diagnosisResults';
 import { getTranslators } from '../../api/translators';
 import {
   adminUploadDiagnosis,
   adminListDiagnosisPhotos,
   adminDeleteDiagnosisPhoto,
   adminMarkNoShow,
+  adminSetActualAmount,
 } from '../../api/checkins';
 import DiagnosisUploadModal from '../../components/DiagnosisUploadModal';
 import NoShowModal from '../../components/NoShowModal';
@@ -161,6 +166,18 @@ export default function DiagnosisResultsPage() {
       },
     },
     {
+      title: t('diagnosis.prepaidAmount'),
+      dataIndex: 'prepaidAmount',
+      key: 'prepaidAmount',
+      width: 100,
+    },
+    {
+      title: t('diagnosis.actualAmount'),
+      dataIndex: 'actualAmount',
+      key: 'actualAmount',
+      width: 100,
+    },
+    {
       title: t('diagnosisResults.updated'),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
@@ -240,6 +257,9 @@ export default function DiagnosisResultsPage() {
           style={{ width: 220 }}
           onSearch={(v) => { setPatientName(v); setPage(1); }}
         />
+        <Button onClick={() => void exportDiagnosisResults({ ...query, page: undefined, pageSize: undefined })}>
+          {t('checkins.exportExcel')}
+        </Button>
       </Space>
 
       <Table<DiagnosisResult>
@@ -247,7 +267,7 @@ export default function DiagnosisResultsPage() {
         columns={columns}
         dataSource={data}
         loading={loading}
-        scroll={{ x: 1100 }}
+        scroll={{ x: 1300 }}
         locale={{ emptyText: <Empty description={t('diagnosisResults.noResult')} /> }}
         pagination={{
           current: page,
@@ -295,6 +315,9 @@ export default function DiagnosisResultsPage() {
           upload={adminUploadDiagnosis}
           listPhotos={adminListDiagnosisPhotos}
           deletePhoto={adminDeleteDiagnosisPhoto}
+          prepaidAmount={manageFor.prepaidAmount}
+          actualAmount={manageFor.actualAmount}
+          setActualAmount={adminSetActualAmount}
           onClose={() => setManageFor(null)}
           onUploaded={fetchData}
         />

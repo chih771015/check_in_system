@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, Button, App, Space, Image, Popconfirm, Spin, Typography } from 'antd';
+import { Modal, Button, App, Space, Image, Popconfirm, Spin, Typography, InputNumber } from 'antd';
 import { DeleteOutlined, CloseOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
   uploadDiagnosis as defaultUpload,
   listDiagnosisPhotos as defaultListPhotos,
   deleteDiagnosisPhoto as defaultDeletePhoto,
+  setActualAmount as defaultSetActualAmount,
   type DiagnosisPhotoItem,
 } from '../api/checkins';
 import { extractApiError } from '../utils/apiError';
@@ -29,6 +30,10 @@ interface DiagnosisUploadModalProps {
    */
   canUpload?: boolean;
   canDelete?: boolean;
+  /** Money (整數元). prepaid is display-only; actual is editable when canUpload. */
+  prepaidAmount?: number;
+  actualAmount?: number;
+  setActualAmount?: (spID: number, amount: number) => Promise<unknown>;
 }
 
 const MAX_PHOTOS = 30;
@@ -56,6 +61,9 @@ export default function DiagnosisUploadModal({
   deletePhoto = defaultDeletePhoto,
   canUpload = true,
   canDelete = true,
+  prepaidAmount,
+  actualAmount,
+  setActualAmount = defaultSetActualAmount,
 }: DiagnosisUploadModalProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -63,6 +71,8 @@ export default function DiagnosisUploadModal({
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [amount, setAmount] = useState<number>(actualAmount ?? 0);
+  const [savingAmount, setSavingAmount] = useState(false);
 
   const remaining = MAX_PHOTOS - existing.length;
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
@@ -84,9 +94,23 @@ export default function DiagnosisUploadModal({
   useEffect(() => {
     if (open) {
       setFiles([]);
+      setAmount(actualAmount ?? 0);
       void refresh();
     }
-  }, [open, refresh]);
+  }, [open, refresh, actualAmount]);
+
+  const handleSaveAmount = async () => {
+    setSavingAmount(true);
+    try {
+      await setActualAmount(schedulePatientId, amount);
+      void message.success(t('diagnosis.amountSaved'));
+      onUploaded();
+    } catch (err: unknown) {
+      void message.error(extractApiError(err) || t('common.failed'));
+    } finally {
+      setSavingAmount(false);
+    }
+  };
 
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
@@ -167,6 +191,33 @@ export default function DiagnosisUploadModal({
       destroyOnClose
     >
       <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        {/* Amounts: prepaid (read-only) + actual (editable when canUpload) */}
+        <div>
+          <div style={{ fontSize: 13, color: '#666' }}>
+            {t('diagnosis.prepaidAmount')}: <strong>{prepaidAmount ?? 0}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <Typography.Text>{t('diagnosis.actualAmount')}</Typography.Text>
+            {canUpload ? (
+              <>
+                <InputNumber
+                  min={0}
+                  precision={0}
+                  value={amount}
+                  onChange={(v) => setAmount(typeof v === 'number' ? v : 0)}
+                  style={{ width: 140 }}
+                  aria-label={t('diagnosis.actualAmount')}
+                />
+                <Button size="small" type="primary" loading={savingAmount} onClick={handleSaveAmount}>
+                  {t('diagnosis.saveAmount')}
+                </Button>
+              </>
+            ) : (
+              <strong>{actualAmount ?? 0}</strong>
+            )}
+          </div>
+        </div>
+
         {/* Existing photos with per-photo delete */}
         <div>
           <Typography.Text strong>{t('diagnosis.existingPhotos')}</Typography.Text>

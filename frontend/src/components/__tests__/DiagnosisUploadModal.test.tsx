@@ -9,6 +9,7 @@ import i18n from '../../i18n';
 const uploadMock = vi.fn();
 const listPhotosMock = vi.fn();
 const deletePhotoMock = vi.fn();
+const setAmountMock = vi.fn();
 
 function makeFile(name: string) {
   return new File(['data'], name, { type: 'image/jpeg' });
@@ -31,9 +32,11 @@ function setup(
   uploadMock.mockReset();
   listPhotosMock.mockReset();
   deletePhotoMock.mockReset();
+  setAmountMock.mockReset();
   uploadMock.mockResolvedValue({ message: 'ok' });
   listPhotosMock.mockResolvedValue(existing);
   deletePhotoMock.mockResolvedValue({ message: 'ok' });
+  setAmountMock.mockResolvedValue({ message: 'ok' });
   render(
     <AntApp>
       <DiagnosisUploadModal
@@ -41,6 +44,9 @@ function setup(
         schedulePatientId={42}
         canUpload={canUpload}
         canDelete={canDelete}
+        prepaidAmount={1000}
+        actualAmount={0}
+        setActualAmount={setAmountMock}
         onClose={onClose}
         onUploaded={onUploaded}
         upload={uploadMock}
@@ -87,6 +93,23 @@ describe('DiagnosisUploadModal', () => {
     await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledOnce());
     const filesArg = uploadMock.mock.calls[0][1] as File[];
     expect(filesArg).toHaveLength(30);
+    await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
+  });
+
+  it('shows prepaid amount and saves the actual amount the translator enters', async () => {
+    const { onUploaded } = setup([]);
+    await screen.findByText('No photos uploaded yet');
+    const user = userEvent.setup({ delay: null });
+
+    // Prepaid amount is shown.
+    expect(screen.getByText(/Prepaid amount/)).toBeInTheDocument();
+
+    const input = screen.getByRole('spinbutton', { name: 'Actual amount' });
+    await user.clear(input);
+    await user.type(input, '1500');
+    await user.click(screen.getByRole('button', { name: 'Save amount' }));
+
+    await vi.waitFor(() => expect(setAmountMock).toHaveBeenCalledWith(42, 1500));
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 

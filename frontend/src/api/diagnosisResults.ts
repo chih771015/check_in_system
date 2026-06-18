@@ -17,6 +17,20 @@ export function getDiagnosisResults(q: DiagnosisResultsQuery) {
     .then((r) => r.data);
 }
 
+/** Download the diagnosis-results overview (with amounts) as xlsx, same filters. */
+export function exportDiagnosisResults(q: DiagnosisResultsQuery) {
+  return client
+    .get('/admin/export/diagnosis', { params: q, responseType: 'blob' })
+    .then((r) => {
+      const url = URL.createObjectURL(new Blob([r.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'diagnosis_results.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+}
+
 /** Fetch the diagnosis photo URLs for a single SchedulePatient slot. */
 export function getSchedulePatientPhotos(schedulePatientId: number) {
   return client

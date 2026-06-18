@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Button, Space, TimePicker, Card } from 'antd';
+import { Button, Space, TimePicker, Card, InputNumber, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -50,7 +50,7 @@ export default function SchedulePatientListEditor({
 
   // Display value: empty list shown as one blank row so the UI is never empty.
   const rows: SchedulePatientPayload[] = value.length === 0
-    ? [{ patientId: 0, startTime: overallStart, endTime: overallEnd }]
+    ? [{ patientId: 0, startTime: overallStart, endTime: overallEnd, prepaidAmount: 0 }]
     : value;
 
   const updateRow = (idx: number, patch: Partial<SchedulePatientPayload>) => {
@@ -61,7 +61,7 @@ export default function SchedulePatientListEditor({
     onChange(rows.filter((_, i) => i !== idx));
   };
   const addRow = () => {
-    onChange([...rows, { patientId: 0, startTime: overallStart, endTime: overallEnd }]);
+    onChange([...rows, { patientId: 0, startTime: overallStart, endTime: overallEnd, prepaidAmount: 0 }]);
   };
 
   return (
@@ -98,6 +98,18 @@ export default function SchedulePatientListEditor({
               >
                 {t('common.delete')}
               </Button>
+            </Space>
+            <Space>
+              <Typography.Text>{t('schedules.prepaidAmount')}</Typography.Text>
+              <InputNumber
+                min={0}
+                precision={0}
+                value={row.prepaidAmount}
+                onChange={(v) => updateRow(idx, { prepaidAmount: typeof v === 'number' ? v : 0 })}
+                disabled={disabled}
+                style={{ width: 140 }}
+                aria-label={t('schedules.prepaidAmount')}
+              />
             </Space>
           </Space>
         </Card>

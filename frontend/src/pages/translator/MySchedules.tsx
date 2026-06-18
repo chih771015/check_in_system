@@ -47,12 +47,16 @@ export default function MySchedules() {
   const [diagFor, setDiagFor] = useState<number | null>(null);
   const [diagCanUpload, setDiagCanUpload] = useState(true);
   const [diagCanDelete, setDiagCanDelete] = useState(true);
+  const [diagPrepaid, setDiagPrepaid] = useState(0);
+  const [diagActual, setDiagActual] = useState(0);
   const [noShowFor, setNoShowFor] = useState<number | null>(null);
 
-  const openDiag = (id: number, canUpload: boolean, canDelete: boolean) => {
+  const openDiag = (p: SchedulePatient, canUpload: boolean, canDelete: boolean) => {
     setDiagCanUpload(canUpload);
     setDiagCanDelete(canDelete);
-    setDiagFor(id);
+    setDiagPrepaid(p.prepaidAmount);
+    setDiagActual(p.actualAmount);
+    setDiagFor(p.id);
   };
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -175,6 +179,9 @@ export default function MySchedules() {
         <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
           {p.startTime} - {p.endTime}
         </div>
+        <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>
+          {t('diagnosis.prepaidAmount')}: {p.prepaidAmount} ・ {t('diagnosis.actualAmount')}: {p.actualAmount}
+        </div>
         {p.status === 'no_show' && p.noShowReason && (
           <div style={{ color: '#cf1322', fontSize: 12, marginTop: 2 }}>
             — {p.noShowReason}
@@ -183,7 +190,7 @@ export default function MySchedules() {
         <Space size="small" style={{ marginTop: 6 }} wrap>
           {inProgress ? (
             <>
-              <Button size="small" type="primary" onClick={() => openDiag(p.id, true, true)}>
+              <Button size="small" type="primary" onClick={() => openDiag(p, true, true)}>
                 {p.status === 'completed' ? t('diagnosis.managePhotos') : t('diagnosis.upload')}
               </Button>
               {p.status !== 'completed' && (
@@ -196,14 +203,14 @@ export default function MySchedules() {
             // Append-only after leave (add late results; no delete / no-show).
             // Offered for completed (supplement) and pending (late result), not no_show.
             p.status !== 'no_show' && (
-              <Button size="small" type="primary" onClick={() => openDiag(p.id, true, false)}>
+              <Button size="small" type="primary" onClick={() => openDiag(p, true, false)}>
                 {t('diagnosis.supplementPhotos')}
               </Button>
             )
           ) : (
             // Before arrive: view-only, only when there is something to see.
             p.status === 'completed' && (
-              <Button size="small" onClick={() => openDiag(p.id, false, false)}>
+              <Button size="small" onClick={() => openDiag(p, false, false)}>
                 {t('diagnosis.viewPhotos')}
               </Button>
             )
@@ -295,6 +302,8 @@ export default function MySchedules() {
           schedulePatientId={diagFor}
           canUpload={diagCanUpload}
           canDelete={diagCanDelete}
+          prepaidAmount={diagPrepaid}
+          actualAmount={diagActual}
           onClose={() => setDiagFor(null)}
           onUploaded={fetchSchedules}
         />
