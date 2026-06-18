@@ -89,19 +89,33 @@ export default function DiagnosisUploadModal({
   }, [open, refresh]);
 
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []);
-    if (list.length > remaining) {
-      // Auto-cap to the number of free slots and warn so the user knows the
-      // extras were dropped rather than silently uploaded.
-      void message.warning(t('diagnosis.tooManyFiles'));
-      setFiles(list.slice(0, Math.max(remaining, 0)));
-      return;
+    const picked = Array.from(e.target.files ?? []);
+    // Reset the input so picking the same file again still fires onChange and
+    // so a fresh pick doesn't carry the browser's previous selection.
+    e.target.value = '';
+    if (picked.length === 0) return;
+
+    // APPEND to the current selection (don't overwrite). De-dup by name+size so
+    // re-picking the same photo doesn't add it twice.
+    const merged = [...files];
+    for (const f of picked) {
+      if (!merged.some((g) => g.name === f.name && g.size === f.size)) {
+        merged.push(f);
+      }
     }
-    // Pre-empt nginx 413: warn if this batch is too large to send in one go.
-    if (list.reduce((sum, f) => sum + f.size, 0) > MAX_UPLOAD_BYTES) {
+
+    let next = merged;
+    if (next.length > remaining) {
+      // Auto-cap to the number of free slots and warn so the user knows the
+      // extras were dropped rather than silently added.
+      void message.warning(t('diagnosis.tooManyFiles'));
+      next = next.slice(0, Math.max(remaining, 0));
+    }
+    // Pre-empt nginx 413: warn if the whole batch is too large to send in one go.
+    if (next.reduce((sum, f) => sum + f.size, 0) > MAX_UPLOAD_BYTES) {
       void message.warning(t('diagnosis.uploadTooLarge'));
     }
-    setFiles(list);
+    setFiles(next);
   };
 
   const handleUpload = async () => {

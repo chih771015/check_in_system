@@ -90,6 +90,28 @@ describe('DiagnosisUploadModal', () => {
     await vi.waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 
+  it('appends to the current selection on re-pick (does not overwrite) and de-dups', async () => {
+    setup([]);
+    await screen.findByText('No photos uploaded yet');
+    const user = userEvent.setup({ delay: null });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+
+    // First pick: a, b
+    await user.upload(input, [makeFile('a.jpg'), makeFile('b.jpg')]);
+    expect(screen.getByText('a.jpg')).toBeInTheDocument();
+    expect(screen.getByText('b.jpg')).toBeInTheDocument();
+
+    // Second pick: b (dup) + c → expect a, b, c (b not duplicated, a kept)
+    await user.upload(input, [makeFile('b.jpg'), makeFile('c.jpg')]);
+    expect(screen.getByText('a.jpg')).toBeInTheDocument();
+    expect(screen.getByText('c.jpg')).toBeInTheDocument();
+    expect(screen.getAllByText('b.jpg')).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+    await vi.waitFor(() => expect(uploadMock).toHaveBeenCalledOnce());
+    expect((uploadMock.mock.calls[0][1] as File[]).map((f) => f.name)).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+  });
+
   it('lets the user remove a selected (not-yet-uploaded) photo before submitting', async () => {
     setup([]);
     await screen.findByText('No photos uploaded yet');
