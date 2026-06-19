@@ -106,6 +106,8 @@
     "edit": "Edit Patient",
     "history": "Visit History",
     "historyEmpty": "No visit records yet.",
+    "actualTotal": "Actual paid total",
+    "rangeActualTotal": "Actual paid total (range)",
     "idType": "ID Type",
     "idNumber": "ID Number",
     "idTypes": {

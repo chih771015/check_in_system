@@ -106,6 +106,8 @@
     "edit": "แก้ไขผู้ป่วย",
     "history": "ประวัติการตรวจ",
     "historyEmpty": "ยังไม่มีประวัติการตรวจ",
+    "actualTotal": "ยอดชำระจริงรวม",
+    "rangeActualTotal": "ยอดชำระจริงรวม (ช่วงเวลา)",
     "idType": "ประเภท ID",
     "idNumber": "หมายเลข ID",
     "idTypes": {

@@ -3,11 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
   Card,
+  DatePicker,
   Descriptions,
   Empty,
   Image,
   Skeleton,
   Space,
+  Statistic,
   Tag,
   Timeline,
   Typography,
@@ -31,19 +33,30 @@ export default function PatientHistory() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [resp, setResp] = useState<PatientHistoryResponse | null>(null);
+  const [range, setRange] = useState<{ dateFrom?: string; dateTo?: string }>({});
 
+  const { dateFrom, dateTo } = range;
   useEffect(() => {
     if (!id) return;
-    // Reset the spinner when the :id param changes so a re-fetch shows loading.
+    // Reset the spinner when the :id param or date range changes so a re-fetch
+    // shows loading.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional re-fetch reset
     setLoading(true);
-    getPatientHistory(Number(id))
+    getPatientHistory(Number(id), { dateFrom, dateTo })
       .then((r) => setResp(r))
       .catch(() => {
         void message.error(t('errors.INTERNAL_ERROR'));
       })
       .finally(() => setLoading(false));
-  }, [id, message, t]);
+  }, [id, dateFrom, dateTo, message, t]);
+
+  const handleRangeChange = (_: unknown, dateStrings: [string, string]) => {
+    if (dateStrings[0] && dateStrings[1]) {
+      setRange({ dateFrom: dateStrings[0], dateTo: dateStrings[1] });
+    } else {
+      setRange({});
+    }
+  };
 
   function renderEntry(entry: PatientHistoryEntry) {
     return (
@@ -121,7 +134,18 @@ export default function PatientHistory() {
             </Descriptions>
           </Card>
 
-          <Card title={t('patients.history')}>
+          <Card
+            title={t('patients.history')}
+            extra={
+              <DatePicker.RangePicker onChange={handleRangeChange} allowClear />
+            }
+          >
+            <Statistic
+              title={dateFrom ? t('patients.rangeActualTotal') : t('patients.actualTotal')}
+              value={resp.actualTotal}
+              prefix="NT$"
+              style={{ marginBottom: 16 }}
+            />
             {resp.history.length === 0 ? (
               <Empty description={t('patients.historyEmpty')} />
             ) : (

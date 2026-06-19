@@ -146,6 +146,13 @@ export default function PatientManagement() {
     },
     { title: t('patients.idNumber'), dataIndex: 'idNumber', key: 'idNumber' },
     {
+      title: t('patients.actualTotal'),
+      dataIndex: 'actualTotal',
+      key: 'actualTotal',
+      width: 130,
+      render: (v: number | undefined) => `NT$ ${(v ?? 0).toLocaleString()}`,
+    },
+    {
       title: t('common.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',

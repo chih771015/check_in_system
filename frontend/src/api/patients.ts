@@ -38,9 +38,12 @@ export function deletePatient(id: number) {
   return client.delete(`/admin/patients/${id}`).then((r) => r.data);
 }
 
-export function getPatientHistory(id: number) {
+export function getPatientHistory(
+  id: number,
+  range?: { dateFrom?: string; dateTo?: string },
+) {
   return client
-    .get<PatientHistoryResponse>(`/admin/patients/${id}/history`)
+    .get<PatientHistoryResponse>(`/admin/patients/${id}/history`, { params: range })
     .then((r) => r.data);
 }
 

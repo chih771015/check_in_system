@@ -140,6 +140,8 @@ export interface Patient {
   idNumber: string;
   createdAt: string;
   updatedAt: string;
+  /** All-time sum of actual_amount; populated by the admin list endpoint. */
+  actualTotal?: number;
 }
 
 export interface TranslatorPatient {
@@ -174,4 +176,6 @@ export interface PatientListResponse {
 export interface PatientHistoryResponse {
   patient: Patient;
   history: PatientHistoryEntry[];
+  /** Sum of actual_amount over the returned entries (range total when filtered). */
+  actualTotal: number;
 }
