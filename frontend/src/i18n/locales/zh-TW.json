@@ -44,6 +44,9 @@
   "app": {
     "title": "翻譯員打卡系統"
   },
+  "dashboard": {
+    "monthlyTotal": "本月病人總支出（{{month}}）"
+  },
   "nav": {
     "translators": "翻譯員管理",
     "schedules": "排班管理",

@@ -44,6 +44,9 @@
   "app": {
     "title": "ระบบลงเวลาล่าม"
   },
+  "dashboard": {
+    "monthlyTotal": "ค่าใช้จ่ายผู้ป่วยเดือนนี้ ({{month}})"
+  },
   "nav": {
     "translators": "จัดการล่าม",
     "schedules": "จัดการตารางงาน",

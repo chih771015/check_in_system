@@ -44,6 +44,9 @@
   "app": {
     "title": "Translator Check-in System"
   },
+  "dashboard": {
+    "monthlyTotal": "This month's patient expenditure ({{month}})"
+  },
   "nav": {
     "translators": "Translators",
     "schedules": "Schedules",

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, Typography, theme, Modal, Form, Input, App, Select, Grid } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../stores/authStore';
 import { changePassword } from '../api/auth';
+import { getMonthlyTotal } from '../api/stats';
 
 const { Header, Sider, Content } = Layout;
 
@@ -30,6 +31,9 @@ export default function AppLayout() {
   const [changePWLoading, setChangePWLoading] = useState(false);
   const [changePWForm] = Form.useForm();
   const { user, login, logout, isAdmin } = useAuth();
+  // Admin-only banner: current-month total patient expenditure (NT$). Loaded
+  // once per mount and shown atop every admin page.
+  const [monthlyTotal, setMonthlyTotal] = useState<{ yearMonth: string; total: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { token: themeToken } = theme.useToken();
@@ -39,6 +43,15 @@ export default function AppLayout() {
   // auto-collapse after navigation so users on phones don't have to tap
   // the hamburger to dismiss it every time.
   const screens = Grid.useBreakpoint();
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    let active = true;
+    getMonthlyTotal()
+      .then((r) => { if (active) setMonthlyTotal(r); })
+      .catch(() => { /* banner is best-effort; ignore errors */ });
+    return () => { active = false; };
+  }, [isAdmin]);
 
   const handleChangePW = async (values: {
     oldPassword: string;
@@ -159,6 +172,28 @@ export default function AppLayout() {
             </Button>
           </div>
         </Header>
+        {isAdmin && monthlyTotal && (
+          <div
+            style={{
+              margin: '16px 16px 0',
+              padding: '10px 16px',
+              background: themeToken.colorPrimaryBg,
+              border: `1px solid ${themeToken.colorPrimaryBorder}`,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Typography.Text type="secondary">
+              {t('dashboard.monthlyTotal', { month: monthlyTotal.yearMonth })}
+            </Typography.Text>
+            <Typography.Text strong style={{ fontSize: 18 }}>
+              NT$ {monthlyTotal.total.toLocaleString()}
+            </Typography.Text>
+          </div>
+        )}
         <Content style={{ margin: 16, padding: 24, background: themeToken.colorBgContainer, borderRadius: 8, overflow: 'auto' }}>
           <Outlet />
         </Content>
