@@ -128,6 +128,11 @@ export default function ScheduleManagement() {
   const createOverallEnd = createEnd?.format?.('HH:mm') ?? '12:00';
   const editOverallStart = editStart?.format?.('HH:mm') ?? editingRecord?.startTime ?? '09:00';
   const editOverallEnd = editEnd?.format?.('HH:mm') ?? editingRecord?.endTime ?? '12:00';
+  // Year of the schedule date drives the per-patient已實付 hint in the editor.
+  const createDate = Form.useWatch('date', createForm) as { year?: () => number } | undefined;
+  const editDate = Form.useWatch('date', editForm) as { year?: () => number } | undefined;
+  const createYear = createDate?.year?.();
+  const editYear = editDate?.year?.();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -574,6 +579,7 @@ export default function ScheduleManagement() {
               onChange={setCreatePatients}
               overallStart={createOverallStart}
               overallEnd={createOverallEnd}
+              scheduleYear={createYear}
             />
           </Form.Item>
           {recurrenceFields}
@@ -594,6 +600,7 @@ export default function ScheduleManagement() {
               onChange={setEditPatients}
               overallStart={editOverallStart}
               overallEnd={editOverallEnd}
+              scheduleYear={editYear}
             />
           </Form.Item>
           <Form.Item>

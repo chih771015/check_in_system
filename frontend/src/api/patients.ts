@@ -47,6 +47,13 @@ export function getPatientHistory(
     .then((r) => r.data);
 }
 
+/** A patient's actual-paid total for a given calendar year. */
+export function getPatientActualTotal(id: number, year: number) {
+  return client
+    .get<{ year: number; total: number }>(`/admin/patients/${id}/actual-total`, { params: { year } })
+    .then((r) => r.data);
+}
+
 export interface PatientImportError {
   row: number;
   reason: string;

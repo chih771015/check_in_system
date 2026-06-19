@@ -144,6 +144,7 @@
     "filterTranslator": "Filter by translator",
     "searchLocation": "Search location",
     "latestCreated": "Latest created",
+    "yearActualPaid": "Paid in {{year}}",
     "deleteGroup": "Delete Recurrence Group",
     "confirmDelete": "Delete this schedule?",
     "confirmDeleteGroup": "Delete the entire recurrence group?",

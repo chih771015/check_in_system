@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Space, TimePicker, Card, InputNumber, Typography } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -6,6 +6,37 @@ import { useTranslation } from 'react-i18next';
 import PatientPicker from './PatientPicker';
 import type { SchedulePatientPayload } from '../types';
 import { clampPatientTimes } from '../utils/schedulePatient';
+import { getPatientActualTotal } from '../api/patients';
+
+/**
+ * PatientYearPaid shows, read-only, how much a patient has already been paid
+ * (actual_amount) during the schedule's year. Re-fetches when the patient or
+ * year changes. Renders nothing until a patient is selected.
+ */
+function PatientYearPaid({ patientId, year }: { patientId?: number; year?: number }) {
+  const { t } = useTranslation();
+  const [total, setTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!patientId || !year) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale total when patient/year cleared
+      setTotal(null);
+      return;
+    }
+    let active = true;
+    getPatientActualTotal(patientId, year)
+      .then((r) => { if (active) setTotal(r.total); })
+      .catch(() => { if (active) setTotal(null); });
+    return () => { active = false; };
+  }, [patientId, year]);
+
+  if (!patientId || !year || total === null) return null;
+  return (
+    <Typography.Text type="secondary">
+      {t('schedules.yearActualPaid', { year })}: NT$ {total.toLocaleString()}
+    </Typography.Text>
+  );
+}
 
 interface SchedulePatientListEditorProps {
   /** Current list of patient slots. */
@@ -16,6 +47,8 @@ interface SchedulePatientListEditorProps {
   overallStart: string;
   /** Overall schedule end time, used for default values of new rows. */
   overallEnd: string;
+  /** Year of the schedule being edited; drives the per-patient已實付 hint. */
+  scheduleYear?: number;
   /** Disables all controls (e.g. while parent form is submitting). */
   disabled?: boolean;
 }
@@ -33,6 +66,7 @@ export default function SchedulePatientListEditor({
   onChange,
   overallStart,
   overallEnd,
+  scheduleYear,
   disabled,
 }: SchedulePatientListEditorProps) {
   const { t } = useTranslation();
@@ -74,6 +108,7 @@ export default function SchedulePatientListEditor({
               onChange={(pid) => updateRow(idx, { patientId: pid })}
               disabled={disabled}
             />
+            <PatientYearPaid patientId={row.patientId || undefined} year={scheduleYear} />
             <Space>
               <TimePicker
                 format="HH:mm"

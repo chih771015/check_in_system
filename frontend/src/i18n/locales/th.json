@@ -144,6 +144,7 @@
     "filterTranslator": "กรองตามล่าม",
     "searchLocation": "ค้นหาสถานที่",
     "latestCreated": "ตารางที่สร้างล่าสุด",
+    "yearActualPaid": "ชำระแล้วในปี {{year}}",
     "deleteGroup": "ลบทั้งกลุ่ม",
     "confirmDelete": "ต้องการลบตารางนี้หรือไม่?",
     "confirmDeleteGroup": "ต้องการลบตารางทั้งกลุ่มหรือไม่?",
