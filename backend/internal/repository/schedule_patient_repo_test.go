@@ -181,6 +181,30 @@ func TestSchedulePatientRepo_SumActualByPatientDateRange(t *testing.T) {
 	assert.EqualValues(t, 300, got, "only 2026 visits (100+200)")
 }
 
+func TestSchedulePatientRepo_SumActualByDateRange(t *testing.T) {
+	db := newSchedulePatientTestDB(t)
+	repo := NewSchedulePatientRepository(db)
+	p1 := seedPatient(t, db, "A", "ID1")
+	p2 := seedPatient(t, db, "B", "ID2")
+
+	mk := func(pid uint, date time.Time, actual int) {
+		s := &model.Schedule{TranslatorID: 0, Date: date, StartTime: "09:00", EndTime: "12:00", Location: "L"}
+		require.NoError(t, db.Create(s).Error)
+		require.NoError(t, repo.CreateBatch([]*model.SchedulePatient{
+			{ScheduleID: s.ID, PatientID: pid, StartTime: "09:00", EndTime: "10:00", ActualAmount: actual},
+		}))
+	}
+	mk(p1.ID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 100)  // June lower edge → included
+	mk(p2.ID, time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC), 200) // June upper edge → included
+	mk(p1.ID, time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC), 999) // May → excluded
+	mk(p1.ID, time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), 999)  // July (half-open upper) → excluded
+
+	// All-patients total for June via half-open [2026-06-01, 2026-07-01).
+	got, err := repo.SumActualByDateRange("2026-06-01", "2026-07-01")
+	require.NoError(t, err)
+	assert.EqualValues(t, 300, got, "both patients' June visits (100+200)")
+}
+
 func TestSchedulePatientRepo_SumActualByPatients_EmptyInput(t *testing.T) {
 	db := newSchedulePatientTestDB(t)
 	repo := NewSchedulePatientRepository(db)

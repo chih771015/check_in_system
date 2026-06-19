@@ -102,6 +102,19 @@ func (r *SchedulePatientRepository) SumActualByPatients(patientIDs []uint) (map[
 	return out, nil
 }
 
+// SumActualByDateRange returns the actual_amount total across all patients for
+// schedules whose date falls in the half-open range [fromInclusive, toExclusive)
+// (both YYYY-MM-DD). Backs the admin "current month total expenditure" banner.
+func (r *SchedulePatientRepository) SumActualByDateRange(fromInclusive, toExclusive string) (int64, error) {
+	var total int64
+	err := r.db.Table("schedule_patients as sp").
+		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
+		Where("schedules.date >= ? AND schedules.date < ?", fromInclusive, toExclusive).
+		Select("COALESCE(SUM(sp.actual_amount), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
 // SumActualByPatientDateRange returns the sum of actual_amount for one patient
 // over schedules whose date falls in the half-open range [fromInclusive,
 // toExclusive) (both YYYY-MM-DD). Half-open avoids the upper-bound edge issue

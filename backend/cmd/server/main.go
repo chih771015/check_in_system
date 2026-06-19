@@ -136,6 +136,7 @@ func main() {
 		WithHistoryRepos(scheduleRepo, schedulePatientRepo, diagnosisPhotoRepo)
 	diagnosisService := service.NewDiagnosisService(schedulePatientRepo, diagnosisPhotoRepo, scheduleRepo).
 		WithCheckinRepo(checkinRepo)
+	statsService := service.NewStatsService(schedulePatientRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -147,6 +148,7 @@ func main() {
 	auditHandler := handler.NewAuditHandler(auditService)
 	patientHandler := handler.NewPatientHandler(patientService, auditService)
 	diagnosisHandler := handler.NewDiagnosisHandler(diagnosisService, auditService)
+	statsHandler := handler.NewStatsHandler(statsService)
 
 	// Setup Gin router
 	r := gin.Default()
@@ -237,6 +239,9 @@ func main() {
 			admin.DELETE("/patients/:id", patientHandler.DeletePatient)
 			admin.GET("/patients/:id/history", patientHandler.GetPatientHistory)
 			admin.GET("/patients/:id/actual-total", patientHandler.GetPatientActualTotal)
+
+			// Admin dashboard banner: current-month total expenditure.
+			admin.GET("/stats/monthly-total", statsHandler.MonthlyTotal)
 			// Bulk xlsx import (POST tree has no /patients/:id, so no wildcard clash);
 			// export + template live under /export/* to avoid the GET :id wildcard.
 			admin.POST("/patients/import", patientHandler.ImportPatients)
