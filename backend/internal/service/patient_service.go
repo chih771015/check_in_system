@@ -291,24 +291,53 @@ func (s *PatientService) ListForTranslator(ctx context.Context, translatorID uin
 	return s.patientRepo.WithCtx(ctx).ListForTranslator(translatorID, strings.TrimSpace(q.Search), q.Page, q.PageSize)
 }
 
-// GetHistory returns the visit history for a single patient.
+// ActualTotals returns the all-time actual_amount sum per patient id (missing
+// = 0). Used by the admin patient list to show each patient's實付總額 in one
+// batched query. Returns an empty map when the scope repo is not wired.
+func (s *PatientService) ActualTotals(ctx context.Context, patientIDs []uint) (map[uint]int64, error) {
+	if s.spRepo == nil {
+		return map[uint]int64{}, nil
+	}
+	return s.spRepo.WithCtx(ctx).SumActualByPatients(patientIDs)
+}
+
 // GetHistory returns a patient's visit history aggregated from
 // schedule_patients + schedules + diagnosis_photos, ordered by date DESC.
 //
-// Stage 4 implements the real aggregation; if history repos have not been
-// wired (legacy stage-2 caller) it falls back to an empty slice.
-func (s *PatientService) GetHistory(ctx context.Context, patientID uint) (*dto.PatientHistoryResponse, error) {
+// When from/to (YYYY-MM-DD) are supplied the history is filtered to that
+// inclusive date range; ActualTotal in the response is the sum of actual_amount
+// over the returned entries (range total when filtered, all-time otherwise).
+//
+// If history repos have not been wired (legacy stage-2 caller) it falls back to
+// an empty slice.
+func (s *PatientService) GetHistory(ctx context.Context, patientID uint, from, to string) (*dto.PatientHistoryResponse, error) {
 	patient, err := s.FindByID(ctx, patientID)
 	if err != nil {
 		return nil, err
 	}
 
-	entries := []dto.PatientHistoryEntry{}
+	allEntries := []dto.PatientHistoryEntry{}
 	if s.scheduleRepo != nil && s.spRepo != nil && s.photoRepo != nil {
-		entries, err = s.buildHistoryEntries(ctx, patientID)
+		allEntries, err = s.buildHistoryEntries(ctx, patientID)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Filter by date range (inclusive) using the YYYY-MM-DD entry date, which is
+	// a safe lexicographic compare regardless of the DB's stored date format,
+	// and sum actual_amount over the kept entries.
+	entries := make([]dto.PatientHistoryEntry, 0, len(allEntries))
+	var total int64
+	for _, e := range allEntries {
+		if from != "" && e.Date < from {
+			continue
+		}
+		if to != "" && e.Date > to {
+			continue
+		}
+		entries = append(entries, e)
+		total += int64(e.ActualAmount)
 	}
 
 	return &dto.PatientHistoryResponse{
@@ -321,7 +350,8 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint) (*dto.P
 			CreatedAt: patient.CreatedAt,
 			UpdatedAt: patient.UpdatedAt,
 		},
-		History: entries,
+		History:     entries,
+		ActualTotal: total,
 	}, nil
 }
 

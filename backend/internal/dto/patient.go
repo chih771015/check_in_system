@@ -41,6 +41,9 @@ type PatientResponse struct {
 	IDNumber  string    `json:"idNumber"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+	// ActualTotal is the all-time sum of actual_amount across this patient's
+	// schedule_patient rows. Populated by the list endpoint; 0 elsewhere.
+	ActualTotal int64 `json:"actualTotal"`
 }
 
 // TranslatorPatientResponse is the trimmed-down translator view. It hides
@@ -93,4 +96,7 @@ type PatientHistoryEntry struct {
 type PatientHistoryResponse struct {
 	Patient PatientResponse       `json:"patient"`
 	History []PatientHistoryEntry `json:"history"`
+	// ActualTotal is the sum of actual_amount over the returned history entries.
+	// With a date range it is the range total; without one it is the all-time total.
+	ActualTotal int64 `json:"actualTotal"`
 }

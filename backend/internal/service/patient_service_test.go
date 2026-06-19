@@ -227,7 +227,7 @@ func TestPatientService_GetHistory_EmptyButValid(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	hist, err := svc.GetHistory(ctx, p.ID)
+	hist, err := svc.GetHistory(ctx, p.ID, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, p.ID, hist.Patient.ID)
 	// Stage 2 contract: history is empty placeholder

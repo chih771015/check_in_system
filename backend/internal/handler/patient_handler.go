@@ -142,8 +142,19 @@ func (h *PatientHandler) ListPatients(c *gin.Context) {
 		return
 	}
 	data := make([]dto.PatientResponse, len(patients))
+	ids := make([]uint, len(patients))
 	for i := range patients {
 		data[i] = toPatientResponse(&patients[i])
+		ids[i] = patients[i].ID
+	}
+	// Attach each patient's all-time actual-paid total (batched, no N+1).
+	totals, err := h.patientService.ActualTotals(c.Request.Context(), ids)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	for i := range data {
+		data[i].ActualTotal = totals[data[i].ID]
 	}
 	page := q.Page
 	if page <= 0 {
@@ -227,7 +238,7 @@ func (h *PatientHandler) GetPatientHistory(c *gin.Context) {
 		respondCode(c, http.StatusBadRequest, dto.CodeInvalidPatientID, "Invalid patient ID")
 		return
 	}
-	resp, err := h.patientService.GetHistory(c.Request.Context(), uint(id))
+	resp, err := h.patientService.GetHistory(c.Request.Context(), uint(id), c.Query("dateFrom"), c.Query("dateTo"))
 	if err != nil {
 		respondError(c, err)
 		return

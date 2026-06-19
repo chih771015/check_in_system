@@ -87,7 +87,7 @@ func TestPatientService_GetHistory_AggregatesVisits(t *testing.T) {
 	sps2, _ := fx.spRepo.FindByScheduleID(resp2.ID)
 	require.NoError(t, fx.diagSvc.MarkNoShow(ctx, fx.tr.ID, sps2[0].ID, "patient called to cancel"))
 
-	hist, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID)
+	hist, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, "", "")
 	require.NoError(t, err)
 	require.Len(t, hist.History, 2, "should return 2 history entries")
 
@@ -109,13 +109,76 @@ func TestPatientService_GetHistory_AggregatesVisits(t *testing.T) {
 
 func TestPatientService_GetHistory_Empty(t *testing.T) {
 	fx := newHistoryFixture(t)
-	hist, err := fx.patientSvc.GetHistory(context.Background(), fx.patient.ID)
+	hist, err := fx.patientSvc.GetHistory(context.Background(), fx.patient.ID, "", "")
 	require.NoError(t, err)
 	assert.Empty(t, hist.History)
+	assert.EqualValues(t, 0, hist.ActualTotal)
+}
+
+func TestPatientService_GetHistory_DateRangeAndTotal(t *testing.T) {
+	fx := newHistoryFixture(t)
+	ctx := context.Background()
+
+	// Two visits with actual amounts on different months.
+	mk := func(date string, actual int) {
+		resp, err := fx.scheduleSvc.Create(ctx, dto.CreateScheduleRequest{
+			TranslatorID: fx.tr.ID, Date: date, StartTime: "09:00", EndTime: "12:00", Location: "L",
+			Patients: []dto.SchedulePatientPayload{
+				{PatientID: fx.patient.ID, StartTime: "09:00", EndTime: "10:00"},
+			},
+		})
+		require.NoError(t, err)
+		sps, _ := fx.spRepo.FindByScheduleID(resp.ID)
+		require.NoError(t, fx.spRepo.UpdateActualAmount(sps[0].ID, actual))
+	}
+	mk("2026-05-10", 300)
+	mk("2026-06-20", 500)
+
+	// No range → all entries + all-time total.
+	all, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, "", "")
+	require.NoError(t, err)
+	assert.Len(t, all.History, 2)
+	assert.EqualValues(t, 800, all.ActualTotal)
+
+	// Range covering only May → 1 entry + range total.
+	may, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, "2026-05-01", "2026-05-31")
+	require.NoError(t, err)
+	require.Len(t, may.History, 1)
+	assert.Equal(t, "2026-05-10", may.History[0].Date)
+	assert.EqualValues(t, 300, may.ActualTotal)
+
+	// Inclusive upper bound: range ending exactly on the visit date includes it.
+	junEdge, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, "2026-06-20", "2026-06-20")
+	require.NoError(t, err)
+	require.Len(t, junEdge.History, 1)
+	assert.EqualValues(t, 500, junEdge.ActualTotal)
+}
+
+func TestPatientService_ActualTotals(t *testing.T) {
+	fx := newHistoryFixture(t)
+	ctx := context.Background()
+	p2 := &model.Patient{Name: "P2", Phone: "1", IDType: "passport", IDNumber: "X2"}
+	require.NoError(t, fx.patientRepo.Create(p2))
+
+	resp, err := fx.scheduleSvc.Create(ctx, dto.CreateScheduleRequest{
+		TranslatorID: fx.tr.ID, Date: "2026-05-10", StartTime: "09:00", EndTime: "12:00", Location: "L",
+		Patients: []dto.SchedulePatientPayload{
+			{PatientID: fx.patient.ID, StartTime: "09:00", EndTime: "10:00"},
+		},
+	})
+	require.NoError(t, err)
+	sps, _ := fx.spRepo.FindByScheduleID(resp.ID)
+	require.NoError(t, fx.spRepo.UpdateActualAmount(sps[0].ID, 700))
+
+	totals, err := fx.patientSvc.ActualTotals(ctx, []uint{fx.patient.ID, p2.ID})
+	require.NoError(t, err)
+	assert.EqualValues(t, 700, totals[fx.patient.ID])
+	_, ok := totals[p2.ID]
+	assert.False(t, ok, "patient with no visits absent from map")
 }
 
 func TestPatientService_GetHistory_PatientNotFound(t *testing.T) {
 	fx := newHistoryFixture(t)
-	_, err := fx.patientSvc.GetHistory(context.Background(), 99999)
+	_, err := fx.patientSvc.GetHistory(context.Background(), 99999, "", "")
 	assert.Error(t, err)
 }
