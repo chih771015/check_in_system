@@ -236,6 +236,7 @@ func main() {
 			admin.PUT("/patients/:id", patientHandler.UpdatePatient)
 			admin.DELETE("/patients/:id", patientHandler.DeletePatient)
 			admin.GET("/patients/:id/history", patientHandler.GetPatientHistory)
+			admin.GET("/patients/:id/actual-total", patientHandler.GetPatientActualTotal)
 			// Bulk xlsx import (POST tree has no /patients/:id, so no wildcard clash);
 			// export + template live under /export/* to avoid the GET :id wildcard.
 			admin.POST("/patients/import", patientHandler.ImportPatients)

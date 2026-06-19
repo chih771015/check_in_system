@@ -154,6 +154,35 @@ func TestPatientService_GetHistory_DateRangeAndTotal(t *testing.T) {
 	assert.EqualValues(t, 500, junEdge.ActualTotal)
 }
 
+func TestPatientService_PatientYearActualTotal(t *testing.T) {
+	fx := newHistoryFixture(t)
+	ctx := context.Background()
+
+	mk := func(date string, actual int) {
+		resp, err := fx.scheduleSvc.Create(ctx, dto.CreateScheduleRequest{
+			TranslatorID: fx.tr.ID, Date: date, StartTime: "09:00", EndTime: "12:00", Location: "L",
+			Patients: []dto.SchedulePatientPayload{
+				{PatientID: fx.patient.ID, StartTime: "09:00", EndTime: "10:00"},
+			},
+		})
+		require.NoError(t, err)
+		sps, _ := fx.spRepo.FindByScheduleID(resp.ID)
+		require.NoError(t, fx.spRepo.UpdateActualAmount(sps[0].ID, actual))
+	}
+	mk("2026-03-01", 400)
+	mk("2026-11-30", 600)
+	mk("2025-12-31", 999) // previous year, excluded
+
+	total, err := fx.patientSvc.PatientYearActualTotal(ctx, fx.patient.ID, 2026)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1000, total, "only 2026 visits (400+600)")
+
+	// A year with no visits → 0.
+	none, err := fx.patientSvc.PatientYearActualTotal(ctx, fx.patient.ID, 2024)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, none)
+}
+
 func TestPatientService_ActualTotals(t *testing.T) {
 	fx := newHistoryFixture(t)
 	ctx := context.Background()

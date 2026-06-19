@@ -246,6 +246,28 @@ func (h *PatientHandler) GetPatientHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// GetPatientActualTotal handles GET /api/admin/patients/:id/actual-total?year=YYYY
+// and returns the patient's actual-paid total for that calendar year. Used by
+// the schedule editor to show how much the patient was already paid that year.
+func (h *PatientHandler) GetPatientActualTotal(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		respondCode(c, http.StatusBadRequest, dto.CodeInvalidPatientID, "Invalid patient ID")
+		return
+	}
+	year, err := strconv.Atoi(c.Query("year"))
+	if err != nil || year <= 0 {
+		respondCode(c, http.StatusBadRequest, dto.CodeValidation, "Invalid year")
+		return
+	}
+	total, err := h.patientService.PatientYearActualTotal(c.Request.Context(), uint(id), year)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"year": year, "total": total})
+}
+
 // ListPatientsForTranslator handles GET /api/patients
 // TODO(stage 3): restrict to patients tied to schedules owned by the caller.
 func (h *PatientHandler) ListPatientsForTranslator(c *gin.Context) {

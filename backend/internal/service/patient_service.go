@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"translator-checkin/internal/dto"
@@ -299,6 +300,19 @@ func (s *PatientService) ActualTotals(ctx context.Context, patientIDs []uint) (m
 		return map[uint]int64{}, nil
 	}
 	return s.spRepo.WithCtx(ctx).SumActualByPatients(patientIDs)
+}
+
+// PatientYearActualTotal returns the sum of actual_amount for a patient over
+// the given calendar year (by schedule date). Shown at scheduling time so staff
+// can see how much the patient has already been paid that year. Returns 0 when
+// the scope repo is not wired.
+func (s *PatientService) PatientYearActualTotal(ctx context.Context, patientID uint, year int) (int64, error) {
+	if s.spRepo == nil {
+		return 0, nil
+	}
+	from := fmt.Sprintf("%04d-01-01", year)
+	to := fmt.Sprintf("%04d-01-01", year+1)
+	return s.spRepo.WithCtx(ctx).SumActualByPatientDateRange(patientID, from, to)
 }
 
 // GetHistory returns a patient's visit history aggregated from

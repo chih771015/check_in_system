@@ -2,6 +2,7 @@ package repository
 
 import (
 	"testing"
+	"time"
 
 	"translator-checkin/internal/model"
 
@@ -155,6 +156,29 @@ func TestSchedulePatientRepo_SumActualByPatients(t *testing.T) {
 	assert.EqualValues(t, 0, got[p2.ID], "p2 only no_show (actual=0)")
 	_, ok := got[p3.ID]
 	assert.False(t, ok, "patient with no rows should be absent from the map")
+}
+
+func TestSchedulePatientRepo_SumActualByPatientDateRange(t *testing.T) {
+	db := newSchedulePatientTestDB(t)
+	repo := NewSchedulePatientRepository(db)
+	p := seedPatient(t, db, "A", "ID1")
+
+	mk := func(date time.Time, actual int) {
+		s := &model.Schedule{TranslatorID: 0, Date: date, StartTime: "09:00", EndTime: "12:00", Location: "L"}
+		require.NoError(t, db.Create(s).Error)
+		require.NoError(t, repo.CreateBatch([]*model.SchedulePatient{
+			{ScheduleID: s.ID, PatientID: p.ID, StartTime: "09:00", EndTime: "10:00", ActualAmount: actual},
+		}))
+	}
+	mk(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), 100)   // 2026 lower edge → included
+	mk(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC), 200) // 2026 upper edge → included
+	mk(time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), 999) // 2025 → excluded
+	mk(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), 999)   // 2027 → excluded (half-open upper)
+
+	// Half-open [from, to): 2026-01-01 .. 2027-01-01.
+	got, err := repo.SumActualByPatientDateRange(p.ID, "2026-01-01", "2027-01-01")
+	require.NoError(t, err)
+	assert.EqualValues(t, 300, got, "only 2026 visits (100+200)")
 }
 
 func TestSchedulePatientRepo_SumActualByPatients_EmptyInput(t *testing.T) {
