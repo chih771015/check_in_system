@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../stores/authStore';
 import { changePassword } from '../api/auth';
 import { getMonthlyTotal } from '../api/stats';
+import { formatNT } from '../utils/money';
 
 const { Header, Sider, Content } = Layout;
 
@@ -191,7 +192,7 @@ export default function AppLayout() {
               {t('dashboard.monthlyTotal', { month: monthlyTotal.yearMonth })}
             </Typography.Text>
             <Typography.Text strong style={{ fontSize: 18 }}>
-              NT$ {monthlyTotal.total.toLocaleString()}
+              {formatNT(monthlyTotal.total)}
             </Typography.Text>
           </div>
         )}

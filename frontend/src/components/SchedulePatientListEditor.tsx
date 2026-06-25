@@ -7,6 +7,7 @@ import PatientPicker from './PatientPicker';
 import type { SchedulePatientPayload } from '../types';
 import { clampPatientTimes } from '../utils/schedulePatient';
 import { getPatientActualTotal } from '../api/patients';
+import { formatNT } from '../utils/money';
 
 /**
  * PatientYearPaid shows, read-only, how much a patient has already been paid
@@ -33,7 +34,7 @@ function PatientYearPaid({ patientId, year }: { patientId?: number; year?: numbe
   if (!patientId || !year || total === null) return null;
   return (
     <Typography.Text type="secondary">
-      {t('schedules.yearActualPaid', { year })}: NT$ {total.toLocaleString()}
+      {t('schedules.yearActualPaid', { year })}: {formatNT(total)}
     </Typography.Text>
   );
 }

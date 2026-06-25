@@ -27,6 +27,7 @@ import {
   type PatientPayload,
 } from '../../api/patients';
 import { extractApiError } from '../../utils/apiError';
+import { formatNT } from '../../utils/money';
 
 const ID_TYPE_COLOR: Record<IDType, string> = {
   passport: 'blue',
@@ -150,7 +151,7 @@ export default function PatientManagement() {
       dataIndex: 'actualTotal',
       key: 'actualTotal',
       width: 130,
-      render: (v: number | undefined) => `NT$ ${(v ?? 0).toLocaleString()}`,
+      render: (v: number | undefined) => formatNT(v),
     },
     {
       title: t('common.createdAt'),
