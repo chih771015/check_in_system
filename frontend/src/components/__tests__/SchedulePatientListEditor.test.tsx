@@ -47,8 +47,8 @@ describe('SchedulePatientListEditor', () => {
     render(
       <Harness
         initial={[
-          { patientId: 1, startTime: '09:00', endTime: '10:00' },
-          { patientId: 2, startTime: '10:00', endTime: '11:00' },
+          { patientId: 1, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 },
+          { patientId: 2, startTime: '10:00', endTime: '11:00', prepaidAmount: 0 },
         ]}
       />,
     );
@@ -57,7 +57,7 @@ describe('SchedulePatientListEditor', () => {
   });
 
   it('clicking Add appends a new empty row', async () => {
-    render(<Harness initial={[{ patientId: 1, startTime: '09:00', endTime: '10:00' }]} />);
+    render(<Harness initial={[{ patientId: 1, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 }]} />);
     const user = userEvent.setup({ delay: null });
 
     const before = screen.getAllByRole('combobox').length;
@@ -67,13 +67,13 @@ describe('SchedulePatientListEditor', () => {
   });
 
   it('shows the patient年度已實付 hint when a patient and schedule year are set', async () => {
-    render(<Harness initial={[{ patientId: 5, startTime: '09:00', endTime: '10:00' }]} scheduleYear={2026} />);
+    render(<Harness initial={[{ patientId: 5, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 }]} scheduleYear={2026} />);
     await waitFor(() => expect(getPatientActualTotalMock).toHaveBeenCalledWith(5, 2026));
     expect(await screen.findByText(/NT\$ 8,000/)).toBeInTheDocument();
   });
 
   it('does not query the year total when no schedule year is provided', () => {
-    render(<Harness initial={[{ patientId: 5, startTime: '09:00', endTime: '10:00' }]} />);
+    render(<Harness initial={[{ patientId: 5, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 }]} />);
     expect(getPatientActualTotalMock).not.toHaveBeenCalled();
   });
 
@@ -81,8 +81,8 @@ describe('SchedulePatientListEditor', () => {
     render(
       <Harness
         initial={[
-          { patientId: 1, startTime: '09:00', endTime: '10:00' },
-          { patientId: 2, startTime: '10:00', endTime: '11:00' },
+          { patientId: 1, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 },
+          { patientId: 2, startTime: '10:00', endTime: '11:00', prepaidAmount: 0 },
         ]}
       />,
     );
