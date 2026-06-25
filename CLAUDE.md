@@ -21,7 +21,8 @@
 - 後端用 Go `testing` + `testify`（assert/require），DB 操作用 in-memory SQLite (`gorm.io/driver/sqlite` `:memory:`）作 fake
 - 前端用 `vitest` + `@testing-library/react`
 - service 層的商業邏輯、handler 的錯誤映射、純函式必須有測試
-- 每個 PR / staged commit 結束時跑 `go test ./...`（後端）與 `npm test`（前端），不過不 merge
+- 每個 PR / staged commit 結束時跑 `go test ./...`（後端）與 `npm test` + `npm run typecheck`（前端），不過不 merge
+  - ⚠️ 前端型別檢查**必須**用 `npm run typecheck`（= `tsc -b`，走 project references 檢查 `src` 含測試檔）。直接 `npx tsc --noEmit` 因根 `tsconfig.json` 是 `files: []` + references，**不會檢查任何檔案**（等於沒檢查）；vitest 也不做型別檢查。型別破口只有 `tsc -b` / docker build 抓得到。
 - 修 bug 時：先寫一個會 reproduce bug 的失敗測試，再修，避免再犯
 
 **不需要 TDD 的部分：**
