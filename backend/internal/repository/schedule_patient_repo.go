@@ -102,33 +102,36 @@ func (r *SchedulePatientRepository) SumActualByPatients(patientIDs []uint) (map[
 	return out, nil
 }
 
-// SumActualByDateRange returns the actual_amount total across all patients for
-// schedules whose date falls in the half-open range [fromInclusive, toExclusive)
-// (both YYYY-MM-DD). Backs the admin "current month total expenditure" banner.
-func (r *SchedulePatientRepository) SumActualByDateRange(fromInclusive, toExclusive string) (int64, error) {
-	var total int64
-	err := r.db.Table("schedule_patients as sp").
+// sumActualInRange sums actual_amount over schedules whose date falls in the
+// half-open range [fromInclusive, toExclusive) (both YYYY-MM-DD). Half-open
+// avoids the upper-bound edge issue of an inclusive string compare against a
+// datetime-formatted date column. When patientID is 0 it sums across all
+// patients; otherwise it scopes to that patient. Single query body shared by
+// the two public wrappers below.
+func (r *SchedulePatientRepository) sumActualInRange(patientID uint, fromInclusive, toExclusive string) (int64, error) {
+	q := r.db.Table("schedule_patients as sp").
 		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
-		Where("schedules.date >= ? AND schedules.date < ?", fromInclusive, toExclusive).
-		Select("COALESCE(SUM(sp.actual_amount), 0)").
-		Scan(&total).Error
+		Where("schedules.date >= ? AND schedules.date < ?", fromInclusive, toExclusive)
+	if patientID != 0 {
+		q = q.Where("sp.patient_id = ?", patientID)
+	}
+	var total int64
+	err := q.Select("COALESCE(SUM(sp.actual_amount), 0)").Scan(&total).Error
 	return total, err
 }
 
+// SumActualByDateRange returns the actual_amount total across all patients for
+// the half-open range [fromInclusive, toExclusive). Backs the admin "current
+// month total expenditure" banner.
+func (r *SchedulePatientRepository) SumActualByDateRange(fromInclusive, toExclusive string) (int64, error) {
+	return r.sumActualInRange(0, fromInclusive, toExclusive)
+}
+
 // SumActualByPatientDateRange returns the sum of actual_amount for one patient
-// over schedules whose date falls in the half-open range [fromInclusive,
-// toExclusive) (both YYYY-MM-DD). Half-open avoids the upper-bound edge issue
-// of an inclusive string compare against a datetime-formatted date column.
-// Backs the "patient's actual-paid total for a year" hint shown at scheduling.
+// over the half-open range [fromInclusive, toExclusive). Backs the "patient's
+// actual-paid total for a year" hint shown at scheduling.
 func (r *SchedulePatientRepository) SumActualByPatientDateRange(patientID uint, fromInclusive, toExclusive string) (int64, error) {
-	var total int64
-	err := r.db.Table("schedule_patients as sp").
-		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
-		Where("sp.patient_id = ?", patientID).
-		Where("schedules.date >= ? AND schedules.date < ?", fromInclusive, toExclusive).
-		Select("COALESCE(SUM(sp.actual_amount), 0)").
-		Scan(&total).Error
-	return total, err
+	return r.sumActualInRange(patientID, fromInclusive, toExclusive)
 }
 
 // UpdateActualAmount sets the actual paid amount (整數元) for a SchedulePatient.

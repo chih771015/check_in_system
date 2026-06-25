@@ -8,7 +8,7 @@ import "time"
 type Schedule struct {
 	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	TranslatorID      uint      `gorm:"not null;index" json:"translator_id"`
-	Date              time.Time `gorm:"type:date;not null" json:"date"`
+	Date              time.Time `gorm:"type:date;not null;index" json:"date"`
 	StartTime         string    `gorm:"type:varchar(5);not null" json:"start_time"`
 	EndTime           string    `gorm:"type:varchar(5);not null" json:"end_time"`
 	Location          string    `gorm:"type:varchar(500);not null" json:"location"`
