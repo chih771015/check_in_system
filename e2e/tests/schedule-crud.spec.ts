@@ -15,6 +15,14 @@ test.describe('schedule CRUD', () => {
     await expect(page.locator('table')).toContainText('E2E Clinic, Bangkok');
   });
 
+  test('default (unfiltered) view exposes the "latest created" shortcut', async ({ page }) => {
+    // With no filters applied the list defaults to the most-recently-created
+    // schedules, surfaced via a dedicated button.
+    await expect(
+      page.getByRole('button', { name: /最新創建排班|Latest created|ล่าสุด/i }),
+    ).toBeVisible();
+  });
+
   test('admin can delete a schedule', async ({ page }) => {
     const seededRow = page.locator('tr', { hasText: 'E2E Clinic, Bangkok' });
     await expect(seededRow).toBeVisible();
@@ -58,5 +66,18 @@ test.describe('schedule CRUD', () => {
     // The new schedule shows up in the data table (scope to .ant-table-tbody to
     // avoid matching a lingering DatePicker calendar table).
     await expect(page.locator('.ant-table-tbody')).toContainText('E2E Created Clinic');
+  });
+
+  test('create modal shows the patient year-to-date actual-paid hint', async ({ page }) => {
+    await page.getByRole('button', { name: /Add Schedule|新增排班|เพิ่ม/i }).click();
+    const modal = page.locator('.ant-modal:visible');
+    await pickOption(page, modal.locator('.ant-select:has(#translatorId) .ant-select-selector'), 'Alice');
+    // The schedule year drives the hint, so set the date before picking a patient.
+    await fillPicker(modal.locator('#date'), '2026-12-10');
+    await pickOption(page, modal.locator('.ant-card .ant-select-selector'), 'Patient Passport');
+
+    // Once a patient + year are set the editor fetches that patient's
+    // actual-paid total for the schedule's year and shows it inline.
+    await expect(modal).toContainText(/年已實付|Paid in 2026|ชำระแล้วในปี 2026/i);
   });
 });
