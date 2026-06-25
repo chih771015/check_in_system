@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"translator-checkin/internal/dto"
 	"translator-checkin/internal/model"
@@ -330,27 +331,18 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint, from, t
 		return nil, err
 	}
 
-	allEntries := []dto.PatientHistoryEntry{}
+	// The date range (when supplied) is pushed into SQL by buildHistoryEntries,
+	// so we only fetch the rows we keep; sum actual_amount over them here.
+	entries := []dto.PatientHistoryEntry{}
 	if s.scheduleRepo != nil && s.spRepo != nil && s.photoRepo != nil {
-		allEntries, err = s.buildHistoryEntries(ctx, patientID)
+		entries, err = s.buildHistoryEntries(ctx, patientID, from, to)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Filter by date range (inclusive) using the YYYY-MM-DD entry date, which is
-	// a safe lexicographic compare regardless of the DB's stored date format,
-	// and sum actual_amount over the kept entries.
-	entries := make([]dto.PatientHistoryEntry, 0, len(allEntries))
 	var total int64
-	for _, e := range allEntries {
-		if from != "" && e.Date < from {
-			continue
-		}
-		if to != "" && e.Date > to {
-			continue
-		}
-		entries = append(entries, e)
+	for _, e := range entries {
 		total += int64(e.ActualAmount)
 	}
 
@@ -369,16 +361,31 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint, from, t
 	}, nil
 }
 
-// buildHistoryEntries does the real DB walk for GetHistory.
-func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint) ([]dto.PatientHistoryEntry, error) {
+// nextDay returns the calendar day after a YYYY-MM-DD date, as YYYY-MM-DD. It
+// turns an inclusive upper bound into a half-open exclusive one for SQL date
+// comparison — safe across sqlite's RFC3339-stored dates and postgres date
+// columns, where a plain `<= to` would drop same-day rows stored as
+// "YYYY-MM-DDT00:00:00Z". ok is false when date is not a valid YYYY-MM-DD.
+func nextDay(date string) (string, bool) {
+	t, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		return "", false
+	}
+	return t.AddDate(0, 0, 1).Format("2006-01-02"), true
+}
+
+// buildHistoryEntries does the real DB walk for GetHistory. When from/to
+// (YYYY-MM-DD) are supplied the date range is applied in SQL (inclusive of both
+// ends), so only the kept rows are fetched; diagnosis photos for all rows are
+// loaded in a single batched query to avoid an N+1.
+func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint, from, to string) ([]dto.PatientHistoryEntry, error) {
 	db := s.scheduleRepo.DB().WithContext(ctx)
-	// Pull every schedule_patient row for this patient, sorted by schedule date desc.
 	type joined struct {
-		SPID         uint
-		ScheduleID   uint
-		Date         string
-		SPStart      string
-		SPEnd        string
+		SPID          uint
+		ScheduleID    uint
+		Date          string
+		SPStart       string
+		SPEnd         string
 		Location      string
 		Status        string
 		NoShowReason  string
@@ -386,26 +393,45 @@ func (s *PatientService) buildHistoryEntries(ctx context.Context, patientID uint
 		ActualAmount  int
 		TName         string
 	}
-	var rows []joined
-	err := db.Table("schedule_patients as sp").
+	q := db.Table("schedule_patients as sp").
 		Select(`sp.id as sp_id, sp.schedule_id, sp.start_time as sp_start, sp.end_time as sp_end,
 			sp.status, sp.no_show_reason, sp.prepaid_amount, sp.actual_amount,
 			schedules.date, schedules.location, users.name as t_name`).
 		Joins("JOIN schedules ON schedules.id = sp.schedule_id").
 		Joins("JOIN users ON users.id = schedules.translator_id").
-		Where("sp.patient_id = ?", patientID).
-		Order("schedules.date DESC").
-		Scan(&rows).Error
+		Where("sp.patient_id = ?", patientID)
+	if from != "" {
+		q = q.Where("schedules.date >= ?", from)
+	}
+	if to != "" {
+		if toExcl, ok := nextDay(to); ok {
+			q = q.Where("schedules.date < ?", toExcl)
+		}
+	}
+	var rows []joined
+	if err := q.Order("schedules.date DESC").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	// Batch-load photos for all rows in one query, then group by slot id.
+	spIDs := make([]uint, len(rows))
+	for i, r := range rows {
+		spIDs[i] = r.SPID
+	}
+	photos, err := s.photoRepo.WithCtx(ctx).FindBySchedulePatientIDs(spIDs)
 	if err != nil {
 		return nil, err
+	}
+	photosBySP := make(map[uint][]string, len(spIDs))
+	for _, p := range photos {
+		photosBySP[p.SchedulePatientID] = append(photosBySP[p.SchedulePatientID], p.PhotoURL)
 	}
 
 	entries := make([]dto.PatientHistoryEntry, 0, len(rows))
 	for _, r := range rows {
-		photos, _ := s.photoRepo.WithCtx(ctx).FindBySchedulePatientID(r.SPID)
-		photoURLs := make([]string, 0, len(photos))
-		for _, p := range photos {
-			photoURLs = append(photoURLs, p.PhotoURL)
+		photoURLs := photosBySP[r.SPID]
+		if photoURLs == nil {
+			photoURLs = []string{}
 		}
 		// sqlite returns date as RFC3339; postgres returns YYYY-MM-DD. Trim T... if present.
 		dateOnly := r.Date

@@ -40,6 +40,20 @@ func (r *DiagnosisPhotoRepository) FindBySchedulePatientID(spID uint) ([]model.D
 	return photos, err
 }
 
+// FindBySchedulePatientIDs returns all photos for the given slot ids in one
+// query (ordered by upload time), letting callers avoid an N+1 when building a
+// patient's history. An empty id list short-circuits to an empty slice.
+func (r *DiagnosisPhotoRepository) FindBySchedulePatientIDs(ids []uint) ([]model.DiagnosisPhoto, error) {
+	var photos []model.DiagnosisPhoto
+	if len(ids) == 0 {
+		return photos, nil
+	}
+	err := r.db.Where("schedule_patient_id IN ?", ids).
+		Order("uploaded_at ASC").
+		Find(&photos).Error
+	return photos, err
+}
+
 // FindByID returns a single diagnosis photo by its primary key.
 func (r *DiagnosisPhotoRepository) FindByID(id uint) (*model.DiagnosisPhoto, error) {
 	var photo model.DiagnosisPhoto
