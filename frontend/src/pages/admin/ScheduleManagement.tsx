@@ -134,17 +134,28 @@ export default function ScheduleManagement() {
   const createYear = createDate?.year?.();
   const editYear = editDate?.year?.();
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (): Promise<ScheduleItem[]> => {
     setLoading(true);
     try {
       const list = await getAdminSchedules(filters);
       setData(list);
+      return list;
     } catch {
       message.error(t('errors.INTERNAL_ERROR'));
+      return [];
     } finally {
       setLoading(false);
     }
   }, [filters, message, t]);
+
+  // Re-fetch the list (honouring current filters) and, if the detail modal is
+  // open, refresh its record from that same list. Using the filtered list —
+  // not an unfiltered fetch — guarantees the open record is present even when
+  // the default (unfiltered) view is capped to the most-recently-created rows.
+  const refreshAndSyncDetail = useCallback(async () => {
+    const list = await fetchData();
+    setDetailRecord((cur) => (cur ? list.find((s) => s.id === cur.id) ?? cur : cur));
+  }, [fetchData]);
 
   const fetchTranslators = useCallback(async () => {
     try {
@@ -774,14 +785,7 @@ export default function ScheduleManagement() {
           setActualAmount={adminSetActualAmount}
           onClose={() => setAdminDiagRow(null)}
           onUploaded={() => {
-            void fetchData();
-            // Refresh the detail modal record if open
-            if (detailRecord) {
-              getAdminSchedules({}).then((all) => {
-                const updated = all.find((s) => s.id === detailRecord.id);
-                if (updated) setDetailRecord(updated);
-              });
-            }
+            void refreshAndSyncDetail();
           }}
         />
       )}
@@ -792,13 +796,7 @@ export default function ScheduleManagement() {
           markNoShow={adminMarkNoShow}
           onClose={() => setAdminNoShowFor(null)}
           onDone={() => {
-            void fetchData();
-            if (detailRecord) {
-              getAdminSchedules({}).then((all) => {
-                const updated = all.find((s) => s.id === detailRecord.id);
-                if (updated) setDetailRecord(updated);
-              });
-            }
+            void refreshAndSyncDetail();
           }}
         />
       )}

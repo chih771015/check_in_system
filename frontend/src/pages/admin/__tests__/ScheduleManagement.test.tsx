@@ -29,7 +29,13 @@ vi.mock('../../../api/diagnosisResults', () => ({
 }));
 // Light stubs for heavy children so the test focuses on the filter state machine.
 vi.mock('../../../components/SchedulePatientListEditor', () => ({ default: () => null }));
-vi.mock('../../../components/DiagnosisUploadModal', () => ({ default: () => null }));
+// Stub exposes a button that fires onUploaded, so we can drive the post-upload
+// detail-modal refresh path without the real upload UI.
+vi.mock('../../../components/DiagnosisUploadModal', () => ({
+  default: ({ onUploaded }: { onUploaded: () => void }) => (
+    <button onClick={() => onUploaded()}>trigger-uploaded</button>
+  ),
+}));
 vi.mock('../../../components/NoShowModal', () => ({ default: () => null }));
 
 function latestButton() {
@@ -80,5 +86,35 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
     fireEvent.click(latestButton());
     await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({}));
     expect(latestButton()).toHaveClass('ant-btn-primary');
+  });
+
+  // Regression: after the default view was capped to recent-created rows, the
+  // detail-modal refresh must re-fetch with the ACTIVE filter (so the open
+  // record is present), never with {} — which could miss an older schedule.
+  it('refreshes the open detail modal using the active filter, not an unfiltered fetch', async () => {
+    const sched = {
+      id: 42, date: '2026-01-15', startTime: '09:00', endTime: '12:00',
+      location: 'VGH', translatorId: 1, translatorName: 'T', status: 'pending',
+      patients: [{
+        id: 7, patientId: 3, patientName: 'P', patientPhone: '0900', idType: 'passport',
+        idNumber: 'X1', status: 'pending', startTime: '09:00', endTime: '10:00',
+        prepaidAmount: 0, actualAmount: 0,
+      }],
+    };
+    getAdminSchedulesMock.mockResolvedValue([sched]);
+    render(<AntApp><ScheduleManagement /></AntApp>);
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalled());
+
+    applyLocationFilter('VGH');
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ location: 'VGH' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Detail/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Upload/ }));
+
+    getAdminSchedulesMock.mockClear();
+    fireEvent.click(screen.getByText('trigger-uploaded'));
+
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalledWith({ location: 'VGH' }));
+    expect(getAdminSchedulesMock).not.toHaveBeenCalledWith({});
   });
 });
