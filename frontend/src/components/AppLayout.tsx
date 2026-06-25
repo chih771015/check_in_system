@@ -31,8 +31,9 @@ export default function AppLayout() {
   const [changePWLoading, setChangePWLoading] = useState(false);
   const [changePWForm] = Form.useForm();
   const { user, login, logout, isAdmin } = useAuth();
-  // Admin-only banner: current-month total patient expenditure (NT$). Loaded
-  // once per mount and shown atop every admin page.
+  // Admin-only banner: current-month total patient expenditure (NT$). Shown
+  // atop every admin page and re-fetched on each navigation so it reflects
+  // actual-amount edits (and a crossed month boundary) without a full reload.
   const [monthlyTotal, setMonthlyTotal] = useState<{ yearMonth: string; total: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,7 +52,7 @@ export default function AppLayout() {
       .then((r) => { if (active) setMonthlyTotal(r); })
       .catch(() => { /* banner is best-effort; ignore errors */ });
     return () => { active = false; };
-  }, [isAdmin]);
+  }, [isAdmin, location.pathname]);
 
   const handleChangePW = async (values: {
     oldPassword: string;

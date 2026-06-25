@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { App as AntApp } from 'antd';
 import AppLayout from '../AppLayout';
 import i18n from '../../i18n';
@@ -47,6 +47,31 @@ describe('AppLayout — current-month expenditure banner', () => {
     await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalled());
     expect(await screen.findByText(/NT\$ 12,345/)).toBeInTheDocument();
     expect(screen.getByText(/2026-06/)).toBeInTheDocument();
+  });
+
+  it('re-fetches the banner total on navigation so it does not go stale', async () => {
+    useAuthMock.mockReturnValue({ ...baseAuth, isAdmin: true });
+    const Go = () => {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate('/admin/schedules')}>go</button>;
+    };
+    render(
+      <AntApp>
+        <MemoryRouter initialEntries={['/admin/patients']}>
+          <Routes>
+            <Route path="/admin" element={<AppLayout />}>
+              <Route path="patients" element={<Go />} />
+              <Route path="schedules" element={<div>sched</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AntApp>,
+    );
+    await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText('go'));
+    // Navigating to another admin route must trigger a fresh fetch.
+    await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(2));
   });
 
   it('does not fetch or show the banner for non-admins', async () => {
