@@ -50,7 +50,7 @@ Playwright (e2e/) ──HTTP──▶ frontend :3001 (nginx) ──/api──▶
 |------|------|
 | auth | 登入 / 改密碼 / 停用帳號被擋 / 鎖定 |
 | translator-mgmt | 翻譯員 CRUD + 重設密碼 + **重複 email 顯示 EMAIL_TAKEN 訊息** |
-| schedule-crud / schedule-validation | 排班建立、多病人、時段驗證 |
+| schedule-crud / schedule-validation | 排班建立、多病人、時段驗證 + **「最新創建排班」預設按鈕 + 建立 modal 顯示病人年度已實付** |
 | translator-checkin | 到達/離開打卡流程 |
 | makeup-checkin | 補打卡 + 原因 |
 | diagnosis-flow | 逐病人診斷上傳 / no_show（admin 結果總覽）|
@@ -58,6 +58,7 @@ Playwright (e2e/) ──HTTP──▶ frontend :3001 (nginx) ──/api──▶
 | patient-import-export | **病人 xlsx 匯出 → 再匯入（重複略過）round-trip + 範本下載 + 非 xlsx 回 INVALID_EXCEL（API 層）** |
 | patient-history | 病人就診歷史 |
 | export | Excel 匯出 |
+| money-stats | **後台當月總支出橫幅（admin 可見 / translator 不可見）+ 病人列表實付總額欄 + 病人歷史實付總額與日期區間篩選** |
 | errors | 錯誤碼 → i18n 訊息 |
 | i18n | 語言切換 |
 | responsive | 手機版 RWD（僅 mobile-chrome）|
