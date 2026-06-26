@@ -1,4 +1,9 @@
-# 翻譯員打卡系統 — 產品規格書
+# 翻譯員打卡系統 — 產品規格書（原始版）
+
+> ⚠️ **這是專案最初的原始需求規格書，僅供溯源參考，不再逐項維護。**
+> 現況以 [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md)（維護中的 living spec，含 ✅ 完成標記與後續新增功能）為準；
+> 各層細節以對應的 `*SPEC.md`（[ARCHITECTURE_SPEC](ARCHITECTURE_SPEC.md) 為入口）為準。
+> 本檔下方的 API 清單與 DB schema 屬最初設計，與後續多次 migration（病人金額、`schedules.date` 索引、金額統計等）已脫節，**勿據此實作**。
 
 ## 1. 專案概述
 
