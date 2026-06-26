@@ -58,7 +58,9 @@ jobs:
         run: npm ci
 
       - name: Type-check
-        run: npx tsc --noEmit
+        # Must be `tsc -b` (project references): plain `tsc --noEmit` checks
+        # nothing because the root tsconfig is `files: []` + references.
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint --if-present
