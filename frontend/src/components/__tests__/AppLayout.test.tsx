@@ -3,6 +3,7 @@ import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/re
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { App as AntApp } from 'antd';
 import AppLayout from '../AppLayout';
+import { notifyActualAmountChanged } from '../../stores/statsEvents';
 import i18n from '../../i18n';
 
 const getMonthlyTotalMock = vi.fn();
@@ -49,7 +50,17 @@ describe('AppLayout — current-month expenditure banner', () => {
     expect(screen.getByText(/2026-06/)).toBeInTheDocument();
   });
 
-  it('re-fetches the banner total on navigation so it does not go stale', async () => {
+  it('re-fetches the banner total when an admin actual-amount edit fires the event', async () => {
+    useAuthMock.mockReturnValue({ ...baseAuth, isAdmin: true });
+    renderLayout();
+    await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(1));
+
+    // An admin amount edit anywhere notifies the banner to refresh.
+    notifyActualAmountChanged();
+    await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('does NOT re-fetch the banner on plain navigation (no wasted requests)', async () => {
     useAuthMock.mockReturnValue({ ...baseAuth, isAdmin: true });
     const Go = () => {
       const navigate = useNavigate();
@@ -70,8 +81,10 @@ describe('AppLayout — current-month expenditure banner', () => {
     await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByText('go'));
-    // Navigating to another admin route must trigger a fresh fetch.
-    await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalledTimes(2));
+    // Give any stray effect a tick; navigation must NOT trigger a refetch.
+    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getMonthlyTotalMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not fetch or show the banner for non-admins', async () => {

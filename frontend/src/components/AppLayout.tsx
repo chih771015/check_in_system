@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../stores/authStore';
 import { changePassword } from '../api/auth';
 import { getMonthlyTotal } from '../api/stats';
+import { onActualAmountChanged } from '../stores/statsEvents';
 import { formatNT } from '../utils/money';
 
 const { Header, Sider, Content } = Layout;
@@ -33,8 +34,10 @@ export default function AppLayout() {
   const [changePWForm] = Form.useForm();
   const { user, login, logout, isAdmin } = useAuth();
   // Admin-only banner: current-month total patient expenditure (NT$). Shown
-  // atop every admin page and re-fetched on each navigation so it reflects
-  // actual-amount edits (and a crossed month boundary) without a full reload.
+  // atop every admin page. Refreshed on mount, when an admin actual-amount edit
+  // fires the stats event, and when the tab regains focus (a cheap catch-all for
+  // rarer amount-affecting actions and a crossed month boundary) — not on every
+  // navigation, which would be wasteful.
   const [monthlyTotal, setMonthlyTotal] = useState<{ yearMonth: string; total: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,11 +52,23 @@ export default function AppLayout() {
   useEffect(() => {
     if (!isAdmin) return;
     let active = true;
-    getMonthlyTotal()
-      .then((r) => { if (active) setMonthlyTotal(r); })
-      .catch(() => { /* banner is best-effort; ignore errors */ });
-    return () => { active = false; };
-  }, [isAdmin, location.pathname]);
+    const load = () => {
+      getMonthlyTotal()
+        .then((r) => { if (active) setMonthlyTotal(r); })
+        .catch(() => { /* banner is best-effort; ignore errors */ });
+    };
+    load(); // initial
+    const unsubscribe = onActualAmountChanged(load);
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', load);
+    return () => {
+      active = false;
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', load);
+    };
+  }, [isAdmin]);
 
   const handleChangePW = async (values: {
     oldPassword: string;

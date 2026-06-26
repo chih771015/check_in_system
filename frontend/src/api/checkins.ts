@@ -1,5 +1,6 @@
 import type { CheckinItem } from '../types';
 import client from './client';
+import { notifyActualAmountChanged } from '../stores/statsEvents';
 
 export function checkin(formData: FormData) {
   return client
@@ -125,7 +126,12 @@ export function setActualAmount(schedulePatientId: number, actualAmount: number)
 export function adminSetActualAmount(schedulePatientId: number, actualAmount: number) {
   return client
     .post('/admin/diagnosis/amount', { schedulePatientId, actualAmount })
-    .then((r) => r.data);
+    .then((r) => {
+      // Single chokepoint for admin actual-amount edits → ask the monthly-total
+      // banner to refresh (see stores/statsEvents).
+      notifyActualAmountChanged();
+      return r.data;
+    });
 }
 
 /** markNoShow flips a SchedulePatient's status to no_show with a reason. */
