@@ -27,9 +27,9 @@
 |------|------|------|
 | `TranslatorManagement.tsx` | /admin/translators | 翻譯員 CRUD + 停用 + 重設密碼（登入預設頁）；新增失敗用 `extractApiError` 顯示後端原因（如重複 email → `EMAIL_TAKEN`）|
 | `AdminManagement.tsx` | /admin/admins | 管理員 CRUD（不可刪自己）|
-| `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁；**xlsx 匯入/匯出 + 下載範本**（匯入完成顯示新增/略過筆數，略過列以 modal 列出原因）|
-| `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史 |
-| `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]）+ 匯入 + 週期 + 群組刪；詳情 modal 可代理診斷（**completed 也有「管理照片」可增刪**，admin 不受離開鎖定限制）/ 未到 |
+| `PatientManagement.tsx` | /admin/patients | 病人 CRUD + 搜尋分頁；**xlsx 匯入/匯出 + 下載範本**（匯入完成顯示新增/略過筆數，略過列以 modal 列出原因）；列表含「實付總額」欄（全時段 actualTotal）|
+| `PatientHistory.tsx` | /admin/patients/:id/history | 病人就診歷史；`RangePicker` 依日期區間篩選（選定即重查），`Statistic` 顯示實付總額，標題依有無區間切「實付總額／區間實付總額」|
+| `ScheduleManagement.tsx` | /admin/schedules | 排班 CRUD + 多病人（[SchedulePatientListEditor]，建立/編輯時依排班日期顯示各病人「年度已實付」）+ 匯入 + 週期 + 群組刪；詳情 modal 可代理診斷（**completed 也有「管理照片」可增刪**，admin 不受離開鎖定限制）/ 未到，上傳/標記後依**現用篩選**刷新並同步詳情。**預設視圖**：無篩選時後端回最近建立 100 筆，工具列「最新創建排班」按鈕一鍵回此預設並高亮（套用任一篩選即取消高亮）|
 | `CheckinRecords.tsx` | /admin/checkins | 打卡查核 + 篩選 + 編修/刪 + [MapLink] |
 | `DiagnosisResults.tsx` | /admin/diagnosis-results | 診斷結果總覽（分頁/篩選/看照片）；**可直接管理**：每列「管理照片」（admin 增刪，reuse DiagnosisUploadModal）、completed 列可「標記未到」（reuse NoShowModal），免進排班頁；admin 不受離開鎖定。**金額**：列含預付/實付欄、可在管理 modal 改實付、工具列「匯出 Excel」（含金額）|
 | `ExportSettings.tsx` | /admin/export-settings | 定期匯出設定 + 立即執行 + 即時 Excel/Sheet |
@@ -45,4 +45,4 @@
 - 頁面普遍自行 `useState + useEffect + try/catch` 撈資料，無共用 data-fetching 抽象（可導入 react-query）。
 
 ## 7. 測試考量
-`pages/__tests__/`：Login、AdminManagement、ChangePassword 有 RTL 測試；其餘頁面主要由 [E2E](../../../e2e/README.md) 覆蓋。
+`pages/__tests__/`：Login、AdminManagement、ChangePassword、PatientHistory、ScheduleManagement、DiagnosisResults、TranslatorManagement 有 RTL 測試；其餘頁面主要由 [E2E](../../../e2e/README.md) 覆蓋。

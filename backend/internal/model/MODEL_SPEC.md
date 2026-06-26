@@ -42,6 +42,7 @@ erDiagram
 
 ### schedule.go — `schedules`
 - 整體時段 `start_time` / `end_time` 存 `varchar(5)`（"HH:MM" 字串，非 time 型別）。
+- `date`（`type:date`）建 **index**（`translator_id` 亦 index）：金額統計與病人歷史皆以 `schedules.date` join 過濾。
 - `patient_name *string`：legacy 單病人（stage1/2 相容），新資料用 Patients 關聯。
 - `recurrence_rule *string` / `recurrence_group_id *string`：週期排班同組辨識。
 - 關聯：`Patients []SchedulePatient`（foreignKey ScheduleID）。

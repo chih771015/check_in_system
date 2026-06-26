@@ -10,15 +10,17 @@
 
 ### AppLayout.tsx
 受保護頁的外框（側欄/導覽 + 語言切換 + 登出）。依角色顯示不同選單。
+- **管理員專屬橫幅**：所有後台頁面頂端顯示「本月病人總支出（YYYY-MM）：NT$ x」（`getMonthlyTotal`）。刷新時機：掛載時、管理員改實付金額時（訂閱 `stores/statsEvents`）、分頁重新取得焦點時（`visibilitychange`/`focus` 兜底較少見的金額變動與跨月）。**不**在每次換頁重抓（避免浪費）；載入失敗靜默（best-effort）。
 
 ### PatientPicker.tsx
 typeahead `Select`：mount 載入病人、輸入時 **debounce 250ms** 重查（PAGE_SIZE 20）。`value`=patientId、`onChange(patientId)`。用於排班編輯掛病人。
 
 ### SchedulePatientListEditor.tsx
-排班 modal 內的多病人列編輯：每列 = PatientPicker + start/end TimePicker。
+排班 modal 內的多病人列編輯：每列 = PatientPicker + start/end TimePicker + 預付金額 InputNumber。
 - `value: SchedulePatientPayload[]` + `onChange`，`overallStart/End` 供新列預設值。
 - 空清單首次渲染顯示一條空白列（使用者永遠有起點）。
 - 用 `clampPatientTimes`（[utils](../FRONTEND_SPEC.md)）把時段夾進整體範圍，前端先擋 `PATIENT_TIME_OUT_OF_RANGE`。
+- `scheduleYear`（選填，由排班日期推得）：每列選定病人後，唯讀子元件 `PatientYearPaid` 顯示「{year} 年已實付：NT$ x」（`getPatientActualTotal`），病人/年份變動即重查，未選病人不顯示。
 
 ### DiagnosisUploadModal.tsx
 管理一個 SchedulePatient 的 ≤3 張診斷照片：開啟時載入既有照片（縮圖 + 逐張刪除 Popconfirm）、依**剩餘額度**（3 − 既有張數）新增上傳。`MAX_PHOTOS=3` 前端先擋（後端 `DIAGNOSIS_PHOTO_LIMIT` 為最終守衛）。上傳/刪除後重新載入清單並 `onUploaded()`，**modal 維持開啟**可連續操作。`upload`/`listPhotos`/`deletePhoto` 皆可注入（預設翻譯員 API；admin 端注入 `admin*` 變體）。以 `canUpload`/`canDelete`（皆預設 true）控制三種模式：管理（加+刪）/ **補傳 append（可加不可刪，翻譯員離開後補晚到報告）** / 唯讀（皆 false）。
@@ -46,7 +48,7 @@ typeahead `Select`：mount 載入病人、輸入時 **debounce 250ms** 重查（
 | MapLink | 0,0 座標 → 純文字無連結 |
 
 ## 5. 測試考量
-`components/__tests__/`：DiagnosisUploadModal、NoShowModal、PatientPicker、SchedulePatientListEditor、MapLink 皆有測試，主要驗證互動 + 注入的 API mock 被正確呼叫。
+`components/__tests__/`：AppLayout（橫幅顯示/角色把關/事件刷新）、DiagnosisUploadModal、NoShowModal、PatientPicker、SchedulePatientListEditor（含年度已實付提示）、MapLink 皆有測試，主要驗證互動 + 注入的 API mock 被正確呼叫。
 
 ## 6. 協作者
 被 [pages](../pages/PAGES_SPEC.md) 使用；呼叫 [api](../api/API_CLIENT_SPEC.md)；文案走 [i18n](../i18n/I18N_SPEC.md)。

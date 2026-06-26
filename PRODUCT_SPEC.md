@@ -235,6 +235,17 @@
 - 顯示：MySchedules、排班詳情、診斷結果總覽、病人歷史皆顯示兩金額。
 - **Excel 匯出**：`GET /api/admin/export/diagnosis`（逐病人報表，含預付/實付，套用總覽相同篩選）。
 
+**金額統計與彙整 ✅（2026-06 新增）**
+- **後台當月總支出橫幅**：所有後台頁面頂端顯示「本月病人總支出（YYYY-MM）：NT$ x」（`GET /api/admin/stats/monthly-total`，依 `schedules.date` 加總當月全病人實付）。僅 admin 可見；刷新時機＝載入 / 改實付金額 / 分頁重新聚焦（非每次換頁）。
+- **病人列表實付總額欄**：`GET /api/admin/patients` 每筆附 `actualTotal`（全時段實付加總）。
+- **病人歷史實付總額 + 日期區間**：`GET /api/admin/patients/:id/history?dateFrom&dateTo` 回區間內就診 + `actualTotal`（區間/全時段加總）；非法日期回 400 `INVALID_DATE`。
+- **排班建立時顯示病人年度已實付**：`GET /api/admin/patients/:id/actual-total?year` 供排班 modal 每位病人顯示該年度已實付，避免重複編列。
+- **病人 Excel 匯出**附「實付金額總額」欄（匯入相容的前 4 欄之外，第 5 欄為匯出專用）。
+- 金額一律採實付（`actualAmount`）；no_show（實付=0）自然不計入。
+
+**排班預設視圖 ✅（2026-06 新增）**
+- 後台排班列表**無任何篩選**時，回最近建立的 100 筆（`created_at DESC`），而非全部；工具列「最新創建排班」按鈕一鍵回此預設並高亮（套用任一篩選即取消高亮）。套用篩選則回完整查詢（`date ASC`）。
+
 **診斷結果總覽（Admin）✅**
 - `GET /api/admin/diagnosis-results`：列出所有 terminal（completed/no_show）的 SchedulePatient，可依 status / translator / 日期 / 病人姓名篩選 + 分頁，附診斷照片（batch load 避免 N+1）。
 - `GET /api/admin/schedule-patients/:id/photos`：排班詳情 modal 看單一病人照片。

@@ -30,8 +30,10 @@ Playwright (e2e/) ──HTTP──▶ frontend :3001 (nginx) ──/api──▶
 | translator(disabled) | bob@translator.com | 停用，測登入被擋 |
 | 密碼（全部）| `Test1234!` | |
 | patients | passport `A123456` / hn `HN001` / unid `UN-XYZ` | |
+| 今日排班 | alice，地點 `E2E Clinic, Bangkok`，兩位病人 | patients[0] completed + 1 張照片、**實付 1500**；patients[1] pending |
 
 > seed 帳號 `must_change_pw` 由 reset 端點以 explicit UPDATE 強制設定（避免 GORM 零值跳過，見 changelog 2026-06-01/02）。
+> 金額：patients[0] 今日已完成看診的 `actual_amount=1500`（`seed.ts` 鏡像常數 `seededActualPaidTotal`），是唯一的 seed 實付，故等於當月橫幅總額與 patients[0] 的列表/歷史實付總額；money-stats spec 以此斷言確切金額。
 
 ## 4. Playwright 設定（playwright.config.ts）
 | 設定 | 值 | 原因 |

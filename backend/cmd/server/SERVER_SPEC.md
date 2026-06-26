@@ -34,6 +34,7 @@ stateDiagram-v2
 - `/api/auth/*` public（login）/ JWTAuth（change-password）。
 - `/api/admin/*`：JWTAuth → RequirePasswordChanged → RoleRequired("admin")。
   - 病人 xlsx：`POST /admin/patients/import`（匯入；放 POST 樹避開 `/patients/:id` wildcard）、`GET /admin/export/patients`、`GET /admin/export/patients-template`（匯出/範本放 `/export/*` 避開 GET `:id` wildcard）。
+  - 金額統計：`GET /admin/patients/:id/history?dateFrom&dateTo`（區間就診歷史 + 實付總額）、`GET /admin/patients/:id/actual-total?year`（年度實付）、`GET /admin/stats/monthly-total`（後台橫幅當月病人總實付）。`:id/history` 與 `:id/actual-total` 為同一 `:id` 節點下相異靜態子路徑，無 wildcard 衝突。
 - translator 群組（`/schedules`、`/checkins*`、`/patients`）：…RoleRequired("translator")。
   - 診斷照片管理：`GET /checkins/diagnosis/photos?schedulePatientId=`（列出含 id）、`DELETE /checkins/diagnosis/photos/:photoId`（刪除）。list 刻意用 query param，避免與 `:photoId` 造成 gin wildcard 衝突；admin 端對應 `GET/DELETE /admin/diagnosis/photos[...]`。
   - 金額：`POST /checkins/diagnosis/amount`（翻譯員設實付）、`POST /admin/diagnosis/amount`（admin）、`GET /admin/export/diagnosis`（診斷結果 xlsx）。

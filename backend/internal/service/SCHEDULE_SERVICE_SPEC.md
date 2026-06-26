@@ -11,7 +11,7 @@
 ## 2. 對外契約
 | 方法 | 重點 |
 |------|------|
-| `List / ListForTranslator` | 帶 checkinStatus 的排班列表 |
+| `List / ListForTranslator` | 帶 checkinStatus 的排班列表。**無任何篩選時**（translator/日期/地點全空）回最近建立的 `DefaultRecentScheduleLimit=100` 筆（`created_at DESC, id DESC`，預設後台視圖）；**有任一篩選**則切回完整查詢，`date ASC` |
 | `Create(req)` | 依 req 走三條路徑：recurrence / multi-patient / legacy 單病人 |
 | `Update(id,req)` | partial（指標）；若帶 Patients 則 transaction 內**整批替換** |
 | `Delete(id)` | 先刪 checkins + schedule_patients 再刪 schedule |

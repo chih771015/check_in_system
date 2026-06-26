@@ -47,9 +47,10 @@ go tool cover -func=coverage.out | tail -5                # 覆蓋率摘要
 cd frontend
 npm test                  # vitest（CI 跑這個）
 npm test -- --watch       # watch 模式
-npx tsc --noEmit          # 型別檢查
+npm run typecheck         # 型別檢查（= tsc -b，走 references 檢查 src 含測試）
 npm run lint              # ESLint
 ```
+> ⚠️ **務必用 `npm run typecheck`（`tsc -b`）**。直接 `npx tsc --noEmit` 因根 `tsconfig.json` 是 `files:[]` + references，**不檢查任何檔案**（等於沒檢查）；vitest 也不做型別檢查。型別破口只有 `tsc -b` / docker build 抓得到。
 
 **測什麼**
 - 頁面：Login（401 顯示 toast 不導向）、AdminManagement、ChangePassword。
@@ -70,7 +71,7 @@ cd e2e && ./run-e2e.sh --down
 | job | 步驟 |
 |-----|------|
 | **Backend (Go 1.26)** | `go mod download` → `go build ./...` → `go vet ./...` → `go test ./... -count=1 -race -coverprofile` → 覆蓋率摘要 |
-| **Frontend (Node 20)** | `npm ci` → `tsc --noEmit` → `npm run lint --if-present` → `npm test` → `npm run build` |
+| **Frontend (Node 20)** | `npm ci` → `npm run typecheck`（`tsc -b`）→ `npm run lint --if-present` → `npm test` → `npm run build` |
 
 > E2E 目前**不在 CI**（需 docker stack）；屬本機 / 手動驗收。要進 CI 需在 workflow 起 e2e compose。
 

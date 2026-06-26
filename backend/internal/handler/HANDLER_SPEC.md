@@ -12,11 +12,12 @@ HTTP 邊界轉接層：bind DTO、取 context（userID/role）、存上傳檔、
 | auth_handler | login、change-password |
 | translator_handler | /admin/translators CRUD + reset-password |
 | admin_handler | /admin/admins CRUD |
-| patient_handler | /admin/patients CRUD + history、/admin/patients/import（xlsx 匯入）、/admin/export/patients（匯出）、/admin/export/patients-template（範本）、/patients(translator) |
+| patient_handler | /admin/patients CRUD + history（?dateFrom/dateTo 區間，非法日期 400 INVALID_DATE）、/admin/patients/:id/actual-total（?year，年度實付）、/admin/patients/import（xlsx 匯入）、/admin/export/patients（匯出）、/admin/export/patients-template（範本）、/patients(translator)。列表回應每筆帶 actualTotal（全時段實付） |
 | schedule_handler | /admin/schedules CRUD + import + group delete、/schedules(translator) |
 | checkin_handler | /checkins、/checkins/makeup、/checkins、/checkins/stats、/admin/checkins、/admin/export/excel、google-sheet |
 | diagnosis_handler | /checkins/diagnosis、/checkins/diagnosis/photos（GET 列表 ?schedulePatientId / DELETE :photoId）、/checkins/no-show、/admin/diagnosis、/admin/diagnosis/photos（GET 列表 / DELETE :photoId）、/admin/no-show、/checkins/diagnosis/amount、/admin/diagnosis/amount、/admin/diagnosis-results、/admin/export/diagnosis、/admin/schedule-patients/:id/photos |
 | export_schedule_handler | /admin/export/schedule (get/upsert/run) |
+| stats_handler | /admin/stats/monthly-total（當月病人總實付，回 `{yearMonth,total}`）|
 | audit_handler | /admin/audit-logs |
 | error_mapper | 共用錯誤轉換（非 handler，是工具）|
 | test_reset_handler / _stub | E2E reset（build tag 切換）|

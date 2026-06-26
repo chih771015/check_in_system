@@ -23,16 +23,16 @@ FindByEmail / FindByID / FindAll(status) / Create / Update / UpdatePasswordAndFo
 > 註：`Create`/`Update` 用 `Select("*")` 確保 GORM 不跳過零值欄位（must_change_pw=false 等）— 見 E2E changelog。
 
 ### ScheduleRepository
-FindByID（preload Translator + Patients.Patient）/ FindByTranslator / FindAll（filter translator/date/location）/ Create / CreateBatch / Update / Delete / IDsByRecurrenceGroup / DeleteByRecurrenceGroup。`DB()` 給 service 開 transaction。
+FindByID（preload Translator + Patients.Patient）/ FindByTranslator / FindAll（filter translator/date/location）/ **FindRecentByCreated(limit)**（`created_at DESC, id DESC`，無篩選的預設後台視圖用）/ Create / CreateBatch / Update / Delete / IDsByRecurrenceGroup / DeleteByRecurrenceGroup。`DB()` 給 service 開 transaction。
 
 ### SchedulePatientRepository
-CreateBatch / FindByScheduleID / FindByID（preload Patient）/ DeleteByScheduleID(s) / UpdateStatus(id,status,reason)。
+CreateBatch / FindByScheduleID / FindByID（preload Patient）/ DeleteByScheduleID(s) / UpdateStatus(id,status,reason) / **UpdateActualAmount(id,amount)**。金額統計：**SumActualByPatients(ids)**（多病人全時段實付，回 map，GROUP BY）/ **SumActualByDateRange(from,to)**（全病人半開區間）/ **SumActualByPatientDateRange(id,from,to)**（單病人半開區間）— 後兩者委派同一私有 `sumActualInRange`（patientID==0=全部）。
 
 ### CheckinRepository
 FindByScheduleID / **FindByScheduleAndType**（重複打卡 + arrive-before-leave 的關鍵查詢）/ Create / FindByID / UpdateFields(map) / Delete / DeleteByScheduleID(s) / ListAll(ListAllParams: date/translator/type/isMakeup)。
 
 ### DiagnosisPhotoRepository
-Create / FindBySchedulePatientID（order by uploaded_at）/ CountBySchedulePatientID（上限檢查用）/ **FindByID** / **Delete(id)**（單張刪除，service 再決定是否退回 pending）。
+Create / FindBySchedulePatientID（order by uploaded_at）/ **FindBySchedulePatientIDs(ids)**（`IN` 一次查多 slot，病人歷史避 N+1，空 ids 短路）/ CountBySchedulePatientID（上限檢查用）/ **FindByID** / **Delete(id)**（單張刪除，service 再決定是否退回 pending）。
 
 ### PatientRepository
 Create / Update / Delete / FindByID / **FindByIDTypeAndNumber**（唯一性檢查）/ List(search,page) / **ListForTranslator**（scope 限縮：只回該翻譯員排班內病人）。
