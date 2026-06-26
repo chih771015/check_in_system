@@ -154,6 +154,29 @@ func TestPatientService_GetHistory_DateRangeAndTotal(t *testing.T) {
 	assert.EqualValues(t, 500, junEdge.ActualTotal)
 }
 
+func TestPatientService_GetHistory_RejectsMalformedDates(t *testing.T) {
+	fx := newHistoryFixture(t)
+	ctx := context.Background()
+
+	// A malformed bound must fail closed (400 via ErrInvalidDateFormat), not be
+	// silently dropped / lexicographically compared.
+	for _, tc := range []struct{ from, to string }{
+		{"2026-06-1", ""},      // missing leading zero in from
+		{"", "2026-13-99"},     // impossible month/day in to
+		{"garbage", ""},        // non-date in from
+		{"2026-01-01", "nope"}, // non-date in to
+	} {
+		_, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, tc.from, tc.to)
+		require.ErrorIs(t, err, ErrInvalidDateFormat, "from=%q to=%q", tc.from, tc.to)
+	}
+
+	// Well-formed (and empty) bounds still succeed.
+	_, err := fx.patientSvc.GetHistory(ctx, fx.patient.ID, "2026-01-01", "2026-12-31")
+	require.NoError(t, err)
+	_, err = fx.patientSvc.GetHistory(ctx, fx.patient.ID, "", "")
+	require.NoError(t, err)
+}
+
 func TestPatientService_PatientYearActualTotal(t *testing.T) {
 	fx := newHistoryFixture(t)
 	ctx := context.Background()

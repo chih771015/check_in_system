@@ -331,6 +331,13 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint, from, t
 		return nil, err
 	}
 
+	// Reject malformed date filters up front so a bad bound fails closed (400)
+	// rather than being silently dropped or compared lexicographically. Empty
+	// means "no bound".
+	if !validDateOrEmpty(from) || !validDateOrEmpty(to) {
+		return nil, ErrInvalidDateFormat
+	}
+
 	// The date range (when supplied) is pushed into SQL by buildHistoryEntries,
 	// so we only fetch the rows we keep; sum actual_amount over them here.
 	entries := []dto.PatientHistoryEntry{}
@@ -359,6 +366,16 @@ func (s *PatientService) GetHistory(ctx context.Context, patientID uint, from, t
 		History:     entries,
 		ActualTotal: total,
 	}, nil
+}
+
+// validDateOrEmpty reports whether s is empty (no bound) or a valid YYYY-MM-DD
+// date. Used to reject malformed history-range filters before they reach SQL.
+func validDateOrEmpty(s string) bool {
+	if s == "" {
+		return true
+	}
+	_, err := time.Parse("2006-01-02", s)
+	return err == nil
 }
 
 // nextDay returns the calendar day after a YYYY-MM-DD date, as YYYY-MM-DD. It
