@@ -27,6 +27,11 @@ export const SEED = {
     { name: 'Patient HN', idType: 'hn', idNumber: 'HN001' },
     { name: 'Patient Unid', idType: 'unid', idNumber: 'UN-XYZ' },
   ],
+  // Actual-paid amount on the seeded completed visit (patients[0], today's
+  // schedule). Mirrors ActualAmount in test_reset_handler.go. It is the only
+  // seeded actual amount, so it equals the current-month banner total and the
+  // patients[0] list/history actual-paid total; patients[1]/[2] total 0.
+  seededActualPaidTotal: 1500,
 } as const;
 
 /**

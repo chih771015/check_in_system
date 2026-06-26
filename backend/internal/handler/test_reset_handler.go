@@ -180,6 +180,10 @@ func resetAndSeed(db *gorm.DB, uploadDir string) error {
 			ScheduleID: sched.ID, PatientID: patients[0].ID,
 			StartTime: "09:00", EndTime: "10:00", OrderIdx: 0,
 			Status: model.SchedulePatientStatusCompleted,
+			// Non-zero actual-paid so money-stats (banner / list column / history
+			// total) have a concrete value to assert. Keep in sync with
+			// e2e/support/seed.ts SEED.seededActualPaidTotal.
+			ActualAmount: 1500,
 		},
 		{
 			ScheduleID: sched.ID, PatientID: patients[1].ID,
