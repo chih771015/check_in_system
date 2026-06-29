@@ -192,7 +192,12 @@
       "leave": "Leave",
       "makeup": "Makeup",
       "onTime": "On Time",
-      "late": "Late"
+      "late": "Late",
+      "groupTotal": "Check-in totals",
+      "groupPunctuality": "Punctuality",
+      "groupMakeup": "Makeup",
+      "punctualityHint": "Counts in-window live arrivals only; makeup check-ins are excluded from on-time/late.",
+      "makeupHint": "Backfilled afterwards, or punched after the schedule end time."
     }
   },
   "checkin": {

@@ -192,7 +192,12 @@
       "leave": "離開",
       "makeup": "補打卡",
       "onTime": "準時",
-      "late": "遲到"
+      "late": "遲到",
+      "groupTotal": "打卡總計",
+      "groupPunctuality": "準時度",
+      "groupMakeup": "補打卡",
+      "punctualityHint": "僅計算時段內當場打卡的到達；補打卡不列入準時／遲到。",
+      "makeupHint": "事後補登，或打卡時間已超過排班結束時間。"
     }
   },
   "checkin": {

@@ -84,20 +84,44 @@ export default function MyCheckinsPage() {
       </div>
 
       {stats && (
-        // gutter [horizontal, vertical] so cards on different rows don't touch.
-        // Responsive col span:
-        //   xs (< 576):  12 → 2 cards per row (3 rows total on a phone)
-        //   sm (≥ 576):   8 → 3 per row
-        //   md (≥ 768):   6 → 4 per row
-        //   lg (≥ 992):   4 → all 6 in one row (desktop original)
-        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.makeup')} value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.onTime')} value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} /></Card></Col>
-          <Col xs={12} sm={8} md={6} lg={4}><Card size="small"><Statistic title={t('checkins.stats.late')} value={stats.lateCount} valueStyle={{ color: '#f5222d' }} /></Card></Col>
-        </Row>
+        // Stats are split into three independent dimensions so they're never
+        // mistaken for one another (they don't add up to a single total):
+        //   1. 打卡總計  — total / arrive / leave   (total = arrive + leave)
+        //   2. 準時度     — onTime / late            (in-window live arrives only)
+        //   3. 補打卡     — makeup                    (backfilled / out-of-window)
+        // Responsive col span on each card:
+        //   xs (< 576): 12 → 2 per row ・ sm: 8 → 3 ・ md/lg: 6 → 4 per row
+        <div style={{ marginBottom: 16 }}>
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            {t('checkins.stats.groupTotal')}
+          </Typography.Text>
+          <Row gutter={[12, 12]} style={{ marginTop: 4, marginBottom: 12 }}>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
+          </Row>
+
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            {t('checkins.stats.groupPunctuality')}
+          </Typography.Text>
+          <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+            {t('checkins.stats.punctualityHint')}
+          </div>
+          <Row gutter={[12, 12]} style={{ marginTop: 4, marginBottom: 12 }}>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.onTime')} value={stats.onTimeCount} valueStyle={{ color: '#52c41a' }} /></Card></Col>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.late')} value={stats.lateCount} valueStyle={{ color: '#f5222d' }} /></Card></Col>
+          </Row>
+
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            {t('checkins.stats.groupMakeup')}
+          </Typography.Text>
+          <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+            {t('checkins.stats.makeupHint')}
+          </div>
+          <Row gutter={[12, 12]} style={{ marginTop: 4 }}>
+            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.makeup')} value={stats.makeupCount} valueStyle={{ color: '#fa8c16' }} /></Card></Col>
+          </Row>
+        </div>
       )}
 
       <Table<CheckinItem>
