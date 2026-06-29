@@ -278,6 +278,14 @@ func (s *CheckinService) MyStats(ctx context.Context, translatorID uint, dateFro
 		switch c.Type {
 		case "arrive":
 			stats.ArriveCount++
+			// Punctuality is only meaningful for a real, in-the-moment arrive.
+			// A makeup arrive carries the backfill time (time.Now() when it was
+			// logged), not the real arrival, so comparing it to the schedule
+			// start would wrongly flag it as late — skip it entirely here; it is
+			// counted under MakeupCount below instead.
+			if c.IsMakeup {
+				break
+			}
 			// Compare with schedule start time to detect late arrival.
 			if sch, err := schRepo.FindByID(c.ScheduleID); err == nil {
 				dateStr := sch.Date.Format("2006-01-02")

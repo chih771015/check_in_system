@@ -232,6 +232,24 @@ func TestCheckinService_MyStats_CountsByType(t *testing.T) {
 	assert.Equal(t, 0, stats.MakeupCount)
 }
 
+// A makeup arrive must NOT be judged on punctuality: its CheckinTime is when it
+// was backfilled, not the real arrival time, so comparing it against the
+// schedule start is meaningless. It should count as makeup only — never as
+// on-time or late.
+func TestCheckinService_MyStats_MakeupArriveNotJudgedLate(t *testing.T) {
+	fx := newCheckinFixture(t)
+	_, err := fx.svc.Checkin(context.Background(), fx.translator.ID, fx.schedule.ID, "arrive",
+		25.0, 121.5, "x", "/u/s", "/u/e", true, "忘記打卡")
+	require.NoError(t, err)
+
+	stats, err := fx.svc.MyStats(context.Background(), fx.translator.ID, "", "")
+	require.NoError(t, err)
+	assert.Equal(t, 1, stats.ArriveCount)
+	assert.Equal(t, 1, stats.MakeupCount)
+	assert.Equal(t, 0, stats.OnTimeCount, "補打卡不該算準時")
+	assert.Equal(t, 0, stats.LateCount, "補打卡不該算遲到")
+}
+
 func TestCheckinService_AdminList_FiltersByType(t *testing.T) {
 	fx := newCheckinFixture(t)
 	_, err := fx.svc.Checkin(context.Background(), fx.translator.ID, fx.schedule.ID, "arrive",
