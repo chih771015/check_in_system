@@ -28,11 +28,12 @@ func NewTranslatorService(userRepo *repository.UserRepository) *TranslatorServic
 	return &TranslatorService{userRepo: userRepo}
 }
 
-// List returns all translators, optionally filtered by status.
-func (s *TranslatorService) List(ctx context.Context, status string) ([]dto.TranslatorListResponse, error) {
-	users, err := s.userRepo.WithCtx(ctx).FindAll(status)
+// List returns one page of translators (optionally filtered by status) plus the
+// total matching count. PageSize <= 0 returns every row (dropdown pickers).
+func (s *TranslatorService) List(ctx context.Context, status string, page, pageSize int) ([]dto.TranslatorListResponse, int64, error) {
+	users, total, err := s.userRepo.WithCtx(ctx).FindAll(status, page, pageSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	result := make([]dto.TranslatorListResponse, len(users))
@@ -46,7 +47,7 @@ func (s *TranslatorService) List(ctx context.Context, status string) ([]dto.Tran
 			CreatedAt: u.CreatedAt,
 		}
 	}
-	return result, nil
+	return result, total, nil
 }
 
 // Create adds a new translator account.

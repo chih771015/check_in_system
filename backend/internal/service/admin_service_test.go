@@ -116,9 +116,10 @@ func TestAdminService_ListAdmins(t *testing.T) {
 		Email: "t@x.com", PasswordHash: "h", Name: "T", Role: "translator", Status: "active",
 	}))
 
-	list, err := svc.ListAdmins(ctx)
+	list, total, err := svc.ListAdmins(ctx, 0, 0)
 	require.NoError(t, err)
 	assert.Len(t, list, 2)
+	assert.Equal(t, int64(2), total)
 	emails := []string{list[0].Email, list[1].Email}
 	assert.Contains(t, emails, "a@admin.com")
 	assert.Contains(t, emails, "b@admin.com")

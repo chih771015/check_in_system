@@ -26,13 +26,33 @@ func NewTranslatorHandler(translatorService *service.TranslatorService, authServ
 func (h *TranslatorHandler) ListTranslators(c *gin.Context) {
 	status := c.Query("status")
 
-	translators, err := h.translatorService.List(c.Request.Context(), status)
+	// page/pageSize are optional. Absent → pageSize 0 = return all (the dropdown
+	// pickers rely on this); present → one page. The response always carries the
+	// total so the management table can render a server-side pager.
+	page, pageSize := 1, 0
+	if v := c.Query("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if v := c.Query("pageSize"); v != "" {
+		if ps, err := strconv.Atoi(v); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	translators, total, err := h.translatorService.List(c.Request.Context(), status, page, pageSize)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": translators})
+	c.JSON(http.StatusOK, gin.H{
+		"data":     translators,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	})
 }
 
 // CreateTranslator handles POST /api/admin/translators.

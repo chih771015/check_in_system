@@ -23,12 +23,31 @@ func NewAdminHandler(adminService *service.AdminService, auditService *service.A
 
 // ListAdmins handles GET /api/admin/admins
 func (h *AdminHandler) ListAdmins(c *gin.Context) {
-	admins, err := h.adminService.ListAdmins(c.Request.Context())
+	// page/pageSize optional; absent → pageSize 0 = all. Response always carries
+	// total so the table can render a server-side pager.
+	page, pageSize := 1, 0
+	if v := c.Query("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if v := c.Query("pageSize"); v != "" {
+		if ps, err := strconv.Atoi(v); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	admins, total, err := h.adminService.ListAdmins(c.Request.Context(), page, pageSize)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": admins})
+	c.JSON(http.StatusOK, gin.H{
+		"data":     admins,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	})
 }
 
 // CreateAdmin handles POST /api/admin/admins

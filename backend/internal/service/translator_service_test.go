@@ -26,14 +26,22 @@ func TestTranslatorService_List_FiltersByStatus(t *testing.T) {
 	require.NoError(t, repo.Create(&model.User{Email: "b@x.com", PasswordHash: "h", Name: "B", Role: "translator", Status: "disabled"}))
 	require.NoError(t, repo.Create(&model.User{Email: "admin@x.com", PasswordHash: "h", Name: "Admin", Role: "admin", Status: "active"}))
 
-	all, err := svc.List(context.Background(), "")
+	all, total, err := svc.List(context.Background(), "", 0, 0)
 	require.NoError(t, err)
 	assert.Len(t, all, 2, "should not include admin")
+	assert.Equal(t, int64(2), total)
 
-	active, err := svc.List(context.Background(), "active")
+	active, activeTotal, err := svc.List(context.Background(), "active", 0, 0)
 	require.NoError(t, err)
 	assert.Len(t, active, 1)
+	assert.Equal(t, int64(1), activeTotal)
 	assert.Equal(t, "A", active[0].Name)
+
+	// With a page size the rows are capped but total still reflects the full count.
+	page1, pTotal, err := svc.List(context.Background(), "", 1, 1)
+	require.NoError(t, err)
+	assert.Len(t, page1, 1, "page size caps rows")
+	assert.Equal(t, int64(2), pTotal)
 }
 
 func TestTranslatorService_Create_DuplicateEmail(t *testing.T) {

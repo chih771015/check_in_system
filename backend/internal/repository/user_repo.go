@@ -45,17 +45,32 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 	return &user, nil
 }
 
-// FindAll returns all translators, optionally filtered by status.
-func (r *UserRepository) FindAll(status string) ([]model.User, error) {
+// FindAll returns translators matching the optional status (newest first) plus
+// the total matching count. PageSize <= 0 means "no limit" — return every row
+// (used by the translator dropdown pickers across the admin UI).
+func (r *UserRepository) FindAll(status string, page, pageSize int) ([]model.User, int64, error) {
 	var users []model.User
-	query := r.db.Where("role = ?", "translator")
+	var total int64
+
+	base := r.db.Model(&model.User{}).Where("role = ?", "translator")
 	if status != "" {
-		query = query.Where("status = ?", status)
+		base = base.Where("status = ?", status)
 	}
-	if err := query.Order("created_at DESC").Find(&users).Error; err != nil {
-		return nil, err
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return users, nil
+
+	query := base.Order("created_at DESC")
+	if pageSize > 0 {
+		if page <= 0 {
+			page = 1
+		}
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+	if err := query.Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }
 
 // Create inserts a new user record.
@@ -97,14 +112,28 @@ func (r *UserRepository) LockUser(id uint, until time.Time) error {
 		Update("locked_until", until).Error
 }
 
-// FindAllAdmins returns all users with role = "admin", ordered by creation time.
-func (r *UserRepository) FindAllAdmins() ([]model.User, error) {
+// FindAllAdmins returns admins (oldest first) plus the total count. PageSize
+// <= 0 means "no limit".
+func (r *UserRepository) FindAllAdmins(page, pageSize int) ([]model.User, int64, error) {
 	var users []model.User
-	if err := r.db.Where("role = ?", "admin").
-		Order("created_at ASC").Find(&users).Error; err != nil {
-		return nil, err
+	var total int64
+
+	base := r.db.Model(&model.User{}).Where("role = ?", "admin")
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return users, nil
+
+	query := base.Order("created_at ASC")
+	if pageSize > 0 {
+		if page <= 0 {
+			page = 1
+		}
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+	if err := query.Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
 }
 
 // DeleteByID hard-deletes a user by primary key.

@@ -29,11 +29,12 @@ func NewAdminService(userRepo *repository.UserRepository) *AdminService {
 	return &AdminService{userRepo: userRepo}
 }
 
-// ListAdmins returns all admin accounts.
-func (s *AdminService) ListAdmins(ctx context.Context) ([]dto.AdminListItem, error) {
-	users, err := s.userRepo.WithCtx(ctx).FindAllAdmins()
+// ListAdmins returns one page of admin accounts plus the total count.
+// PageSize <= 0 returns every row.
+func (s *AdminService) ListAdmins(ctx context.Context, page, pageSize int) ([]dto.AdminListItem, int64, error) {
+	users, total, err := s.userRepo.WithCtx(ctx).FindAllAdmins(page, pageSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	result := make([]dto.AdminListItem, len(users))
 	for i, u := range users {
@@ -45,7 +46,7 @@ func (s *AdminService) ListAdmins(ctx context.Context) ([]dto.AdminListItem, err
 			CreatedAt: u.CreatedAt,
 		}
 	}
-	return result, nil
+	return result, total, nil
 }
 
 // CreateAdmin creates a new admin account.
