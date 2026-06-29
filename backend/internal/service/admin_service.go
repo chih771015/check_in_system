@@ -52,17 +52,18 @@ func (s *AdminService) ListAdmins(ctx context.Context, page, pageSize int) ([]dt
 // CreateAdmin creates a new admin account.
 // The new account will have MustChangePW = true so the user must set a new
 // password on first login.
-func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminRequest) error {
+// CreateAdmin persists a new admin and returns the newly created user's ID.
+func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminRequest) (uint, error) {
 	repo := s.userRepo.WithCtx(ctx)
 
 	existing, _ := repo.FindByEmail(req.Email)
 	if existing != nil {
-		return ErrEmailTaken
+		return 0, ErrEmailTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return ErrPasswordHashFailed
+		return 0, ErrPasswordHashFailed
 	}
 
 	user := &model.User{
@@ -73,7 +74,10 @@ func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminReque
 		Status:       "active",
 		MustChangePW: true,
 	}
-	return repo.Create(user)
+	if err := repo.Create(user); err != nil {
+		return 0, err
+	}
+	return user.ID, nil
 }
 
 // DeleteAdmin removes an admin account.

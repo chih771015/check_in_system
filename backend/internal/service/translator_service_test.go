@@ -48,21 +48,24 @@ func TestTranslatorService_Create_DuplicateEmail(t *testing.T) {
 	svc, repo := newTranslatorService(t)
 	require.NoError(t, repo.Create(&model.User{Email: "dup@x.com", PasswordHash: "h", Name: "X", Role: "translator", Status: "active"}))
 
-	err := svc.Create(context.Background(), dto.CreateTranslatorRequest{
+	id, err := svc.Create(context.Background(), dto.CreateTranslatorRequest{
 		Email: "dup@x.com", Password: "pass1234", Name: "Y", Phone: "1",
 	})
 	assert.True(t, errors.Is(err, ErrEmailTaken))
+	assert.Zero(t, id, "failed create should return zero id")
 }
 
 func TestTranslatorService_Create_Success_HashesAndForcesPasswordChange(t *testing.T) {
 	svc, repo := newTranslatorService(t)
-	err := svc.Create(context.Background(), dto.CreateTranslatorRequest{
+	id, err := svc.Create(context.Background(), dto.CreateTranslatorRequest{
 		Email: "new@x.com", Password: "pass1234", Name: "New", Phone: "1",
 	})
 	require.NoError(t, err)
+	assert.NotZero(t, id, "successful create should return the new user id")
 
 	u, err := repo.FindByEmail("new@x.com")
 	require.NoError(t, err)
+	assert.Equal(t, id, u.ID, "returned id should match the persisted user")
 	assert.Equal(t, "translator", u.Role)
 	assert.True(t, u.MustChangePW, "new translator must change password on first login")
 	// bcrypt 雜湊應可驗證

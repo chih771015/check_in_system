@@ -58,12 +58,13 @@ func (h *AdminHandler) CreateAdmin(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	if err := h.adminService.CreateAdmin(ctx, req); err != nil {
+	newID, err := h.adminService.CreateAdmin(ctx, req)
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
-	h.auditService.Log(ctx, requesterID, "create_admin", "user", 0, "email="+req.Email)
+	h.auditService.Log(ctx, requesterID, "create_admin", "user", newID, "email="+req.Email)
 	c.JSON(http.StatusCreated, gin.H{"message": "Admin account created successfully"})
 }
 

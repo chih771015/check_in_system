@@ -51,17 +51,18 @@ func (s *TranslatorService) List(ctx context.Context, status string, page, pageS
 }
 
 // Create adds a new translator account.
-func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslatorRequest) error {
+// Create persists a new translator and returns the newly created user's ID.
+func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslatorRequest) (uint, error) {
 	repo := s.userRepo.WithCtx(ctx)
 	// Check if email already exists
 	existing, _ := repo.FindByEmail(req.Email)
 	if existing != nil {
-		return ErrEmailTaken
+		return 0, ErrEmailTaken
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return ErrPasswordHashFailed
+		return 0, ErrPasswordHashFailed
 	}
 
 	user := &model.User{
@@ -74,7 +75,10 @@ func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslator
 		MustChangePW: true,
 	}
 
-	return repo.Create(user)
+	if err := repo.Create(user); err != nil {
+		return 0, err
+	}
+	return user.ID, nil
 }
 
 // Update modifies an existing translator's information.

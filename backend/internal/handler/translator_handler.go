@@ -64,13 +64,14 @@ func (h *TranslatorHandler) CreateTranslator(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	if err := h.translatorService.Create(ctx, req); err != nil {
+	newID, err := h.translatorService.Create(ctx, req)
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "create_translator", "user", 0, "email="+req.Email+" name="+req.Name)
+	h.auditService.Log(ctx, adminID, "create_translator", "user", newID, "email="+req.Email+" name="+req.Name)
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Translator created successfully"})
 }

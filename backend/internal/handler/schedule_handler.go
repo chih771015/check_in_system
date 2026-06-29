@@ -80,7 +80,7 @@ func (h *ScheduleHandler) AdminCreateSchedule(c *gin.Context) {
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "create_schedule", "schedule", 0, "")
+	h.auditService.Log(ctx, adminID, "create_schedule", "schedule", resp.ID, "")
 
 	c.JSON(http.StatusCreated, gin.H{"data": resp})
 }

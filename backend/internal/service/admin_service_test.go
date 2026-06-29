@@ -37,12 +37,13 @@ func TestAdminService_CreateAdmin_DuplicateEmail(t *testing.T) {
 	ctx := context.Background()
 	seedAdminUser(t, repo, "first@admin.com")
 
-	err := svc.CreateAdmin(ctx, dto.CreateAdminRequest{
+	id, err := svc.CreateAdmin(ctx, dto.CreateAdminRequest{
 		Email:    "first@admin.com",
 		Name:     "Dup",
 		Password: "password123",
 	})
 	require.Error(t, err)
+	assert.Zero(t, id, "failed create should return zero id")
 	// AdminService uses ErrEmailTaken sentinel? Check actual impl uses errors.New literal — accept either.
 	// We assert the error mentions "Email" or matches our sentinel.
 	assert.True(t, errors.Is(err, ErrEmailTaken) || err.Error() != "")
@@ -52,15 +53,17 @@ func TestAdminService_CreateAdmin_Success_ForcesPasswordChange(t *testing.T) {
 	svc, repo := newAdminServiceWithRepo(t)
 	ctx := context.Background()
 
-	err := svc.CreateAdmin(ctx, dto.CreateAdminRequest{
+	id, err := svc.CreateAdmin(ctx, dto.CreateAdminRequest{
 		Email:    "new@admin.com",
 		Name:     "New",
 		Password: "password123",
 	})
 	require.NoError(t, err)
+	assert.NotZero(t, id, "successful create should return the new admin id")
 
 	u, err := repo.FindByEmail("new@admin.com")
 	require.NoError(t, err)
+	assert.Equal(t, id, u.ID, "returned id should match the persisted admin")
 	assert.Equal(t, "admin", u.Role)
 	assert.True(t, u.MustChangePW, "newly created admin must_change_pw should be true")
 }
