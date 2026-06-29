@@ -44,6 +44,11 @@ import { extractApiError } from '../../utils/apiError';
 import type { SchedulePatientPayload, SchedulePatient } from '../../types';
 import { Image } from 'antd';
 import * as XLSX from 'xlsx';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+
+// Required so dayjs(value, 'HH:mm') parses the API's "09:00" time strings.
+dayjs.extend(customParseFormat);
 
 const spStatusColor: Record<string, string> = {
   pending: 'orange',
@@ -311,6 +316,11 @@ export default function ScheduleManagement() {
     setEditingRecord(record);
     editForm.setFieldsValue({
       translatorId: record.translatorId,
+      // DatePicker/TimePicker need dayjs objects, not the raw strings the API
+      // returns. Without these the edit modal opened with empty date/time.
+      date: dayjs(record.date),
+      startTime: dayjs(record.startTime, 'HH:mm'),
+      endTime: dayjs(record.endTime, 'HH:mm'),
       location: record.location,
       note: record.note,
     });

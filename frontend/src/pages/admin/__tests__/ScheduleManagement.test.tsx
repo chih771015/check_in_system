@@ -88,6 +88,26 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
     expect(latestButton()).toHaveClass('ant-btn-primary');
   });
 
+  // Regression: opening the edit modal must preload the date + start/end time
+  // pickers from the existing schedule. Previously openEdit only set
+  // translator/location/note, so the time fields rendered empty.
+  it('preloads date and start/end time into the edit form', async () => {
+    const sched = {
+      id: 42, date: '2026-01-15', startTime: '09:00', endTime: '12:00',
+      location: 'VGH', translatorId: 1, translatorName: 'T', status: 'pending',
+      patients: [],
+    };
+    getAdminSchedulesMock.mockResolvedValue([sched]);
+    render(<AntApp><ScheduleManagement /></AntApp>);
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /Edit/ }));
+
+    await waitFor(() => expect(screen.getByDisplayValue('2026-01-15')).toBeInTheDocument());
+    expect(screen.getByDisplayValue('09:00')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('12:00')).toBeInTheDocument();
+  });
+
   // Regression: after the default view was capped to recent-created rows, the
   // detail-modal refresh must re-fetch with the ACTIVE filter (so the open
   // record is present), never with {} — which could miss an older schedule.
