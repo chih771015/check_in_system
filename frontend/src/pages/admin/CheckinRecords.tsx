@@ -41,6 +41,9 @@ export default function CheckinRecords() {
   const [exporting, setExporting] = useState(false);
   const [exportingSheet, setExportingSheet] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
   const [detailRecord, setDetailRecord] = useState<CheckinItem | null>(null);
   const [editRecord, setEditRecord] = useState<CheckinItem | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -51,14 +54,15 @@ export default function CheckinRecords() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await getAdminCheckins(filters);
-      setData(Array.isArray(list) ? list : []);
+      const resp = await getAdminCheckins({ ...filters, page, pageSize });
+      setData(resp.data || []);
+      setTotal(resp.total || 0);
     } catch {
       message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [filters, message, t]);
+  }, [filters, page, pageSize, message, t]);
 
   useEffect(() => {
     void fetchData();
@@ -148,6 +152,7 @@ export default function CheckinRecords() {
   };
 
   const handleDateChange = (_: unknown, dateStrings: [string, string]) => {
+    setPage(1);
     if (dateStrings[0] && dateStrings[1]) {
       setFilters((prev) => ({ ...prev, dateFrom: dateStrings[0], dateTo: dateStrings[1] }));
     } else {
@@ -217,14 +222,15 @@ export default function CheckinRecords() {
           allowClear
           placeholder={t('schedules.translator')}
           options={translatorOptions}
-          onChange={(v) =>
+          onChange={(v) => {
+            setPage(1);
             setFilters((prev) => {
               const next = { ...prev };
               if (v) next.translatorId = v;
               else delete next.translatorId;
               return next;
-            })
-          }
+            });
+          }}
         />
         <Select
           style={{ width: 120 }}
@@ -234,14 +240,15 @@ export default function CheckinRecords() {
             { value: 'arrive', label: t('checkins.type.arrive') },
             { value: 'leave', label: t('checkins.type.leave') },
           ]}
-          onChange={(v) =>
+          onChange={(v) => {
+            setPage(1);
             setFilters((prev) => {
               const next = { ...prev };
               if (v) next.type = v;
               else delete next.type;
               return next;
-            })
-          }
+            });
+          }}
         />
         <Select
           style={{ width: 130 }}
@@ -251,14 +258,15 @@ export default function CheckinRecords() {
             { value: 'true', label: t('common.yes') },
             { value: 'false', label: t('common.no') },
           ]}
-          onChange={(v) =>
+          onChange={(v) => {
+            setPage(1);
             setFilters((prev) => {
               const next = { ...prev };
               if (v !== undefined) next.isMakeup = v;
               else delete next.isMakeup;
               return next;
-            })
-          }
+            });
+          }}
         />
         <div style={{ flex: 1 }} />
         <Button icon={<FileTextOutlined />} loading={exportingSheet} onClick={handleGoogleSheet}>
@@ -275,7 +283,16 @@ export default function CheckinRecords() {
         rowKey="id"
         loading={loading}
         scroll={{ x: 700 }}
-        pagination={{ pageSize: 20 }}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
       />
 
       <Modal

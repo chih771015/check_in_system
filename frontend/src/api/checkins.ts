@@ -18,9 +18,16 @@ export function makeupCheckin(formData: FormData) {
     .then((r) => r.data);
 }
 
-export function getAdminCheckins(params?: Record<string, string>) {
+export interface AdminCheckinListResponse {
+  data: CheckinItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export function getAdminCheckins(params?: Record<string, string | number>) {
   return client
-    .get<CheckinItem[]>('/admin/checkins', { params })
+    .get<AdminCheckinListResponse>('/admin/checkins', { params })
     .then((r) => r.data);
 }
 
