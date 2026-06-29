@@ -78,4 +78,6 @@ type ScheduleListQuery struct {
 	DateTo       string `form:"dateTo"`
 	TranslatorID string `form:"translatorId"`
 	Location     string `form:"location"`
+	Page         int    `form:"page"`
+	PageSize     int    `form:"pageSize"`
 }

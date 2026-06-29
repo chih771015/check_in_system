@@ -16,7 +16,8 @@ type Schedule struct {
 	Note              string    `gorm:"type:text" json:"note"`
 	RecurrenceRule    *string   `gorm:"type:varchar(255)" json:"recurrence_rule,omitempty"`
 	RecurrenceGroupID *string   `gorm:"type:varchar(36)" json:"recurrence_group_id,omitempty"`
-	CreatedAt         time.Time `json:"created_at"`
+	// Indexed: the default admin list ("latest created") sorts by created_at DESC.
+	CreatedAt         time.Time `gorm:"index" json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 
 	Translator User              `gorm:"foreignKey:TranslatorID" json:"translator,omitempty"`

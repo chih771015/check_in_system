@@ -194,7 +194,7 @@ func TestScheduleService_DeleteRecurrenceGroup_CascadesSchedulePatients(t *testi
 	assert.EqualValues(t, 3, count)
 
 	// All groups' schedule_patients should be gone.
-	list, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	list, _, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	require.NoError(t, err)
 	assert.Empty(t, list)
 }

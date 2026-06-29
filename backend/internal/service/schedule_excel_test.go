@@ -120,7 +120,7 @@ func TestBatchImportSchedulesV2_PersistsToDB(t *testing.T) {
 	require.Equal(t, 1, result.SuccessSchedules)
 
 	// Verify in DB
-	list, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	list, _, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	assert.Len(t, list[0].Patients, 2)

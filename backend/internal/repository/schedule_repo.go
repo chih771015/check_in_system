@@ -8,6 +8,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// defaultRecentScheduleLimit caps the default "latest created" page when the
+// caller does not specify a page size. Mirrors the service-layer constant.
+const defaultRecentScheduleLimit = 100
+
 // ScheduleRepository handles database operations for schedules.
 type ScheduleRepository struct {
 	db *gorm.DB
@@ -64,46 +68,72 @@ func (r *ScheduleRepository) FindByTranslator(translatorID uint, dateFrom, dateT
 }
 
 // FindAll returns schedules with optional filters and Translator + Patients preloaded.
-func (r *ScheduleRepository) FindAll(translatorID uint, dateFrom, dateTo, location string) ([]model.Schedule, error) {
+// FindAll returns schedules matching the filters (date ASC) plus the total
+// matching count. PageSize <= 0 means "no limit" — return every matching row
+// (used by the nightly reminder job). Otherwise the result is one page.
+func (r *ScheduleRepository) FindAll(translatorID uint, dateFrom, dateTo, location string, page, pageSize int) ([]model.Schedule, int64, error) {
 	var schedules []model.Schedule
-	query := r.db.
-		Preload("Translator").
-		Preload("Patients.Patient")
+	var total int64
 
+	base := r.db.Model(&model.Schedule{})
 	if translatorID > 0 {
-		query = query.Where("translator_id = ?", translatorID)
+		base = base.Where("translator_id = ?", translatorID)
 	}
 	if dateFrom != "" {
-		query = query.Where("date >= ?", dateFrom)
+		base = base.Where("date >= ?", dateFrom)
 	}
 	if dateTo != "" {
-		query = query.Where("date <= ?", dateTo)
+		base = base.Where("date <= ?", dateTo)
 	}
 	if location != "" {
-		query = query.Where("location ILIKE ?", "%"+location+"%")
+		base = base.Where("location ILIKE ?", "%"+location+"%")
 	}
 
-	if err := query.Order("date ASC, start_time ASC").Find(&schedules).Error; err != nil {
-		return nil, err
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return schedules, nil
+
+	query := base.
+		Preload("Translator").
+		Preload("Patients.Patient").
+		Order("date ASC, start_time ASC")
+	if pageSize > 0 {
+		if page <= 0 {
+			page = 1
+		}
+		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+	}
+	if err := query.Find(&schedules).Error; err != nil {
+		return nil, 0, err
+	}
+	return schedules, total, nil
 }
 
-// FindRecentByCreated returns the most recently created schedules
-// (created_at DESC, id DESC as a stable tiebreaker), capped at limit, with
-// Translator + Patients preloaded. This backs the default (unfiltered) admin
-// list view: "latest created schedules".
-func (r *ScheduleRepository) FindRecentByCreated(limit int) ([]model.Schedule, error) {
+// FindRecentByCreated returns one page of schedules ordered by created_at DESC
+// (id DESC as a stable tiebreaker), with Translator + Patients preloaded, plus
+// the total row count. This backs the default (unfiltered) admin list view:
+// "latest created schedules".
+func (r *ScheduleRepository) FindRecentByCreated(page, pageSize int) ([]model.Schedule, int64, error) {
 	var schedules []model.Schedule
+	var total int64
+	if err := r.db.Model(&model.Schedule{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if pageSize <= 0 {
+		pageSize = defaultRecentScheduleLimit
+	}
+	if page <= 0 {
+		page = 1
+	}
 	if err := r.db.
 		Preload("Translator").
 		Preload("Patients.Patient").
 		Order("created_at DESC, id DESC").
-		Limit(limit).
+		Limit(pageSize).Offset((page - 1) * pageSize).
 		Find(&schedules).Error; err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return schedules, nil
+	return schedules, total, nil
 }
 
 // Create inserts a new schedule record.

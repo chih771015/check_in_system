@@ -41,13 +41,27 @@ func (h *ScheduleHandler) AdminListSchedules(c *gin.Context) {
 		translatorID = uint(id)
 	}
 
-	schedules, err := h.scheduleService.List(c.Request.Context(), translatorID, query.DateFrom, query.DateTo, query.Location)
+	page := query.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := query.PageSize
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+
+	schedules, total, err := h.scheduleService.List(c.Request.Context(), translatorID, query.DateFrom, query.DateTo, query.Location, page, pageSize)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": schedules})
+	c.JSON(http.StatusOK, gin.H{
+		"data":     schedules,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+	})
 }
 
 // AdminCreateSchedule handles POST /api/admin/schedules.

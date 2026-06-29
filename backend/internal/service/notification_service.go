@@ -93,7 +93,8 @@ func (n *NotificationService) SendScheduleReminders() {
 	defer span.End()
 
 	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
-	schedules, err := n.scheduleRepo.FindAll(0, tomorrow, tomorrow, "")
+	// pageSize 0 → no pagination: the reminder job needs every schedule for the day.
+	schedules, _, err := n.scheduleRepo.FindAll(0, tomorrow, tomorrow, "", 0, 0)
 	if err != nil {
 		log.Printf("[notification] failed to list schedules: %v", err)
 		return

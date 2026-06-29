@@ -79,19 +79,25 @@ const DefaultRecentScheduleLimit = 100
 // the most recently created schedules (created_at DESC, capped at
 // DefaultRecentScheduleLimit) — the default admin view. Any filter switches to
 // the full filtered query ordered by date ASC.
-func (s *ScheduleService) List(ctx context.Context, translatorID uint, dateFrom, dateTo, location string) ([]dto.ScheduleResponse, error) {
+func (s *ScheduleService) List(ctx context.Context, translatorID uint, dateFrom, dateTo, location string, page, pageSize int) ([]dto.ScheduleResponse, int64, error) {
+	var (
+		schedules []model.Schedule
+		total     int64
+		err       error
+	)
 	if translatorID == 0 && dateFrom == "" && dateTo == "" && location == "" {
-		schedules, err := s.scheduleRepo.WithCtx(ctx).FindRecentByCreated(DefaultRecentScheduleLimit)
-		if err != nil {
-			return nil, err
-		}
-		return s.toResponseList(ctx, schedules)
+		schedules, total, err = s.scheduleRepo.WithCtx(ctx).FindRecentByCreated(page, pageSize)
+	} else {
+		schedules, total, err = s.scheduleRepo.WithCtx(ctx).FindAll(translatorID, dateFrom, dateTo, location, page, pageSize)
 	}
-	schedules, err := s.scheduleRepo.WithCtx(ctx).FindAll(translatorID, dateFrom, dateTo, location)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return s.toResponseList(ctx, schedules)
+	resp, err := s.toResponseList(ctx, schedules)
+	if err != nil {
+		return nil, 0, err
+	}
+	return resp, total, nil
 }
 
 // ListForTranslator returns schedules for a specific translator.

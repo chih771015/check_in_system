@@ -175,7 +175,7 @@ func TestScheduleService_Create_Recurring_Daily_GeneratesGroup(t *testing.T) {
 	require.NotNil(t, resp.RecurrenceGroupID)
 
 	// 應建立 3 筆相同 group 的排班
-	list, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	list, _, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	require.NoError(t, err)
 	assert.Len(t, list, 3)
 	groupID := *resp.RecurrenceGroupID
@@ -264,7 +264,7 @@ func TestScheduleService_DeleteRecurrenceGroup_BulkDelete(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 4, count)
 
-	list, _ := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	list, _, _ := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	assert.Empty(t, list, "all grouped schedules should be gone")
 }
 
@@ -292,7 +292,7 @@ func TestScheduleService_List_CheckinStatusPriority(t *testing.T) {
 		CheckinTime: time.Now(), Latitude: 1, Longitude: 1, Address: "x", SelfieURL: "/x",
 	}))
 
-	list, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "")
+	list, _, err := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	require.NoError(t, err)
 	statusByID := map[uint]string{}
 	for _, s := range list {
@@ -312,12 +312,36 @@ func TestScheduleService_List_DefaultRecentWhenUnfiltered(t *testing.T) {
 
 	// No filter → default mode: most recently created first (created_at DESC),
 	// which is the reverse of date ASC. Created order s1,s2,s3 → expect s3,s2,s1.
-	list, err := fx.svc.List(ctx, 0, "", "", "")
+	list, _, err := fx.svc.List(ctx, 0, "", "", "", 0, 0)
 	require.NoError(t, err)
 	require.Len(t, list, 3)
 	assert.Equal(t, s3.ID, list[0].ID)
 	assert.Equal(t, s2.ID, list[1].ID)
 	assert.Equal(t, s1.ID, list[2].ID)
+}
+
+func TestScheduleService_List_Paginates(t *testing.T) {
+	fx := newScheduleFixture(t)
+	ctx := context.Background()
+	fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-10"))
+	fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-11"))
+	fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-12"))
+
+	// Default (unfiltered) mode, page 1 of size 2.
+	page1, total, err := fx.svc.List(ctx, 0, "", "", "", 1, 2)
+	require.NoError(t, err)
+	assert.Len(t, page1, 2, "page size caps rows")
+	assert.Equal(t, int64(3), total, "total is the full count")
+
+	page2, _, err := fx.svc.List(ctx, 0, "", "", "", 2, 2)
+	require.NoError(t, err)
+	assert.Len(t, page2, 1, "page 2 has the leftover row")
+
+	// Filtered mode also paginates and reports the full matching total.
+	fp1, ftotal, err := fx.svc.List(ctx, 0, "2026-05-01", "2026-05-31", "", 1, 2)
+	require.NoError(t, err)
+	assert.Len(t, fp1, 2)
+	assert.Equal(t, int64(3), ftotal)
 }
 
 func TestScheduleService_List_FilteredUsesDateOrder(t *testing.T) {
@@ -328,7 +352,7 @@ func TestScheduleService_List_FilteredUsesDateOrder(t *testing.T) {
 	earlier, _ := fx.svc.Create(ctx, mkCreateReq(fx.translator.ID, "2026-05-10"))
 
 	// A date-range filter → filtered mode keeps the existing date ASC ordering.
-	list, err := fx.svc.List(ctx, 0, "2026-05-01", "2026-05-31", "")
+	list, _, err := fx.svc.List(ctx, 0, "2026-05-01", "2026-05-31", "", 0, 0)
 	require.NoError(t, err)
 	require.Len(t, list, 2)
 	assert.Equal(t, earlier.ID, list[0].ID, "filtered mode orders by date ASC")

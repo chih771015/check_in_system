@@ -45,8 +45,14 @@ func TestScheduleRepo_FindRecentByCreated_OrdersAndLimits(t *testing.T) {
 		require.NoError(t, db.Create(s).Error)
 	}
 
-	got, err := repo.FindRecentByCreated(2)
+	got, total, err := repo.FindRecentByCreated(1, 2)
 	require.NoError(t, err)
-	require.Len(t, got, 2, "limit should cap results")
+	require.Len(t, got, 2, "page size should cap results")
+	assert.Equal(t, int64(3), total, "total reflects full count regardless of page size")
 	assert.True(t, got[0].CreatedAt.After(got[1].CreatedAt), "newest created_at first (DESC)")
+
+	// Second page returns the remaining row.
+	page2, _, err := repo.FindRecentByCreated(2, 2)
+	require.NoError(t, err)
+	require.Len(t, page2, 1, "page 2 has the leftover row")
 }
