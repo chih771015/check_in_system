@@ -196,8 +196,9 @@
       "groupTotal": "打卡總計",
       "groupPunctuality": "準時度",
       "groupMakeup": "補打卡",
-      "punctualityHint": "僅計算時段內當場打卡的到達；補打卡不列入準時／遲到。",
-      "makeupHint": "事後補登，或打卡時間已超過排班結束時間。"
+      "arriveMakeupNote": "含 {{count}} 筆補打卡",
+      "punctualityHint": "只統計「當場到達」的準時／遲到，補打卡的到達不列入。",
+      "makeupHint": "補打卡獨立計算（含到達與離開）：事後補登，或打卡時間已超過排班結束時間。"
     }
   },
   "checkin": {

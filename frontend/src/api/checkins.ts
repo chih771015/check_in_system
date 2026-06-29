@@ -35,6 +35,7 @@ export interface MyCheckinStats {
   arriveCount: number;
   leaveCount: number;
   makeupCount: number;
+  makeupArriveCount: number;
   onTimeCount: number;
   lateCount: number;
 }

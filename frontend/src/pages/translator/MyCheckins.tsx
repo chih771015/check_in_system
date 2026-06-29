@@ -97,7 +97,16 @@ export default function MyCheckinsPage() {
           </Typography.Text>
           <Row gutter={[12, 12]} style={{ marginTop: 4, marginBottom: 12 }}>
             <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.total')} value={stats.total} /></Card></Col>
-            <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} /></Card></Col>
+            <Col xs={12} sm={8} md={6}>
+              <Card size="small">
+                <Statistic title={t('checkins.stats.arrive')} value={stats.arriveCount} />
+                {stats.makeupArriveCount > 0 && (
+                  <div style={{ color: '#fa8c16', fontSize: 12, marginTop: 2 }}>
+                    {t('checkins.stats.arriveMakeupNote', { count: stats.makeupArriveCount })}
+                  </div>
+                )}
+              </Card>
+            </Col>
             <Col xs={12} sm={8} md={6}><Card size="small"><Statistic title={t('checkins.stats.leave')} value={stats.leaveCount} /></Card></Col>
           </Row>
 

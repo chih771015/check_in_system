@@ -196,8 +196,9 @@
       "groupTotal": "Check-in totals",
       "groupPunctuality": "Punctuality",
       "groupMakeup": "Makeup",
-      "punctualityHint": "Counts in-window live arrivals only; makeup check-ins are excluded from on-time/late.",
-      "makeupHint": "Backfilled afterwards, or punched after the schedule end time."
+      "arriveMakeupNote": "incl. {{count}} makeup",
+      "punctualityHint": "Counts on-time/late for live arrivals only; makeup arrivals are not included.",
+      "makeupHint": "Counted independently (both arrive and leave): backfilled afterwards, or punched after the schedule end time."
     }
   },
   "checkin": {
