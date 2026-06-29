@@ -216,7 +216,7 @@ func (s *CheckinService) AdminDeleteCheckin(ctx context.Context, id uint) error 
 
 // MyHistory returns the translator's own checkin history with optional filters.
 func (s *CheckinService) MyHistory(ctx context.Context, translatorID uint, dateFrom, dateTo string) ([]dto.CheckinResponse, error) {
-	checkins, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
+	checkins, _, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
 		TranslatorID: translatorID,
@@ -269,7 +269,7 @@ type CheckinStats struct {
 func (s *CheckinService) MyStats(ctx context.Context, translatorID uint, dateFrom, dateTo string) (*CheckinStats, error) {
 	ckRepo := s.checkinRepo.WithCtx(ctx)
 	schRepo := s.scheduleRepo.WithCtx(ctx)
-	checkins, err := ckRepo.ListAll(repository.ListAllParams{
+	checkins, _, err := ckRepo.ListAll(repository.ListAllParams{
 		DateFrom:     dateFrom,
 		DateTo:       dateTo,
 		TranslatorID: translatorID,
@@ -313,25 +313,32 @@ func (s *CheckinService) MyStats(ctx context.Context, translatorID uint, dateFro
 }
 
 // AdminListParams mirrors repository.ListAllParams for service layer.
+// PageSize <= 0 means "no pagination" (the export path relies on this to pull
+// every matching row).
 type AdminListParams struct {
 	DateFrom     string
 	DateTo       string
 	TranslatorID uint
 	CheckinType  string
 	IsMakeup     *bool
+	Page         int
+	PageSize     int
 }
 
-// AdminList returns all checkins with optional filters for admin view.
-func (s *CheckinService) AdminList(ctx context.Context, params AdminListParams) ([]dto.CheckinResponse, error) {
-	checkins, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
+// AdminList returns one page of checkins matching the filters plus the total
+// matching count. With PageSize <= 0 it returns every row (export path).
+func (s *CheckinService) AdminList(ctx context.Context, params AdminListParams) ([]dto.CheckinResponse, int64, error) {
+	checkins, total, err := s.checkinRepo.WithCtx(ctx).ListAll(repository.ListAllParams{
 		DateFrom:     params.DateFrom,
 		DateTo:       params.DateTo,
 		TranslatorID: params.TranslatorID,
 		CheckinType:  params.CheckinType,
 		IsMakeup:     params.IsMakeup,
+		Page:         params.Page,
+		PageSize:     params.PageSize,
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	uRepo := s.userRepo.WithCtx(ctx)
@@ -359,5 +366,5 @@ func (s *CheckinService) AdminList(ctx context.Context, params AdminListParams) 
 			CreatedAt:      c.CreatedAt,
 		})
 	}
-	return results, nil
+	return results, total, nil
 }

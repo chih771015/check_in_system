@@ -260,12 +260,47 @@ func TestCheckinService_AdminList_FiltersByType(t *testing.T) {
 		25.0, 121.5, "x", "/u/s", "/u/e", false, "")
 	require.NoError(t, err)
 
-	all, err := fx.svc.AdminList(context.Background(), AdminListParams{})
+	all, total, err := fx.svc.AdminList(context.Background(), AdminListParams{})
 	require.NoError(t, err)
 	assert.Len(t, all, 2)
+	assert.Equal(t, int64(2), total)
 
-	arriveOnly, err := fx.svc.AdminList(context.Background(), AdminListParams{CheckinType: "arrive"})
+	arriveOnly, totalArrive, err := fx.svc.AdminList(context.Background(), AdminListParams{CheckinType: "arrive"})
 	require.NoError(t, err)
 	assert.Len(t, arriveOnly, 1)
+	assert.Equal(t, int64(1), totalArrive)
 	assert.Equal(t, "arrive", arriveOnly[0].Type)
+}
+
+// Admin list must support server-side pagination: PageSize caps the rows
+// returned while total still reflects the full matching count. PageSize<=0
+// means "no limit" (used by the export path, which needs every row).
+func TestCheckinService_AdminList_Paginates(t *testing.T) {
+	fx := newCheckinFixture(t)
+	// Insert 5 rows directly via the repo — the service's Checkin enforces an
+	// arrive-before-leave / no-duplicate rule per schedule, which is irrelevant
+	// to pagination and would otherwise block a 5-row setup.
+	for i := 0; i < 5; i++ {
+		require.NoError(t, fx.checkinRepo.Create(&model.Checkin{
+			ScheduleID:   fx.schedule.ID,
+			TranslatorID: fx.translator.ID,
+			Type:         "arrive",
+			CheckinTime:  time.Now().Add(time.Duration(i) * time.Minute),
+			SelfieURL:    "/u/s",
+		}))
+	}
+
+	page1, total, err := fx.svc.AdminList(context.Background(), AdminListParams{Page: 1, PageSize: 2})
+	require.NoError(t, err)
+	assert.Len(t, page1, 2, "第一頁只回 PageSize 筆")
+	assert.Equal(t, int64(5), total, "total 反映完整筆數，不受分頁影響")
+
+	page3, _, err := fx.svc.AdminList(context.Background(), AdminListParams{Page: 3, PageSize: 2})
+	require.NoError(t, err)
+	assert.Len(t, page3, 1, "最後一頁剩 1 筆")
+
+	// Export path: no page size → all rows.
+	allRows, _, err := fx.svc.AdminList(context.Background(), AdminListParams{})
+	require.NoError(t, err)
+	assert.Len(t, allRows, 5, "PageSize<=0 不分頁，回全部")
 }

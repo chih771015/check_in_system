@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"translator-checkin/internal/model"
 
@@ -91,17 +92,33 @@ type ListAllParams struct {
 	TranslatorID uint
 	CheckinType  string
 	IsMakeup     *bool
+	// Page is 1-based. PageSize <= 0 means "no limit" — return every matching
+	// row (used by the export path). Otherwise the query is windowed.
+	Page     int
+	PageSize int
 }
 
-// ListAll returns all checkins with optional filters, joining with users for translator name.
-func (r *CheckinRepository) ListAll(params ListAllParams) ([]model.Checkin, error) {
+// ListAll returns checkins matching the filters (newest first) plus the total
+// matching count. When PageSize > 0 the result is limited to one page; the
+// total is always the full count so the UI can render a pager.
+func (r *CheckinRepository) ListAll(params ListAllParams) ([]model.Checkin, int64, error) {
 	var checkins []model.Checkin
-	q := r.db.Order("checkin_time DESC")
+	var total int64
+
+	q := r.db.Model(&model.Checkin{})
 	if params.DateFrom != "" {
-		q = q.Where("DATE(checkin_time) >= ?", params.DateFrom)
+		// Half-open range on the raw column (no DATE() wrapper) so PostgreSQL
+		// can use the checkin_time index. Parse the date in local time; on a
+		// parse failure we simply skip the bound rather than erroring.
+		if from, err := time.ParseInLocation("2006-01-02", params.DateFrom, time.Local); err == nil {
+			q = q.Where("checkin_time >= ?", from)
+		}
 	}
 	if params.DateTo != "" {
-		q = q.Where("DATE(checkin_time) <= ?", params.DateTo)
+		if to, err := time.ParseInLocation("2006-01-02", params.DateTo, time.Local); err == nil {
+			// Inclusive of the whole DateTo day → strictly before the next day.
+			q = q.Where("checkin_time < ?", to.AddDate(0, 0, 1))
+		}
 	}
 	if params.TranslatorID > 0 {
 		q = q.Where("translator_id = ?", params.TranslatorID)
@@ -112,8 +129,21 @@ func (r *CheckinRepository) ListAll(params ListAllParams) ([]model.Checkin, erro
 	if params.IsMakeup != nil {
 		q = q.Where("is_makeup = ?", *params.IsMakeup)
 	}
-	if err := q.Find(&checkins).Error; err != nil {
-		return nil, err
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return checkins, nil
+
+	q = q.Order("checkin_time DESC")
+	if params.PageSize > 0 {
+		page := params.Page
+		if page <= 0 {
+			page = 1
+		}
+		q = q.Limit(params.PageSize).Offset((page - 1) * params.PageSize)
+	}
+	if err := q.Find(&checkins).Error; err != nil {
+		return nil, 0, err
+	}
+	return checkins, total, nil
 }

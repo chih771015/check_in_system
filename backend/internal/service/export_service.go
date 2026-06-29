@@ -65,7 +65,8 @@ func checkinRow(ck dto.CheckinResponse) []interface{} {
 // BuildCheckinExcel queries checkins matching params and returns an in-memory
 // Excel file.
 func (s *ExportService) BuildCheckinExcel(ctx context.Context, params AdminListParams) (*excelize.File, error) {
-	checkins, err := s.checkinService.AdminList(ctx, params)
+	// No PageSize on params → AdminList returns every matching row for export.
+	checkins, _, err := s.checkinService.AdminList(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +102,8 @@ func (s *ExportService) CreateCheckinGoogleSheet(ctx context.Context, params Adm
 		title = fmt.Sprintf("打卡紀錄_%s", time.Now().Format("20060102_150405"))
 	}
 
-	checkins, err := s.checkinService.AdminList(ctx, params)
+	// No PageSize on params → AdminList returns every matching row for export.
+	checkins, _, err := s.checkinService.AdminList(ctx, params)
 	if err != nil {
 		return "", err
 	}

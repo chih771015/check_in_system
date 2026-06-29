@@ -214,12 +214,32 @@ func (h *CheckinHandler) AdminListCheckins(c *gin.Context) {
 		params.IsMakeup = &v
 	}
 
-	checkins, err := h.checkinService.AdminList(c.Request.Context(), params)
+	// Server-side pagination. Defaults keep the response bounded even if the
+	// client sends nothing (previously this returned the entire table).
+	params.Page = 1
+	params.PageSize = 20
+	if v := c.Query("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil && p > 0 {
+			params.Page = p
+		}
+	}
+	if v := c.Query("pageSize"); v != "" {
+		if ps, err := strconv.Atoi(v); err == nil && ps > 0 {
+			params.PageSize = ps
+		}
+	}
+
+	checkins, total, err := h.checkinService.AdminList(c.Request.Context(), params)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": checkins})
+	c.JSON(http.StatusOK, gin.H{
+		"data":     checkins,
+		"total":    total,
+		"page":     params.Page,
+		"pageSize": params.PageSize,
+	})
 }
 
 // AdminExportExcel handles GET /api/admin/export/excel

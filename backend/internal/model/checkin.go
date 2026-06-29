@@ -8,7 +8,9 @@ type Checkin struct {
 	ScheduleID     uint      `gorm:"not null;index" json:"schedule_id"`
 	TranslatorID   uint      `gorm:"not null;index" json:"translator_id"`
 	Type           string    `gorm:"type:varchar(10);not null" json:"type"`
-	CheckinTime    time.Time `gorm:"not null" json:"checkin_time"`
+	// Indexed: the admin list defaults to ORDER BY checkin_time DESC and filters
+	// on a checkin_time range, so this index backs both sort and date filtering.
+	CheckinTime    time.Time `gorm:"not null;index" json:"checkin_time"`
 	Latitude       float64   `gorm:"type:decimal(10,7)" json:"latitude"`
 	Longitude      float64   `gorm:"type:decimal(10,7)" json:"longitude"`
 	Address        string    `gorm:"type:varchar(500)" json:"address"`
