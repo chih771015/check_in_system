@@ -5,11 +5,12 @@ import { App as AntApp } from 'antd';
 import TranslatorManagement from '../TranslatorManagement';
 import i18n from '../../../i18n';
 
-const getTranslatorsMock = vi.fn();
+const getTranslatorsPagedMock = vi.fn();
 const createTranslatorMock = vi.fn();
 
 vi.mock('../../../api/translators', () => ({
-  getTranslators: () => getTranslatorsMock(),
+  getTranslators: vi.fn(),
+  getTranslatorsPaged: () => getTranslatorsPagedMock(),
   createTranslator: (data: unknown) => createTranslatorMock(data),
   updateTranslator: vi.fn(),
   disableTranslator: vi.fn(),
@@ -26,9 +27,9 @@ function renderPage() {
 
 describe('TranslatorManagement', () => {
   beforeEach(async () => {
-    getTranslatorsMock.mockReset();
+    getTranslatorsPagedMock.mockReset();
     createTranslatorMock.mockReset();
-    getTranslatorsMock.mockResolvedValue([]);
+    getTranslatorsPagedMock.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 10 });
     document.body.innerHTML = '';
     await i18n.changeLanguage('en');
   });

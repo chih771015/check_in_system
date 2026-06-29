@@ -4,7 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { TranslatorListItem } from '../../types';
 import {
-  getTranslators,
+  getTranslatorsPaged,
   createTranslator,
   updateTranslator,
   disableTranslator,
@@ -16,6 +16,9 @@ export default function TranslatorManagement() {
   const [data, setData] = useState<TranslatorListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<TranslatorListItem | null>(null);
@@ -34,14 +37,15 @@ export default function TranslatorManagement() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await getTranslators(statusFilter || undefined);
-      setData(list);
+      const resp = await getTranslatorsPaged({ status: statusFilter || undefined, page, pageSize });
+      setData(resp.data);
+      setTotal(resp.total);
     } catch {
       message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, message, t]);
+  }, [statusFilter, page, pageSize, message, t]);
 
   useEffect(() => {
     void fetchData();
@@ -182,7 +186,7 @@ export default function TranslatorManagement() {
         <Select
           style={{ width: 140 }}
           value={statusFilter}
-          onChange={setStatusFilter}
+          onChange={(v) => { setPage(1); setStatusFilter(v); }}
           options={[
             { value: '', label: t('common.actions') },
             { value: 'active', label: t('common.active') },
@@ -200,7 +204,13 @@ export default function TranslatorManagement() {
         rowKey="id"
         loading={loading}
         scroll={{ x: 600 }}
-        pagination={{ pageSize: 10 }}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+        }}
       />
 
       <Modal

@@ -1,9 +1,29 @@
 import type { TranslatorListItem } from '../types';
 import client from './client';
 
+export interface TranslatorListResponse {
+  data: TranslatorListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// getTranslators returns the FULL list (no pagination) — used by the translator
+// dropdown pickers across the admin UI. The list endpoint always returns the
+// paginated envelope; omitting page/pageSize makes the backend return every row.
 export function getTranslators(status?: string) {
   return client
-    .get<TranslatorListItem[]>('/admin/translators', { params: status ? { status } : undefined })
+    .get<TranslatorListResponse>('/admin/translators', { params: status ? { status } : undefined })
+    .then((r) => r.data.data);
+}
+
+// getTranslatorsPaged returns one page plus the total, for the management table.
+export function getTranslatorsPaged(params: { status?: string; page: number; pageSize: number }) {
+  const { status, page, pageSize } = params;
+  return client
+    .get<TranslatorListResponse>('/admin/translators', {
+      params: { ...(status ? { status } : {}), page, pageSize },
+    })
     .then((r) => r.data);
 }
 

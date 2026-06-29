@@ -20,6 +20,9 @@ import { useAuth } from '../../stores/authStore';
 export default function AdminManagement() {
   const [data, setData] = useState<AdminListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm] = Form.useForm();
@@ -30,14 +33,15 @@ export default function AdminManagement() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await getAdmins();
-      setData(list);
+      const resp = await getAdmins({ page, pageSize });
+      setData(resp.data);
+      setTotal(resp.total);
     } catch {
       void message.error(t('errors.INTERNAL_ERROR'));
     } finally {
       setLoading(false);
     }
-  }, [message, t]);
+  }, [page, pageSize, message, t]);
 
   useEffect(() => {
     void fetchData();
@@ -138,7 +142,13 @@ export default function AdminManagement() {
         dataSource={data}
         rowKey="id"
         loading={loading}
-        pagination={false}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+        }}
       />
 
       <Modal

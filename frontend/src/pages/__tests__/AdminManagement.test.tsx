@@ -41,6 +41,7 @@ function renderPage() {
 describe('AdminManagement', () => {
   beforeEach(async () => {
     getAdminsMock.mockReset();
+    getAdminsMock.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 10 });
     createAdminMock.mockReset();
     deleteAdminMock.mockReset();
     localStorage.clear();
@@ -55,14 +56,14 @@ describe('AdminManagement', () => {
   });
 
   it('lists admins fetched from API', async () => {
-    getAdminsMock.mockResolvedValueOnce(sampleAdmins);
+    getAdminsMock.mockResolvedValueOnce({ data: sampleAdmins, total: sampleAdmins.length, page: 1, pageSize: 10 });
     renderPage();
     expect(await screen.findByText('me@a.com')).toBeInTheDocument();
     expect(screen.getByText('other@a.com')).toBeInTheDocument();
   });
 
   it('disables the delete button for the current user (self-delete guard)', async () => {
-    getAdminsMock.mockResolvedValueOnce(sampleAdmins);
+    getAdminsMock.mockResolvedValueOnce({ data: sampleAdmins, total: sampleAdmins.length, page: 1, pageSize: 10 });
     renderPage();
     await screen.findByText('me@a.com');
 
@@ -76,7 +77,7 @@ describe('AdminManagement', () => {
   });
 
   it('opens create modal and shows password mismatch error', async () => {
-    getAdminsMock.mockResolvedValueOnce(sampleAdmins);
+    getAdminsMock.mockResolvedValueOnce({ data: sampleAdmins, total: sampleAdmins.length, page: 1, pageSize: 10 });
     renderPage();
     await screen.findByText('me@a.com');
 
