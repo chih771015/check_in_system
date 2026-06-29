@@ -1,8 +1,17 @@
 import type { ScheduleItem, SchedulePatientPayload } from '../types';
 import client from './client';
 
-export function getAdminSchedules(params?: Record<string, string>) {
-  return client.get<ScheduleItem[]>('/admin/schedules', { params }).then((r) => r.data);
+export interface AdminScheduleListResponse {
+  data: ScheduleItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export function getAdminSchedules(params?: Record<string, string | number>) {
+  return client
+    .get<AdminScheduleListResponse>('/admin/schedules', { params })
+    .then((r) => r.data);
 }
 
 export interface CreateSchedulePayload {

@@ -115,6 +115,9 @@ export default function ScheduleManagement() {
   const [editOpen, setEditOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ScheduleItem | null>(null);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   // Bumped to force-remount the filter inputs when resetting to default mode.
   const [filterKey, setFilterKey] = useState(0);
   const [createForm] = Form.useForm();
@@ -142,16 +145,17 @@ export default function ScheduleManagement() {
   const fetchData = useCallback(async (): Promise<ScheduleItem[]> => {
     setLoading(true);
     try {
-      const list = await getAdminSchedules(filters);
-      setData(list);
-      return list;
+      const resp = await getAdminSchedules({ ...filters, page, pageSize });
+      setData(resp.data);
+      setTotal(resp.total);
+      return resp.data;
     } catch {
       message.error(t('errors.INTERNAL_ERROR'));
       return [];
     } finally {
       setLoading(false);
     }
-  }, [filters, message, t]);
+  }, [filters, page, pageSize, message, t]);
 
   // Re-fetch the list (honouring current filters) and, if the detail modal is
   // open, refresh its record from that same list. Using the filtered list —
@@ -337,6 +341,7 @@ export default function ScheduleManagement() {
   };
 
   const handleDateRangeChange = (_: unknown, dateStrings: [string, string]) => {
+    setPage(1);
     if (dateStrings[0] && dateStrings[1]) {
       setFilters((prev) => ({ ...prev, dateFrom: dateStrings[0], dateTo: dateStrings[1] }));
     } else {
@@ -356,11 +361,13 @@ export default function ScheduleManagement() {
   // Resets all filters back to default mode and force-remounts the filter
   // inputs (via filterKey) so their displayed values clear too.
   const resetToDefault = () => {
+    setPage(1);
     setFilters({});
     setFilterKey((k) => k + 1);
   };
 
   const handleTranslatorFilter = (value: string) => {
+    setPage(1);
     if (value) {
       setFilters((prev) => ({ ...prev, translatorId: value }));
     } else {
@@ -373,6 +380,7 @@ export default function ScheduleManagement() {
   };
 
   const handleLocationSearch = (value: string) => {
+    setPage(1);
     if (value) {
       setFilters((prev) => ({ ...prev, location: value }));
     } else {
@@ -582,7 +590,16 @@ export default function ScheduleManagement() {
         rowKey="id"
         loading={loading}
         scroll={{ x: 800 }}
-        pagination={{ pageSize: 10 }}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          onChange: (p, ps) => {
+            setPage(p);
+            setPageSize(ps);
+          },
+        }}
       />
 
       <Modal

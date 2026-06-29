@@ -53,7 +53,7 @@ function applyLocationFilter(value: string) {
 describe('ScheduleManagement — default sort + latest-created button', () => {
   beforeEach(async () => {
     getAdminSchedulesMock.mockReset();
-    getAdminSchedulesMock.mockResolvedValue([]);
+    getAdminSchedulesMock.mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 10 });
     document.body.innerHTML = '';
     await i18n.changeLanguage('en');
   });
@@ -62,7 +62,8 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
   it('starts in default mode: fetches with no filters and highlights the button', async () => {
     render(<AntApp><ScheduleManagement /></AntApp>);
     await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalled());
-    expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({});
+    // No filters applied — only the pagination params travel with the request.
+    expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 10 });
     expect(latestButton()).toHaveClass('ant-btn-primary');
   });
 
@@ -72,7 +73,7 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
 
     applyLocationFilter('VGH');
 
-    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ location: 'VGH' }));
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ location: 'VGH', page: 1, pageSize: 10 }));
     expect(latestButton()).not.toHaveClass('ant-btn-primary');
   });
 
@@ -84,7 +85,7 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
     await waitFor(() => expect(latestButton()).not.toHaveClass('ant-btn-primary'));
 
     fireEvent.click(latestButton());
-    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({}));
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ page: 1, pageSize: 10 }));
     expect(latestButton()).toHaveClass('ant-btn-primary');
   });
 
@@ -97,7 +98,7 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
       location: 'VGH', translatorId: 1, translatorName: 'T', status: 'pending',
       patients: [],
     };
-    getAdminSchedulesMock.mockResolvedValue([sched]);
+    getAdminSchedulesMock.mockResolvedValue({ data: [sched], total: 1, page: 1, pageSize: 10 });
     render(<AntApp><ScheduleManagement /></AntApp>);
     await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalled());
 
@@ -121,12 +122,12 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
         prepaidAmount: 0, actualAmount: 0,
       }],
     };
-    getAdminSchedulesMock.mockResolvedValue([sched]);
+    getAdminSchedulesMock.mockResolvedValue({ data: [sched], total: 1, page: 1, pageSize: 10 });
     render(<AntApp><ScheduleManagement /></AntApp>);
     await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalled());
 
     applyLocationFilter('VGH');
-    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ location: 'VGH' }));
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenLastCalledWith({ location: 'VGH', page: 1, pageSize: 10 }));
 
     fireEvent.click(screen.getByRole('button', { name: /Detail/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Upload/ }));
@@ -134,7 +135,7 @@ describe('ScheduleManagement — default sort + latest-created button', () => {
     getAdminSchedulesMock.mockClear();
     fireEvent.click(screen.getByText('trigger-uploaded'));
 
-    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalledWith({ location: 'VGH' }));
-    expect(getAdminSchedulesMock).not.toHaveBeenCalledWith({});
+    await waitFor(() => expect(getAdminSchedulesMock).toHaveBeenCalledWith({ location: 'VGH', page: 1, pageSize: 10 }));
+    expect(getAdminSchedulesMock).not.toHaveBeenCalledWith({ page: 1, pageSize: 10 });
   });
 });
