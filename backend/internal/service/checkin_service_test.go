@@ -246,6 +246,7 @@ func TestCheckinService_MyStats_MakeupArriveNotJudgedLate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 1, stats.ArriveCount)
 	assert.Equal(t, 1, stats.MakeupCount)
+	assert.Equal(t, 1, stats.MakeupArriveCount, "補打卡到達應單獨計數，供前端在到達卡標註")
 	assert.Equal(t, 0, stats.OnTimeCount, "補打卡不該算準時")
 	assert.Equal(t, 0, stats.LateCount, "補打卡不該算遲到")
 }

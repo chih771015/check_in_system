@@ -257,8 +257,12 @@ type CheckinStats struct {
 	ArriveCount int `json:"arriveCount"`
 	LeaveCount  int `json:"leaveCount"`
 	MakeupCount int `json:"makeupCount"`
-	OnTimeCount int `json:"onTimeCount"`
-	LateCount   int `json:"lateCount"`
+	// MakeupArriveCount is the subset of arrives that are makeup. The frontend
+	// annotates the "arrive" card with it ("含 N 筆補打卡") so arrive vs
+	// onTime+late no longer looks like it's missing one.
+	MakeupArriveCount int `json:"makeupArriveCount"`
+	OnTimeCount       int `json:"onTimeCount"`
+	LateCount         int `json:"lateCount"`
 }
 
 // MyStats computes aggregate checkin stats for a translator.
@@ -284,6 +288,7 @@ func (s *CheckinService) MyStats(ctx context.Context, translatorID uint, dateFro
 			// start would wrongly flag it as late — skip it entirely here; it is
 			// counted under MakeupCount below instead.
 			if c.IsMakeup {
+				stats.MakeupArriveCount++
 				break
 			}
 			// Compare with schedule start time to detect late arrival.
