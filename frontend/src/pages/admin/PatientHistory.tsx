@@ -143,7 +143,6 @@ export default function PatientHistory() {
             <Statistic
               title={dateFrom ? t('patients.rangeActualTotal') : t('patients.actualTotal')}
               value={resp.actualTotal}
-              prefix="NT$"
               style={{ marginBottom: 16 }}
             />
             {resp.history.length === 0 ? (
