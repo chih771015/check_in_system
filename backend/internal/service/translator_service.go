@@ -81,16 +81,19 @@ func (s *TranslatorService) Create(ctx context.Context, req dto.CreateTranslator
 	return user.ID, nil
 }
 
-// Update modifies an existing translator's information.
-func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateTranslatorRequest) error {
+// Update modifies an existing translator's information and returns an audit
+// detail JSON describing the before/after state.
+func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateTranslatorRequest) (string, error) {
 	user, err := s.userRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
-		return ErrTranslatorNotFound
+		return "", ErrTranslatorNotFound
 	}
 
 	if user.Role != "translator" {
-		return ErrNotATranslator
+		return "", ErrNotATranslator
 	}
+
+	before := snapshotUser(user)
 
 	if req.Name != nil {
 		user.Name = *req.Name
@@ -100,12 +103,15 @@ func (s *TranslatorService) Update(ctx context.Context, id uint, req dto.UpdateT
 	}
 	if req.Status != nil {
 		if *req.Status != "active" && *req.Status != "disabled" {
-			return ErrInvalidStatus
+			return "", ErrInvalidStatus
 		}
 		user.Status = *req.Status
 	}
 
-	return s.userRepo.WithCtx(ctx).Update(user)
+	if err := s.userRepo.WithCtx(ctx).Update(user); err != nil {
+		return "", err
+	}
+	return auditDetailJSON(before, snapshotUser(user)), nil
 }
 
 // Disable sets a translator's status to disabled.

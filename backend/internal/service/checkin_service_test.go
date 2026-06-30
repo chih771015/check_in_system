@@ -143,7 +143,7 @@ func TestCheckinService_Checkin_AutoMakeupWhenLate(t *testing.T) {
 
 func TestCheckinService_AdminUpdateCheckin_NotFound(t *testing.T) {
 	fx := newCheckinFixture(t)
-	err := fx.svc.AdminUpdateCheckin(context.Background(), 99999, dto.AdminUpdateCheckinRequest{})
+	_, err := fx.svc.AdminUpdateCheckin(context.Background(), 99999, dto.AdminUpdateCheckinRequest{})
 	assert.True(t, errors.Is(err, ErrCheckinNotFound))
 }
 
@@ -153,7 +153,7 @@ func TestCheckinService_AdminUpdateCheckin_NoFields(t *testing.T) {
 		25.0, 121.5, "x", "/u/s", "/u/e", false, "")
 	require.NoError(t, err)
 
-	err = fx.svc.AdminUpdateCheckin(context.Background(), resp.ID, dto.AdminUpdateCheckinRequest{})
+	_, err = fx.svc.AdminUpdateCheckin(context.Background(), resp.ID, dto.AdminUpdateCheckinRequest{})
 	assert.True(t, errors.Is(err, ErrNoFieldsToUpdate))
 }
 
@@ -164,9 +164,13 @@ func TestCheckinService_AdminUpdateCheckin_AddressUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	newAddr := "new address"
-	require.NoError(t, fx.svc.AdminUpdateCheckin(context.Background(), resp.ID, dto.AdminUpdateCheckinRequest{
+	detail, err := fx.svc.AdminUpdateCheckin(context.Background(), resp.ID, dto.AdminUpdateCheckinRequest{
 		Address: &newAddr,
-	}))
+	})
+	require.NoError(t, err)
+	// Audit detail should capture before ("old") and after ("new address").
+	assert.Contains(t, detail, "old")
+	assert.Contains(t, detail, "new address")
 
 	reloaded, _ := fx.checkinRepo.FindByID(resp.ID)
 	assert.Equal(t, "new address", reloaded.Address)
@@ -174,7 +178,7 @@ func TestCheckinService_AdminUpdateCheckin_AddressUpdate(t *testing.T) {
 
 func TestCheckinService_AdminDeleteCheckin_NotFound(t *testing.T) {
 	fx := newCheckinFixture(t)
-	err := fx.svc.AdminDeleteCheckin(context.Background(), 99999)
+	_, err := fx.svc.AdminDeleteCheckin(context.Background(), 99999)
 	assert.True(t, errors.Is(err, ErrCheckinNotFound))
 }
 
@@ -184,7 +188,9 @@ func TestCheckinService_AdminDeleteCheckin_Success(t *testing.T) {
 		25.0, 121.5, "x", "/u/s", "/u/e", false, "")
 	require.NoError(t, err)
 
-	require.NoError(t, fx.svc.AdminDeleteCheckin(context.Background(), resp.ID))
+	detail, err := fx.svc.AdminDeleteCheckin(context.Background(), resp.ID)
+	require.NoError(t, err)
+	assert.Contains(t, detail, "before")
 	_, err = fx.checkinRepo.FindByID(resp.ID)
 	assert.Error(t, err)
 }

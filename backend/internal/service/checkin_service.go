@@ -183,10 +183,13 @@ func (s *CheckinService) Checkin(
 
 // AdminUpdateCheckin applies admin-editable fields to an existing checkin.
 // Photos and translator/schedule linkage are intentionally not editable.
-func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dto.AdminUpdateCheckinRequest) error {
+// AdminUpdateCheckin edits a checkin and returns an audit detail JSON describing
+// the before/after state.
+func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dto.AdminUpdateCheckinRequest) (string, error) {
 	repo := s.checkinRepo.WithCtx(ctx)
-	if _, err := repo.FindByID(id); err != nil {
-		return ErrCheckinNotFound
+	before, err := repo.FindByID(id)
+	if err != nil {
+		return "", ErrCheckinNotFound
 	}
 
 	fields := map[string]any{}
@@ -200,18 +203,31 @@ func (s *CheckinService) AdminUpdateCheckin(ctx context.Context, id uint, req dt
 		fields["makeup_reason"] = *req.MakeupReason
 	}
 	if len(fields) == 0 {
-		return ErrNoFieldsToUpdate
+		return "", ErrNoFieldsToUpdate
 	}
-	return repo.UpdateFields(id, fields)
+	beforeSnap := snapshotCheckin(before)
+	if err := repo.UpdateFields(id, fields); err != nil {
+		return "", err
+	}
+	after, err := repo.FindByID(id)
+	if err != nil {
+		return "", err
+	}
+	return auditDetailJSON(beforeSnap, snapshotCheckin(after)), nil
 }
 
-// AdminDeleteCheckin permanently removes a checkin record.
-func (s *CheckinService) AdminDeleteCheckin(ctx context.Context, id uint) error {
+// AdminDeleteCheckin permanently removes a checkin record and returns an audit
+// detail JSON containing a snapshot of the deleted record.
+func (s *CheckinService) AdminDeleteCheckin(ctx context.Context, id uint) (string, error) {
 	repo := s.checkinRepo.WithCtx(ctx)
-	if _, err := repo.FindByID(id); err != nil {
-		return ErrCheckinNotFound
+	before, err := repo.FindByID(id)
+	if err != nil {
+		return "", ErrCheckinNotFound
 	}
-	return repo.Delete(id)
+	if err := repo.Delete(id); err != nil {
+		return "", err
+	}
+	return auditDetailJSON(snapshotCheckin(before), nil), nil
 }
 
 // MyHistory returns the translator's own checkin history with optional filters.

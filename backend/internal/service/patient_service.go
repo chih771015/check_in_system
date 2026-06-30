@@ -222,21 +222,25 @@ func newPatientSheet() *excelize.File {
 
 // Update edits an existing patient. The duplicate check ignores the current
 // record so a no-op update still works.
-func (s *PatientService) Update(ctx context.Context, id uint, req dto.UpdatePatientRequest) (*model.Patient, error) {
+// Update modifies a patient and returns the updated record plus an audit detail
+// JSON describing the before/after state.
+func (s *PatientService) Update(ctx context.Context, id uint, req dto.UpdatePatientRequest) (*model.Patient, string, error) {
 	repo := s.patientRepo.WithCtx(ctx)
 	patient, err := repo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrPatientNotFound
+			return nil, "", ErrPatientNotFound
 		}
-		return nil, err
+		return nil, "", err
 	}
+
+	before := snapshotPatient(patient)
 
 	idNumber := normalizeIDNumber(req.IDNumber)
 	if existing, err := repo.FindByIDTypeAndNumber(req.IDType, idNumber); err == nil && existing != nil && existing.ID != id {
-		return nil, ErrPatientDuplicate
+		return nil, "", ErrPatientDuplicate
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
+		return nil, "", err
 	}
 
 	patient.Name = strings.TrimSpace(req.Name)
@@ -245,21 +249,26 @@ func (s *PatientService) Update(ctx context.Context, id uint, req dto.UpdatePati
 	patient.IDNumber = idNumber
 
 	if err := repo.Update(patient); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return patient, nil
+	return patient, auditDetailJSON(before, snapshotPatient(patient)), nil
 }
 
-// Delete removes a patient by ID.
-func (s *PatientService) Delete(ctx context.Context, id uint) error {
+// Delete removes a patient by ID and returns an audit detail JSON containing a
+// snapshot of the deleted record.
+func (s *PatientService) Delete(ctx context.Context, id uint) (string, error) {
 	repo := s.patientRepo.WithCtx(ctx)
-	if _, err := repo.FindByID(id); err != nil {
+	patient, err := repo.FindByID(id)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrPatientNotFound
+			return "", ErrPatientNotFound
 		}
-		return err
+		return "", err
 	}
-	return repo.Delete(id)
+	if err := repo.Delete(id); err != nil {
+		return "", err
+	}
+	return auditDetailJSON(snapshotPatient(patient), nil), nil
 }
 
 // FindByID exposes the underlying repository lookup so handlers don't have to

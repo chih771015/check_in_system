@@ -189,7 +189,7 @@ func TestScheduleService_Create_Recurring_Daily_GeneratesGroup(t *testing.T) {
 
 func TestScheduleService_Update_NotFound(t *testing.T) {
 	fx := newScheduleFixture(t)
-	_, err := fx.svc.Update(context.Background(), 99999, dto.UpdateScheduleRequest{})
+	_, _, err := fx.svc.Update(context.Background(), 99999, dto.UpdateScheduleRequest{})
 	assert.True(t, errors.Is(err, ErrScheduleNotFound))
 }
 
@@ -199,7 +199,7 @@ func TestScheduleService_Update_PartialField(t *testing.T) {
 	require.NoError(t, err)
 
 	newLocation := "New Place"
-	resp, err := fx.svc.Update(context.Background(), created.ID, dto.UpdateScheduleRequest{
+	resp, _, err := fx.svc.Update(context.Background(), created.ID, dto.UpdateScheduleRequest{
 		Location: &newLocation,
 	})
 	require.NoError(t, err)
@@ -211,7 +211,7 @@ func TestScheduleService_Update_PartialField(t *testing.T) {
 
 func TestScheduleService_Delete_NotFound(t *testing.T) {
 	fx := newScheduleFixture(t)
-	err := fx.svc.Delete(context.Background(), 99999)
+	_, err := fx.svc.Delete(context.Background(), 99999)
 	assert.True(t, errors.Is(err, ErrScheduleNotFound))
 }
 
@@ -233,7 +233,8 @@ func TestScheduleService_Delete_CascadesCheckins(t *testing.T) {
 	}
 	require.NoError(t, fx.checkinRepo.Create(ck))
 
-	require.NoError(t, fx.svc.Delete(context.Background(), created.ID))
+	_, err = fx.svc.Delete(context.Background(), created.ID)
+	require.NoError(t, err)
 
 	// 排班與打卡都應該不見
 	_, err = fx.scheduleRepo.FindByID(created.ID)
@@ -247,7 +248,7 @@ func TestScheduleService_DeleteRecurrenceGroup_SingleFallback(t *testing.T) {
 	created, err := fx.svc.Create(context.Background(), mkCreateReq(fx.translator.ID, "2026-05-10"))
 	require.NoError(t, err)
 
-	count, err := fx.svc.DeleteRecurrenceGroup(context.Background(), created.ID)
+	count, _, err := fx.svc.DeleteRecurrenceGroup(context.Background(), created.ID)
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, count, "single schedule should fall back to delete-one")
 }
@@ -260,9 +261,11 @@ func TestScheduleService_DeleteRecurrenceGroup_BulkDelete(t *testing.T) {
 	first, err := fx.svc.Create(context.Background(), req)
 	require.NoError(t, err)
 
-	count, err := fx.svc.DeleteRecurrenceGroup(context.Background(), first.ID)
+	count, detail, err := fx.svc.DeleteRecurrenceGroup(context.Background(), first.ID)
 	require.NoError(t, err)
 	assert.EqualValues(t, 4, count)
+	// Group delete audit detail should record how many rows were removed.
+	assert.Contains(t, detail, "deletedCount")
 
 	list, _, _ := fx.svc.List(context.Background(), fx.translator.ID, "", "", "", 0, 0)
 	assert.Empty(t, list, "all grouped schedules should be gone")

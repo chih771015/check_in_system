@@ -399,16 +399,18 @@ func parseIntList(s string) ([]int, error) {
 }
 
 // Update modifies an existing schedule.
-func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateScheduleRequest) (*dto.ScheduleResponse, error) {
+func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateScheduleRequest) (*dto.ScheduleResponse, string, error) {
 	schedule, err := s.scheduleRepo.WithCtx(ctx).FindByID(id)
 	if err != nil {
-		return nil, ErrScheduleNotFound
+		return nil, "", ErrScheduleNotFound
 	}
+
+	before := snapshotSchedule(schedule)
 
 	if req.Date != nil {
 		date, err := time.Parse("2006-01-02", *req.Date)
 		if err != nil {
-			return nil, ErrInvalidDateFormat
+			return nil, "", ErrInvalidDateFormat
 		}
 		schedule.Date = date
 	}
@@ -432,7 +434,7 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 	// inside a transaction together with the schedule update.
 	if req.Patients != nil {
 		if err := s.validateSchedulePatients(ctx, schedule.StartTime, schedule.EndTime, *req.Patients); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		db := s.scheduleRepo.DB().WithContext(ctx)
 		err = db.Transaction(func(tx *gorm.DB) error {
@@ -457,86 +459,100 @@ func (s *ScheduleService) Update(ctx context.Context, id uint, req dto.UpdateSch
 			return tx.Create(&rows).Error
 		})
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	} else {
 		schRepo := s.scheduleRepo.WithCtx(ctx)
 		if err := schRepo.Update(schedule); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
 	// Reload
 	schedule, err = s.scheduleRepo.WithCtx(ctx).FindByID(schedule.ID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	status := s.getCheckinStatus(ctx, schedule.ID)
 	resp := s.toResponse(schedule, status)
-	return &resp, nil
+	return &resp, auditDetailJSON(before, snapshotSchedule(schedule)), nil
 }
 
 // Delete removes a schedule by ID.
 // Associated checkins are deleted first to satisfy the FK constraint.
-func (s *ScheduleService) Delete(ctx context.Context, id uint) error {
+func (s *ScheduleService) Delete(ctx context.Context, id uint) (string, error) {
 	repo := s.scheduleRepo.WithCtx(ctx)
-	_, err := repo.FindByID(id)
+	schedule, err := repo.FindByID(id)
 	if err != nil {
-		return ErrScheduleNotFound
+		return "", ErrScheduleNotFound
 	}
 	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
-		return err
+		return "", err
 	}
 	// Stage 3+: cascade-delete schedule_patients before removing the schedule
 	// row, otherwise the FK fk_schedules_patients blocks the delete.
 	if s.spRepo != nil {
 		if err := s.spRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
-			return err
+			return "", err
 		}
 	}
-	return repo.Delete(id)
+	if err := repo.Delete(id); err != nil {
+		return "", err
+	}
+	return auditDetailJSON(snapshotSchedule(schedule), nil), nil
 }
 
 // DeleteRecurrenceGroup removes every schedule sharing the same
 // recurrence_group_id as the given schedule. If the schedule isn't part of a
 // group, it falls back to deleting just that single record.
 // Associated checkins are deleted first to satisfy the FK constraint.
-func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (int64, error) {
+func (s *ScheduleService) DeleteRecurrenceGroup(ctx context.Context, id uint) (int64, string, error) {
 	repo := s.scheduleRepo.WithCtx(ctx)
 	schedule, err := repo.FindByID(id)
 	if err != nil {
-		return 0, ErrScheduleNotFound
+		return 0, "", ErrScheduleNotFound
 	}
 	if schedule.RecurrenceGroupID == nil || *schedule.RecurrenceGroupID == "" {
 		if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		if s.spRepo != nil {
 			if err := s.spRepo.WithCtx(ctx).DeleteByScheduleID(id); err != nil {
-				return 0, err
+				return 0, "", err
 			}
 		}
 		if err := repo.Delete(id); err != nil {
-			return 0, err
+			return 0, "", err
 		}
-		return 1, nil
+		return 1, auditDetailJSON(snapshotSchedule(schedule), nil), nil
 	}
 	// Bulk group delete: collect schedule IDs first, then cascade checkins +
 	// schedule_patients, then schedules.
 	scheduleIDs, err := repo.IDsByRecurrenceGroup(*schedule.RecurrenceGroupID)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	if err := s.checkinRepo.WithCtx(ctx).DeleteByScheduleIDs(scheduleIDs); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	if s.spRepo != nil {
 		if err := s.spRepo.WithCtx(ctx).DeleteByScheduleIDs(scheduleIDs); err != nil {
-			return 0, err
+			return 0, "", err
 		}
 	}
-	return repo.DeleteByRecurrenceGroup(*schedule.RecurrenceGroupID)
+	count, err := repo.DeleteByRecurrenceGroup(*schedule.RecurrenceGroupID)
+	if err != nil {
+		return 0, "", err
+	}
+	// For a group delete the audit detail records the anchor schedule plus how
+	// many rows in the group were removed.
+	detail := auditDetailJSON(map[string]any{
+		"recurrenceGroupId": *schedule.RecurrenceGroupID,
+		"deletedCount":      count,
+		"schedule":          snapshotSchedule(schedule),
+	}, nil)
+	return count, detail, nil
 }
 
 // getCheckinStatus determines the checkin status for a schedule.

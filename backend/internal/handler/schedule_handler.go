@@ -100,14 +100,14 @@ func (h *ScheduleHandler) AdminUpdateSchedule(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	resp, err := h.scheduleService.Update(ctx, uint(id), req)
+	resp, detail, err := h.scheduleService.Update(ctx, uint(id), req)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "update_schedule", "schedule", uint(id), "")
+	h.auditService.Log(ctx, adminID, "update_schedule", "schedule", uint(id), detail)
 
 	c.JSON(http.StatusOK, gin.H{"data": resp})
 }
@@ -121,13 +121,14 @@ func (h *ScheduleHandler) AdminDeleteSchedule(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	if err := h.scheduleService.Delete(ctx, uint(id)); err != nil {
+	detail, err := h.scheduleService.Delete(ctx, uint(id))
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "delete_schedule", "schedule", uint(id), "")
+	h.auditService.Log(ctx, adminID, "delete_schedule", "schedule", uint(id), detail)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Schedule deleted successfully"})
 }
@@ -141,14 +142,14 @@ func (h *ScheduleHandler) AdminDeleteScheduleGroup(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	count, err := h.scheduleService.DeleteRecurrenceGroup(ctx, uint(id))
+	count, detail, err := h.scheduleService.DeleteRecurrenceGroup(ctx, uint(id))
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "delete_schedule_group", "schedule", uint(id), "")
+	h.auditService.Log(ctx, adminID, "delete_schedule_group", "schedule", uint(id), detail)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Schedule group deleted successfully",

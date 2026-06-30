@@ -149,7 +149,7 @@ func TestScheduleService_Update_ReplacesPatients(t *testing.T) {
 		{PatientID: p2.ID, StartTime: "10:00", EndTime: "11:00"},
 		{PatientID: p3.ID, StartTime: "11:00", EndTime: "12:00"},
 	}
-	updated, err := fx.svc.Update(context.Background(), resp.ID, dto.UpdateScheduleRequest{
+	updated, _, err := fx.svc.Update(context.Background(), resp.ID, dto.UpdateScheduleRequest{
 		Patients: &newPatients,
 	})
 	require.NoError(t, err)
@@ -171,7 +171,8 @@ func TestScheduleService_Delete_CascadesSchedulePatients(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should not fail with FK error.
-	require.NoError(t, fx.svc.Delete(context.Background(), resp.ID))
+	_, err = fx.svc.Delete(context.Background(), resp.ID)
+	require.NoError(t, err)
 
 	// schedule_patients rows for this schedule should be gone too.
 	left, _ := fx.spRepo.FindByScheduleID(resp.ID)
@@ -189,7 +190,7 @@ func TestScheduleService_DeleteRecurrenceGroup_CascadesSchedulePatients(t *testi
 	resp, err := fx.svc.Create(context.Background(), req)
 	require.NoError(t, err)
 
-	count, err := fx.svc.DeleteRecurrenceGroup(context.Background(), resp.ID)
+	count, _, err := fx.svc.DeleteRecurrenceGroup(context.Background(), resp.ID)
 	require.NoError(t, err)
 	assert.EqualValues(t, 3, count)
 

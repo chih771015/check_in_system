@@ -91,13 +91,14 @@ func (h *TranslatorHandler) UpdateTranslator(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	if err := h.translatorService.Update(ctx, uint(id), req); err != nil {
+	detail, err := h.translatorService.Update(ctx, uint(id), req)
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "update_translator", "user", uint(id), "")
+	h.auditService.Log(ctx, adminID, "update_translator", "user", uint(id), detail)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Translator updated successfully"})
 }

@@ -177,11 +177,14 @@ func TestPatientService_Update_SelfExclude(t *testing.T) {
 	require.NoError(t, err)
 
 	// 編輯自己保留同 IDNumber：應成功（自我排除）
-	updated, err := svc.Update(ctx, p.ID, dto.UpdatePatientRequest{
+	updated, detail, err := svc.Update(ctx, p.ID, dto.UpdatePatientRequest{
 		Name: "A2", Phone: "1", IDType: "passport", IDNumber: "111",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "A2", updated.Name)
+	// Audit detail should capture the rename (before "A", after "A2").
+	assert.Contains(t, detail, "\"A\"")
+	assert.Contains(t, detail, "A2")
 }
 
 func TestPatientService_Update_CollidesWithOther(t *testing.T) {
@@ -198,7 +201,7 @@ func TestPatientService_Update_CollidesWithOther(t *testing.T) {
 	require.NoError(t, err)
 
 	// 把 p2 的 IDNumber 改成 p1 的 → 應拒絕
-	_, err = svc.Update(ctx, p2.ID, dto.UpdatePatientRequest{
+	_, _, err = svc.Update(ctx, p2.ID, dto.UpdatePatientRequest{
 		Name: "B", Phone: "2", IDType: "passport", IDNumber: "111",
 	})
 	assert.True(t, errors.Is(err, ErrPatientDuplicate))
@@ -206,7 +209,7 @@ func TestPatientService_Update_CollidesWithOther(t *testing.T) {
 
 func TestPatientService_Update_NotFound(t *testing.T) {
 	svc := newPatientService(t)
-	_, err := svc.Update(context.Background(), 999, dto.UpdatePatientRequest{
+	_, _, err := svc.Update(context.Background(), 999, dto.UpdatePatientRequest{
 		Name: "x", Phone: "x", IDType: "passport", IDNumber: "x",
 	})
 	assert.True(t, errors.Is(err, ErrPatientNotFound))
@@ -214,7 +217,7 @@ func TestPatientService_Update_NotFound(t *testing.T) {
 
 func TestPatientService_Delete_NotFound(t *testing.T) {
 	svc := newPatientService(t)
-	err := svc.Delete(context.Background(), 999)
+	_, err := svc.Delete(context.Background(), 999)
 	assert.True(t, errors.Is(err, ErrPatientNotFound))
 }
 

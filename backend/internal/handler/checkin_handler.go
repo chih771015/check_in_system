@@ -139,12 +139,13 @@ func (h *CheckinHandler) AdminUpdateCheckin(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	if err := h.checkinService.AdminUpdateCheckin(ctx, uint(id), req); err != nil {
+	detail, err := h.checkinService.AdminUpdateCheckin(ctx, uint(id), req)
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "update_checkin", "checkin", uint(id), "")
+	h.auditService.Log(ctx, adminID, "update_checkin", "checkin", uint(id), detail)
 	c.JSON(http.StatusOK, gin.H{"message": "Checkin updated successfully"})
 }
 
@@ -156,12 +157,13 @@ func (h *CheckinHandler) AdminDeleteCheckin(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	if err := h.checkinService.AdminDeleteCheckin(ctx, uint(id)); err != nil {
+	detail, err := h.checkinService.AdminDeleteCheckin(ctx, uint(id))
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 	adminID := c.GetUint("userID")
-	h.auditService.Log(ctx, adminID, "delete_checkin", "checkin", uint(id), "")
+	h.auditService.Log(ctx, adminID, "delete_checkin", "checkin", uint(id), detail)
 	c.JSON(http.StatusOK, gin.H{"message": "Checkin deleted successfully"})
 }
 

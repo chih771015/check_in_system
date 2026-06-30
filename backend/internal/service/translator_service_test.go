@@ -74,7 +74,7 @@ func TestTranslatorService_Create_Success_HashesAndForcesPasswordChange(t *testi
 
 func TestTranslatorService_Update_NotFound(t *testing.T) {
 	svc, _ := newTranslatorService(t)
-	err := svc.Update(context.Background(), 99999, dto.UpdateTranslatorRequest{})
+	_, err := svc.Update(context.Background(), 99999, dto.UpdateTranslatorRequest{})
 	assert.True(t, errors.Is(err, ErrTranslatorNotFound))
 }
 
@@ -83,7 +83,7 @@ func TestTranslatorService_Update_RejectsAdminTarget(t *testing.T) {
 	admin := &model.User{Email: "a@x.com", PasswordHash: "h", Name: "A", Role: "admin", Status: "active"}
 	require.NoError(t, repo.Create(admin))
 
-	err := svc.Update(context.Background(), admin.ID, dto.UpdateTranslatorRequest{})
+	_, err := svc.Update(context.Background(), admin.ID, dto.UpdateTranslatorRequest{})
 	assert.True(t, errors.Is(err, ErrNotATranslator))
 }
 
@@ -93,7 +93,7 @@ func TestTranslatorService_Update_InvalidStatus(t *testing.T) {
 	require.NoError(t, repo.Create(tr))
 
 	bad := "frozen"
-	err := svc.Update(context.Background(), tr.ID, dto.UpdateTranslatorRequest{Status: &bad})
+	_, err := svc.Update(context.Background(), tr.ID, dto.UpdateTranslatorRequest{Status: &bad})
 	assert.True(t, errors.Is(err, ErrInvalidStatus))
 }
 
@@ -103,8 +103,11 @@ func TestTranslatorService_Update_PartialFields(t *testing.T) {
 	require.NoError(t, repo.Create(tr))
 
 	newName := "NewName"
-	err := svc.Update(context.Background(), tr.ID, dto.UpdateTranslatorRequest{Name: &newName})
+	detail, err := svc.Update(context.Background(), tr.ID, dto.UpdateTranslatorRequest{Name: &newName})
 	require.NoError(t, err)
+	// Audit detail should capture the before (OldName) and after (NewName).
+	assert.Contains(t, detail, "OldName")
+	assert.Contains(t, detail, "NewName")
 
 	reloaded, _ := repo.FindByID(tr.ID)
 	assert.Equal(t, "NewName", reloaded.Name)

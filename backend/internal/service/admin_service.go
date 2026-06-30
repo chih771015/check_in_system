@@ -80,20 +80,24 @@ func (s *AdminService) CreateAdmin(ctx context.Context, req dto.CreateAdminReque
 	return user.ID, nil
 }
 
-// DeleteAdmin removes an admin account.
+// DeleteAdmin removes an admin account and returns an audit detail JSON
+// containing a snapshot of the deleted account.
 // An admin cannot delete their own account.
-func (s *AdminService) DeleteAdmin(ctx context.Context, requesterID, targetID uint) error {
+func (s *AdminService) DeleteAdmin(ctx context.Context, requesterID, targetID uint) (string, error) {
 	if requesterID == targetID {
-		return ErrCannotDeleteSelf
+		return "", ErrCannotDeleteSelf
 	}
 
 	repo := s.userRepo.WithCtx(ctx)
 	target, err := repo.FindByID(targetID)
 	if err != nil {
-		return ErrAdminNotFound
+		return "", ErrAdminNotFound
 	}
 	if target.Role != "admin" {
-		return ErrNotAnAdmin
+		return "", ErrNotAnAdmin
 	}
-	return repo.DeleteByID(targetID)
+	if err := repo.DeleteByID(targetID); err != nil {
+		return "", err
+	}
+	return auditDetailJSON(snapshotUser(target), nil), nil
 }

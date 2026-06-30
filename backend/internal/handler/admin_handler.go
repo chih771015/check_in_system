@@ -77,10 +77,11 @@ func (h *AdminHandler) DeleteAdmin(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	requesterID := c.GetUint("userID")
-	if err := h.adminService.DeleteAdmin(ctx, requesterID, uint(id)); err != nil {
+	detail, err := h.adminService.DeleteAdmin(ctx, requesterID, uint(id))
+	if err != nil {
 		respondError(c, err)
 		return
 	}
-	h.auditService.Log(ctx, requesterID, "delete_admin", "user", uint(id), "")
+	h.auditService.Log(ctx, requesterID, "delete_admin", "user", uint(id), detail)
 	c.JSON(http.StatusOK, gin.H{"message": "Admin account deleted"})
 }

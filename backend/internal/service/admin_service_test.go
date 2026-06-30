@@ -73,7 +73,7 @@ func TestAdminService_DeleteAdmin_CannotDeleteSelf(t *testing.T) {
 	ctx := context.Background()
 	me := seedAdminUser(t, repo, "me@admin.com")
 
-	err := svc.DeleteAdmin(ctx, me.ID, me.ID)
+	_, err := svc.DeleteAdmin(ctx, me.ID, me.ID)
 	assert.True(t, errors.Is(err, ErrCannotDeleteSelf), "expected ErrCannotDeleteSelf, got %v", err)
 }
 
@@ -92,7 +92,7 @@ func TestAdminService_DeleteAdmin_TargetNotAdmin(t *testing.T) {
 	}
 	require.NoError(t, repo.Create(tr))
 
-	err := svc.DeleteAdmin(ctx, me.ID, tr.ID)
+	_, err := svc.DeleteAdmin(ctx, me.ID, tr.ID)
 	assert.True(t, errors.Is(err, ErrNotAnAdmin), "expected ErrNotAnAdmin, got %v", err)
 }
 
@@ -102,8 +102,11 @@ func TestAdminService_DeleteAdmin_Success(t *testing.T) {
 	me := seedAdminUser(t, repo, "me@admin.com")
 	target := seedAdminUser(t, repo, "target@admin.com")
 
-	err := svc.DeleteAdmin(ctx, me.ID, target.ID)
+	detail, err := svc.DeleteAdmin(ctx, me.ID, target.ID)
 	require.NoError(t, err)
+	// Audit detail should carry a snapshot of the deleted admin (no password).
+	assert.Contains(t, detail, "target@admin.com")
+	assert.NotContains(t, detail, "password")
 
 	_, err = repo.FindByID(target.ID)
 	assert.Error(t, err, "deleted admin should not be findable")

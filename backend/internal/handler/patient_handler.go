@@ -203,13 +203,13 @@ func (h *PatientHandler) UpdatePatient(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	patient, err := h.patientService.Update(ctx, uint(id), req)
+	patient, detail, err := h.patientService.Update(ctx, uint(id), req)
 	if err != nil {
 		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
-	h.auditService.Log(ctx, requesterID, "update_patient", "patient", patient.ID, "name="+patient.Name)
+	h.auditService.Log(ctx, requesterID, "update_patient", "patient", patient.ID, detail)
 	c.JSON(http.StatusOK, gin.H{"data": toPatientResponse(patient)})
 }
 
@@ -221,12 +221,13 @@ func (h *PatientHandler) DeletePatient(c *gin.Context) {
 		return
 	}
 	ctx := c.Request.Context()
-	if err := h.patientService.Delete(ctx, uint(id)); err != nil {
+	detail, err := h.patientService.Delete(ctx, uint(id))
+	if err != nil {
 		respondError(c, err)
 		return
 	}
 	requesterID := c.GetUint("userID")
-	h.auditService.Log(ctx, requesterID, "delete_patient", "patient", uint(id), "")
+	h.auditService.Log(ctx, requesterID, "delete_patient", "patient", uint(id), detail)
 	c.JSON(http.StatusOK, gin.H{"message": "Patient deleted"})
 }
 
