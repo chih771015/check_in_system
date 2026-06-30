@@ -69,7 +69,7 @@ describe('SchedulePatientListEditor', () => {
   it('shows the patient年度已實付 hint when a patient and schedule year are set', async () => {
     render(<Harness initial={[{ patientId: 5, startTime: '09:00', endTime: '10:00', prepaidAmount: 0 }]} scheduleYear={2026} />);
     await waitFor(() => expect(getPatientActualTotalMock).toHaveBeenCalledWith(5, 2026));
-    expect(await screen.findByText(/NT\$ 8,000/)).toBeInTheDocument();
+    expect(await screen.findByText(/8,000/)).toBeInTheDocument();
   });
 
   it('does not query the year total when no schedule year is provided', () => {

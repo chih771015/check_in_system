@@ -244,7 +244,11 @@
     "operator": "Operator",
     "detailField": "Detail",
     "filterAction": "Filter by action",
-    "filterTarget": "Filter by target"
+    "filterTarget": "Filter by target",
+    "changedFields": "{{count}} field(s) changed",
+    "deletedSnapshot": "View deleted data",
+    "updateDetail": "Changes",
+    "deleteDetail": "Deleted record"
   },
   "language": {
     "en": "English",

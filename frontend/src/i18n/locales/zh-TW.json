@@ -244,7 +244,11 @@
     "operator": "操作者",
     "detailField": "詳情",
     "filterAction": "依操作篩選",
-    "filterTarget": "依對象篩選"
+    "filterTarget": "依對象篩選",
+    "changedFields": "{{count}} 個欄位變更",
+    "deletedSnapshot": "查看刪除資料",
+    "updateDetail": "變更內容",
+    "deleteDetail": "刪除內容"
   },
   "language": {
     "en": "English",

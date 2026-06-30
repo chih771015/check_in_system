@@ -244,7 +244,11 @@
     "operator": "ผู้ดำเนินการ",
     "detailField": "รายละเอียด",
     "filterAction": "กรองตามการดำเนินการ",
-    "filterTarget": "กรองตามเป้าหมาย"
+    "filterTarget": "กรองตามเป้าหมาย",
+    "changedFields": "เปลี่ยน {{count}} ฟิลด์",
+    "deletedSnapshot": "ดูข้อมูลที่ถูกลบ",
+    "updateDetail": "การเปลี่ยนแปลง",
+    "deleteDetail": "ข้อมูลที่ถูกลบ"
   },
   "language": {
     "en": "English",

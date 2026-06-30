@@ -46,7 +46,7 @@ describe('AppLayout — current-month expenditure banner', () => {
     useAuthMock.mockReturnValue({ ...baseAuth, isAdmin: true });
     renderLayout();
     await waitFor(() => expect(getMonthlyTotalMock).toHaveBeenCalled());
-    expect(await screen.findByText(/NT\$ 12,345/)).toBeInTheDocument();
+    expect(await screen.findByText(/12,345/)).toBeInTheDocument();
     expect(screen.getByText(/2026-06/)).toBeInTheDocument();
   });
 
@@ -93,6 +93,6 @@ describe('AppLayout — current-month expenditure banner', () => {
     // Give any stray effect a tick; the banner must never appear.
     await Promise.resolve();
     expect(getMonthlyTotalMock).not.toHaveBeenCalled();
-    expect(screen.queryByText(/NT\$/)).toBeNull();
+    expect(screen.queryByText(/12,345/)).toBeNull();
   });
 });

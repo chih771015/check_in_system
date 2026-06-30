@@ -1,11 +1,73 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Table, Tag, Typography, DatePicker, Select, Space, App } from 'antd';
+import { Table, Tag, Typography, DatePicker, Select, Space, App, Popover } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { getAuditLogs, type AuditLog } from '../../api/audit';
+import { parseAuditDetail, diffFields } from '../../utils/auditDetail';
 
 const { RangePicker } = DatePicker;
+
+// Renders an empty cell, plain text, or a before/after change-set popover
+// depending on the shape of the audit detail.
+function AuditDetailCell({ detail }: { detail: string }) {
+  const { t } = useTranslation();
+  const parsed = parseAuditDetail(detail);
+
+  if (parsed.kind === 'text') {
+    return parsed.text ? (
+      <Typography.Text>{parsed.text}</Typography.Text>
+    ) : (
+      <Typography.Text type="secondary">-</Typography.Text>
+    );
+  }
+
+  const fmt = (v: unknown) => {
+    if (v === null || v === undefined || v === '') return '∅';
+    // Nested objects (e.g. the schedule snapshot in a group-delete detail)
+    // would otherwise render as "[object Object]".
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  };
+  const isUpdate = parsed.after != null;
+  const fields = diffFields(parsed.before, parsed.after);
+  const shown = isUpdate ? fields.filter((f) => f.changed) : fields;
+
+  const content = (
+    <div style={{ maxWidth: 360 }}>
+      {shown.map((f) => (
+        <div key={f.key} style={{ marginBottom: 2 }}>
+          <Typography.Text strong>{f.key}</Typography.Text>:{' '}
+          {isUpdate ? (
+            <span>
+              <Typography.Text delete type="secondary">
+                {fmt(f.before)}
+              </Typography.Text>
+              {' → '}
+              <Typography.Text>{fmt(f.after)}</Typography.Text>
+            </span>
+          ) : (
+            <Typography.Text>{fmt(f.before)}</Typography.Text>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  const label = isUpdate
+    ? t('audit.changedFields', { count: shown.length })
+    : t('audit.deletedSnapshot');
+
+  return (
+    <Popover
+      content={content}
+      title={isUpdate ? t('audit.updateDetail') : t('audit.deleteDetail')}
+      trigger="click"
+    >
+      <Typography.Link>{label}</Typography.Link>
+    </Popover>
+  );
+}
 
 const actionColors: Record<string, string> = {
   create_translator: 'green',
@@ -76,7 +138,11 @@ export default function AuditLogs() {
     },
     { title: t('audit.targetType'), dataIndex: 'target_type', width: 120 },
     { title: t('common.id'), dataIndex: 'target_id', width: 100 },
-    { title: t('audit.detailField'), dataIndex: 'detail', ellipsis: true },
+    {
+      title: t('audit.detailField'),
+      dataIndex: 'detail',
+      render: (v: string) => <AuditDetailCell detail={v} />,
+    },
   ];
 
   return (
