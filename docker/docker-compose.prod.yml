@@ -14,23 +14,12 @@
 
 services:
   # -------------------------------------------------------------------
-  # PostgreSQL 資料庫（資料存在具名 volume，down 不會刪、down -v 才會刪）
-  # 不開放對外 port —— 只有同一個 compose 網路裡的 backend 連得到。
+  # 內建 PostgreSQL 已移到 overlay：docker/docker-compose.localdb.yml。
+  # deploy-prod.sh 會依 backend/.env.production 的 DB_HOST 自動決定要不要疊加：
+  #   DB_HOST=postgres（或留空）→ 疊加 overlay，啟動內建 DB 容器
+  #   DB_HOST=其他值（雲端 / 自備 DB）→ 只用本檔，不啟動內建 DB
+  # 手動下指令時，本機內建 DB 記得一起帶 -f docker/docker-compose.localdb.yml。
   # -------------------------------------------------------------------
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未設定，請先填 backend/.env.production}
-      POSTGRES_DB: ${DB_NAME:-translator_checkin}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-translator_checkin}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   # -------------------------------------------------------------------
   # Jaeger（分散式追蹤）。UI 只綁在 127.0.0.1，需要從遠端看時走 SSH 通道：
@@ -56,15 +45,13 @@ services:
       dockerfile: ../docker/Dockerfile.backend
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       jaeger:
         condition: service_started
     env_file:
       - ../backend/.env.production
     environment:
-      # 這兩個是部署時的固定值，明確寫出來避免被 .env 內的開發值蓋掉
-      DB_HOST: postgres
+      # DEPLOY_ENV 固定 production；DB_HOST 由 backend/.env.production 提供。
+      # 本機內建 DB 時，overlay 會補上 DB_HOST=postgres 並加回 postgres 依賴。
       DEPLOY_ENV: production
     volumes:
       # 上傳的打卡 / 診斷照片，綁到主機資料夾方便備份（直接複製這個資料夾即可）
@@ -108,5 +95,4 @@ services:
     depends_on:
       - frontend
 
-volumes:
-  postgres_data:
+# 注意：內建 DB 的具名 volume（postgres_data）宣告在 docker-compose.localdb.yml。

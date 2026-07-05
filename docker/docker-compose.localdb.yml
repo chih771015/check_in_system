@@ -1,0 +1,44 @@
+# =====================================================================
+# 翻譯員打卡系統 — 「使用內建 PostgreSQL 容器」的疊加設定（overlay）
+# ---------------------------------------------------------------------
+# 這個檔案「疊加」在 docker-compose.prod.yml 之上，用來啟動系統自帶的
+# PostgreSQL 容器。只有當你「不接雲端 / 自備 DB」時才需要它。
+#
+# deploy-prod.sh 會依 backend/.env.production 的 DB_HOST 自動判斷：
+#   DB_HOST=postgres（或留空）→ 自動疊加本檔（啟動內建 DB）
+#   DB_HOST=其他值（雲端 / 自備 DB）→ 不疊加本檔（不啟動內建 DB）
+#
+# 手動下指令時（例如 down / logs），本機內建 DB 記得兩個檔一起帶：
+#   docker compose -f docker/docker-compose.prod.yml \
+#                  -f docker/docker-compose.localdb.yml <指令>
+# =====================================================================
+
+services:
+  # 內建 PostgreSQL 資料庫（資料存在具名 volume，down 不會刪、down -v 才會刪）。
+  # 不開放對外 port —— 只有同一個 compose 網路裡的 backend 連得到。
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未設定，請先填 backend/.env.production}
+      POSTGRES_DB: ${DB_NAME:-translator_checkin}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-translator_checkin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 疊加到 base 的 backend：本機內建 DB 時，固定用容器名 postgres 當 DB_HOST
+  # （避免被 .env 內殘留的值影響），並等 DB 健康後才啟動。
+  backend:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+
+volumes:
+  postgres_data:

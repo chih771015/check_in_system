@@ -35,6 +35,7 @@ cd "$ROOT_DIR"
 ENV_FILE="backend/.env.production"
 ENV_EXAMPLE="backend/.env.production.example"
 COMPOSE_FILE="docker/docker-compose.prod.yml"
+LOCALDB_FILE="docker/docker-compose.localdb.yml"
 
 # ---- 解析參數 -------------------------------------------------------
 USE_TUNNEL=0
@@ -83,6 +84,19 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # =====================================================================
+# 2.5 判斷資料庫模式：內建容器 vs 外接（雲端 / 自備）
+#     依 .env 的 DB_HOST 決定。postgres（或留空）= 內建；其他 = 外接。
+# =====================================================================
+DB_HOST_VAL="$(get_env DB_HOST)"
+if [[ -z "$DB_HOST_VAL" || "$DB_HOST_VAL" == "postgres" ]]; then
+  LOCAL_DB=1
+  info "資料庫模式：內建 PostgreSQL 容器（DB_HOST=${DB_HOST_VAL:-未設定，視為 postgres}）"
+else
+  LOCAL_DB=0
+  info "資料庫模式：外接資料庫（DB_HOST=$DB_HOST_VAL）—— 不啟動內建 postgres 容器"
+fi
+
+# =====================================================================
 # 3. 自動產生缺少的密鑰（已存在的不動）
 # =====================================================================
 info "檢查並補齊安全密鑰…"
@@ -97,13 +111,19 @@ if [[ -z "$JWT" || "$JWT" == "dev-secret-key-change-in-production" || ${#JWT} -l
   GENERATED=1
 fi
 
-# DB_PASSWORD：不可空、不可是預設 postgres
+# DB_PASSWORD：
+#   內建 DB → 空或預設 postgres 時自動產生一組強密碼（會拿去初始化 DB）。
+#   外接 DB → 這是「你那顆 DB 的真實密碼」，絕不能亂產，只驗證有沒有填。
 DBPW="$(get_env DB_PASSWORD)"
-if [[ -z "$DBPW" || "$DBPW" == "postgres" ]]; then
-  DBPW="$(openssl rand -base64 24 | tr -d '\n/+=' | cut -c1-24)"
-  set_env DB_PASSWORD "$DBPW"
-  ok "已自動產生 DB_PASSWORD"
-  GENERATED=1
+if [[ "$LOCAL_DB" == 1 ]]; then
+  if [[ -z "$DBPW" || "$DBPW" == "postgres" ]]; then
+    DBPW="$(openssl rand -base64 24 | tr -d '\n/+=' | cut -c1-24)"
+    set_env DB_PASSWORD "$DBPW"
+    ok "已自動產生 DB_PASSWORD"
+    GENERATED=1
+  fi
+else
+  [[ -n "$DBPW" ]] || die "外接資料庫模式，但 $ENV_FILE 的 DB_PASSWORD 是空的。請填入你那顆 DB 的密碼。"
 fi
 
 # ADMIN_DEFAULT_PASSWORD：只在第一次建立 admin 時生效，這裡確保有值且可印出
@@ -122,7 +142,11 @@ fi
 # =====================================================================
 info "驗證設定…"
 JWT="$(get_env JWT_SECRET)";   [[ ${#JWT} -ge 32 ]] || die "JWT_SECRET 長度不足 32 字。"
-DBPW="$(get_env DB_PASSWORD)"; [[ -n "$DBPW" && "$DBPW" != "postgres" ]] || die "DB_PASSWORD 無效或仍為預設值。"
+DBPW="$(get_env DB_PASSWORD)"; [[ -n "$DBPW" ]] || die "DB_PASSWORD 是空的。"
+# 內建 DB 不允許沿用預設弱密碼；外接 DB 的密碼由你那顆 DB 決定，不強制。
+if [[ "$LOCAL_DB" == 1 && "$DBPW" == "postgres" ]]; then
+  die "內建資料庫的 DB_PASSWORD 仍是預設值 postgres，請改強密碼（或清空讓腳本自動產生）。"
+fi
 
 if [[ "$USE_TUNNEL" == 1 ]]; then
   TOKEN="$(get_env TUNNEL_TOKEN)"
@@ -134,7 +158,9 @@ ok "設定驗證通過"
 # =====================================================================
 # 5. 建置並啟動
 # =====================================================================
-COMPOSE=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+COMPOSE=(docker compose -f "$COMPOSE_FILE")
+[[ "$LOCAL_DB" == 1 ]] && COMPOSE+=(-f "$LOCALDB_FILE")   # 內建 DB 才疊加 overlay
+COMPOSE+=(--env-file "$ENV_FILE")
 [[ "$USE_TUNNEL" == 1 ]] && COMPOSE+=(--profile tunnel)
 
 info "建置並啟動容器（第一次會比較久，請耐心等）…"
@@ -189,4 +215,4 @@ info "常用指令："
 echo "    查看狀態： ${COMPOSE[*]} ps"
 echo "    看後端 log： ${COMPOSE[*]} logs -f backend"
 echo "    停止服務： ${COMPOSE[*]} down        （資料保留）"
-echo "    重設密碼： docker compose -f $COMPOSE_FILE exec backend ./server -reset-password admin@admin.com 'NewPass123'"
+echo "    重設密碼： ${COMPOSE[*]} exec backend ./server -reset-password admin@admin.com 'NewPass123'"
