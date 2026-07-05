@@ -10,7 +10,7 @@
 ### 這是什麼
 一套「翻譯員到院打卡」系統：管理員排班、翻譯員到現場用 **GPS + 拍照**打卡，
 管理員可看報表、匯出 Excel / Google Sheet、發 LINE / Email 提醒。
-技術：Go + PostgreSQL 後端、React 前端、全部用 Docker Compose 跑。
+技術：Go + PostgreSQL 後端、React 前端。推薦用 Docker Compose 跑，但系統**不預設**你的環境（見下方）。
 
 ### 你會拿到什麼、怎麼跑起來
 你拿到的是**原始碼**（不是預先做好的 image）。跑起來只要三步：
@@ -27,7 +27,15 @@ bash scripts/deploy-prod.sh
 跑完終端機會印出 **管理員帳號與初始密碼**，記下來。系統會在
 `http://127.0.0.1:3000` 運行（只有這台機器看得到）。
 
-- 要讓外出的翻譯員用手機連 → 看 [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) 第三節（Cloudflare Tunnel）。
+> 不想／不能用 Docker？[`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) 有「裸機路線」逐步教學。
+
+### 你要自己決定的三件事（系統不幫你決定）
+這套系統刻意**不預設**你的環境，以下三個都由你選，做法全在 [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md)：
+
+1. **怎麼跑** — Docker Compose（推薦）或不用 Docker 裸機跑。
+2. **資料庫放哪** — 用內建的 PostgreSQL 容器（預設），或接你自己的／雲端 DB（改 `.env` 幾行）。
+3. **怎麼對外公開** — **完全你決定**。系統只在本機開一個 HTTP port，前面要擺自架 nginx／Caddy＋你的網域、雲端負載平衡器、還是 Cloudflare Tunnel，都隨你；網域和 HTTPS 憑證也是你這端的事。我們**不強制**用 tunnel，它只是其中一個選項。
+
 - 升級（拿到新版原始碼後）→ 再跑一次 `bash scripts/deploy-prod.sh`，資料不會不見。
 
 ### 你只需要碰一個設定檔
@@ -56,10 +64,11 @@ bash scripts/deploy-prod.sh
 A "translator on-site check-in" system: admins schedule assignments; interpreters
 check in on location with **GPS + photo** proof; admins get dashboards, Excel /
 Google Sheet export, and LINE / Email reminders.
-Stack: Go + PostgreSQL backend, React frontend, all run via Docker Compose.
+Stack: Go + PostgreSQL backend, React frontend. Docker Compose is the recommended
+run path, but the system does **not** assume your environment (see below).
 
 ### What you get & how to run it
-You receive the **source code** (not a prebuilt image). Three steps to run:
+You receive the **source code** (not a prebuilt image). Recommended path, three steps:
 
 ```bash
 # 1. Install Docker (with docker compose v2); `docker info` must succeed
@@ -73,7 +82,16 @@ bash scripts/deploy-prod.sh
 The script prints the **admin account and initial password** at the end — save it.
 The app runs at `http://127.0.0.1:3000` (visible on this machine only).
 
-- To expose it to interpreters' phones → see [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) section 3 (Cloudflare Tunnel; note: that file is in Chinese).
+> Can't / won't use Docker? [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md) has a step-by-step bare-metal path.
+
+### Three decisions you own (the system won't decide for you)
+This system deliberately makes **no assumption** about your environment. All three
+are yours to choose; how-to is in [`docs/PRODUCTION_DEPLOY.md`](docs/PRODUCTION_DEPLOY.md):
+
+1. **How to run** — Docker Compose (recommended) or bare-metal without Docker.
+2. **Where the database lives** — the bundled PostgreSQL container (default), or your own / cloud DB (edit a few `.env` lines).
+3. **How to expose it publicly** — **entirely up to you**. The system only opens one local HTTP port; put your own nginx/Caddy + domain, a cloud load balancer, or a Cloudflare Tunnel in front — your call. Domain and HTTPS certs are your side too. Tunnel is **not** forced; it's just one option.
+
 - To upgrade (after pulling new source) → run `bash scripts/deploy-prod.sh` again; data is preserved.
 
 ### You only touch one config file
